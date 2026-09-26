@@ -64,7 +64,7 @@ export function starCount(stars: number): string {
 export function matches(item: MarketPlugin, query: string, category: string, english: boolean): boolean {
   if (category !== '' && item.category !== category) return false
   if (query === '') return true
-  const haystack = `${item.fullName} ${item.description} ${english ? item.categoryEn : item.categoryZh} ${item.language}`
+  const haystack = `${item.fullName} ${item.installInfo?.targets.map(t => t.install).join(" ") ?? ""} ${item.installInfo?.tasks.join(" ") ?? ""} ${item.description} ${english ? item.categoryEn : item.categoryZh} ${item.language}`
     .toLocaleLowerCase()
   return query.split(/\s+/).every(word => haystack.includes(word))
 }

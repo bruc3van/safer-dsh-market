@@ -122,7 +122,7 @@ async function manager(home: string, loader: Loader) {
   return {
     manager: createInstalledManager({
       profile: 'web',
-      selfName: 'dsh-desktop-safe-market',
+      selfName: 'safer-dsh-market',
       loader,
       home,
       pendingFile: pendingFile(home),
@@ -146,7 +146,7 @@ function makeManager(home: string, loader: Loader, extras: { removeDependency?: 
   const profileDir = join(home, 'profiles', 'web')
   return createInstalledManager({
     profile: 'web',
-    selfName: 'dsh-desktop-safe-market',
+    selfName: 'safer-dsh-market',
     loader,
     home,
     pendingFile: pendingFile(home),
@@ -178,7 +178,7 @@ test('userBundles excludes an in-box name that is not a profile dependency', () 
     name: 'dsh-profile-web',
     private: true,
     dependencies: { 'demo-plugin': '^1.0.0' },
-    dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'dsh-desktop-safe-market', 'demo-plugin'] } },
+    dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', 'safer-dsh-market', 'demo-plugin'] } },
   }
   assert.deepEqual(userBundles(manifest), ['demo-plugin'])
 })
@@ -363,19 +363,19 @@ test('list and uninstall ignore an in-box seat that is not a dependency', async 
   const { home, profileDir } = await makeHome()
   try {
     await makeBundle(profileDir, 'demo-plugin', '- insert:\n    - id: demo-plugin\n      name: demo-plugin\n')
-    await makeBundle(profileDir, 'dsh-desktop-safe-market', '- insert:\n    - id: dsh-desktop-safe-market\n      name: dsh-desktop-safe-market\n')
+    await makeBundle(profileDir, 'safer-dsh-market', '- insert:\n    - id: safer-dsh-market\n      name: safer-dsh-market\n')
     const manifest = await readManifest(profileDir)
-    manifest.dsh!.profile!.bundles!.push('dsh-desktop-safe-market')
+    manifest.dsh!.profile!.bundles!.push('safer-dsh-market')
     await writeFile(join(profileDir, 'package.json'), JSON.stringify(manifest, undefined, 2) + '\n')
     const built = makeManager(home, stubLoader([
       { id: 'include:demo-plugin', name: 'demo-plugin', fiberState: 2 },
-      { id: 'include:dsh-desktop-safe-market', name: 'dsh-desktop-safe-market', fiberState: 2 },
+      { id: 'include:safer-dsh-market', name: 'safer-dsh-market', fiberState: 2 },
     ]).loader)
     const result = await built.list()
     assert.deepEqual(result.packages.map(row => row.packageName), ['demo-plugin'])
-    await assert.rejects(built.uninstall('dsh-desktop-safe-market'), /not an installed plugin package/)
-    assert.ok((await readManifest(profileDir)).dsh!.profile!.bundles!.includes('dsh-desktop-safe-market'))
-    assert.equal('dsh-desktop-safe-market' in ((await readManifest(profileDir)).dependencies ?? {}), false)
+    await assert.rejects(built.uninstall('safer-dsh-market'), /not an installed plugin package/)
+    assert.ok((await readManifest(profileDir)).dsh!.profile!.bundles!.includes('safer-dsh-market'))
+    assert.equal('safer-dsh-market' in ((await readManifest(profileDir)).dependencies ?? {}), false)
   } finally {
     await rm(home, { recursive: true, force: true })
   }
@@ -461,14 +461,14 @@ test('setEnabled refuses unknown packages and its own row', async () => {
   const { home, profileDir } = await makeHome()
   try {
     await makeBundle(profileDir, 'demo-plugin', '[]\n')
-    await makeBundle(profileDir, 'dsh-desktop-safe-market', '[]\n')
+    await makeBundle(profileDir, 'safer-dsh-market', '[]\n')
     const manifest = await readManifest(profileDir)
-    manifest.dsh!.profile!.bundles!.push('dsh-desktop-safe-market')
-    manifest.dependencies!['dsh-desktop-safe-market'] = '^0.2.0'
+    manifest.dsh!.profile!.bundles!.push('safer-dsh-market')
+    manifest.dependencies!['safer-dsh-market'] = '^0.2.0'
     await writeFile(join(profileDir, 'package.json'), JSON.stringify(manifest, undefined, 2) + '\n')
     const built = makeManager(home, stubLoader([]).loader)
     await assert.rejects(built.setEnabled('not-installed', false), /not an installed plugin package/)
-    await assert.rejects(built.setEnabled('dsh-desktop-safe-market', false), /cannot disable itself/)
+    await assert.rejects(built.setEnabled('safer-dsh-market', false), /cannot disable itself/)
     // Nothing was written along either refusal.
     assert.equal((await readFile(join(profileDir, 'cordis.patch.yml'), 'utf8')).includes('disabled'), false)
   } finally {
@@ -506,20 +506,20 @@ test('uninstall edits the manifest, records the rows, and stops the entries', as
 test('uninstall of self edits the manifest only', async () => {
   const { home, profileDir } = await makeHome()
   try {
-    await makeBundle(profileDir, 'dsh-desktop-safe-market', '- insert:\n    - id: dsh-desktop-safe-market\n      name: dsh-desktop-safe-market\n')
+    await makeBundle(profileDir, 'safer-dsh-market', '- insert:\n    - id: safer-dsh-market\n      name: safer-dsh-market\n')
     const manifest = await readManifest(profileDir)
-    manifest.dsh!.profile!.bundles!.push('dsh-desktop-safe-market')
-    manifest.dependencies!['dsh-desktop-safe-market'] = '^0.2.0'
+    manifest.dsh!.profile!.bundles!.push('safer-dsh-market')
+    manifest.dependencies!['safer-dsh-market'] = '^0.2.0'
     await writeFile(join(profileDir, 'package.json'), JSON.stringify(manifest, undefined, 2) + '\n')
-    const seat = stubLoader([{ id: 'include:dsh-desktop-safe-market', fiberState: 2 }])
+    const seat = stubLoader([{ id: 'include:safer-dsh-market', fiberState: 2 }])
     const built = makeManager(home, seat.loader)
-    await built.uninstall('dsh-desktop-safe-market')
+    await built.uninstall('safer-dsh-market')
     assert.deepEqual(await readPending(home), [])
     assert.deepEqual(seat.updates, [])
     assert.equal((await readFile(join(profileDir, 'cordis.patch.yml'), 'utf8')).includes('disabled'), false)
     const after = await readManifest(profileDir)
     assert.deepEqual(after.dsh!.profile!.bundles, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', 'demo-plugin'])
-    assert.equal('dsh-desktop-safe-market' in (after.dependencies ?? {}), false)
+    assert.equal('safer-dsh-market' in (after.dependencies ?? {}), false)
   } finally {
     await rm(home, { recursive: true, force: true })
   }
@@ -622,16 +622,16 @@ test('uninstalling a desktop seat does not run pnpm remove', async () => {
   const { home, profileDir } = await makeHome()
   try {
     await makeBundle(profileDir, 'demo-plugin', '- insert:\n    - id: demo-plugin\n      name: demo-plugin\n')
-    const seatDir = await makeDesktopSeat(home, 'dsh-desktop-safe-market',
-      '- insert:\n    - id: safe-market\n      name: dsh-desktop-safe-market\n')
-    await listBundle(profileDir, 'dsh-desktop-safe-market')
+    const seatDir = await makeDesktopSeat(home, 'safer-dsh-market',
+      '- insert:\n    - id: safe-market\n      name: safer-dsh-market\n')
+    await listBundle(profileDir, 'safer-dsh-market')
     const removed: string[] = []
     await makeManager(home, stubLoader([{ id: 'include:demo-plugin' }, { id: 'include:safe-market' }]).loader, {
       removeDependency: async (name) => {
         removed.push(name)
         return { ok: true, detail: '' }
       },
-    }).uninstall('dsh-desktop-safe-market')
+    }).uninstall('safer-dsh-market')
     assert.deepEqual(removed, [], 'in-box seats are not pnpm dependencies')
     assert.equal(existsSync(seatDir), false)
   } finally {
@@ -645,7 +645,7 @@ test('sweep leaves the record alone when the edit fails', async () => {
     await writePending(home, [{ packageName: 'demo-plugin', entryIds: ['demo-plugin'], at: '2026-01-01T00:00:00Z' }])
     const built = createInstalledManager({
       profile: 'web',
-      selfName: 'dsh-desktop-safe-market',
+      selfName: 'safer-dsh-market',
       loader: stubLoader([]).loader,
       home,
       pendingFile: pendingFile(home),
@@ -707,7 +707,7 @@ test('concurrent mutating verbs serialize instead of interleaving', async () => 
     const loader = { entries: () => [entry][Symbol.iterator]() } as unknown as Loader
     const built = createInstalledManager({
       profile: 'web',
-      selfName: 'dsh-desktop-safe-market',
+      selfName: 'safer-dsh-market',
       loader,
       home,
       readPending: () => [],
@@ -1037,12 +1037,12 @@ test('a marked desktop seat is listed, so it can be removed at all', async () =>
   const { home, profileDir } = await makeHome()
   try {
     await makeBundle(profileDir, 'demo-plugin', '- insert:\n    - id: demo-plugin\n      name: demo-plugin\n')
-    await makeDesktopSeat(home, 'dsh-desktop-safe-market',
-      '- insert:\n    - id: safe-market\n      name: dsh-desktop-safe-market\n')
-    await listBundle(profileDir, 'dsh-desktop-safe-market')
+    await makeDesktopSeat(home, 'safer-dsh-market',
+      '- insert:\n    - id: safe-market\n      name: safer-dsh-market\n')
+    await listBundle(profileDir, 'safer-dsh-market')
     const { loader } = stubLoader([{ id: 'include:demo-plugin' }, { id: 'include:safe-market' }])
     const result = await makeManager(home, loader).list()
-    const seat = result.packages.find(row => row.packageName === 'dsh-desktop-safe-market')
+    const seat = result.packages.find(row => row.packageName === 'safer-dsh-market')
     assert.ok(seat !== undefined, 'the seat must be listed — nothing else can remove it')
     assert.equal(seat.inBox, true, 'and marked as seated rather than installed')
     assert.equal(seat.version, '0.2.4')
@@ -1078,17 +1078,17 @@ test('uninstalling a desktop seat takes the bundle entry AND the copied files', 
   const { home, profileDir } = await makeHome()
   try {
     await makeBundle(profileDir, 'demo-plugin', '- insert:\n    - id: demo-plugin\n      name: demo-plugin\n')
-    const seatDir = await makeDesktopSeat(home, 'dsh-desktop-safe-market',
-      '- insert:\n    - id: safe-market\n      name: dsh-desktop-safe-market\n')
-    await listBundle(profileDir, 'dsh-desktop-safe-market')
+    const seatDir = await makeDesktopSeat(home, 'safer-dsh-market',
+      '- insert:\n    - id: safe-market\n      name: safer-dsh-market\n')
+    await listBundle(profileDir, 'safer-dsh-market')
     const { loader } = stubLoader([{ id: 'include:demo-plugin' }, { id: 'include:safe-market' }])
-    const result = await makeManager(home, loader).uninstall('dsh-desktop-safe-market')
+    const result = await makeManager(home, loader).uninstall('safer-dsh-market')
     const manifest = await readManifest(profileDir)
-    assert.equal(manifest.dsh?.profile?.bundles?.includes('dsh-desktop-safe-market'), false,
+    assert.equal(manifest.dsh?.profile?.bundles?.includes('safer-dsh-market'), false,
       'the profile must stop listing it')
     assert.equal(existsSync(seatDir), false,
       'the copy is the install: leaving it behind leaves a plugin tree nothing owns')
-    assert.equal(result.packages.some(row => row.packageName === 'dsh-desktop-safe-market'), false)
+    assert.equal(result.packages.some(row => row.packageName === 'safer-dsh-market'), false)
     // The user's own install is untouched by removing a seat beside it.
     assert.equal(manifest.dependencies?.['demo-plugin'], '^1.0.0')
     assert.equal(manifest.dsh?.profile?.bundles?.includes('demo-plugin'), true)
@@ -1130,11 +1130,11 @@ test('uninstalling the market itself removes its own copy, not just the entry', 
   // bundle list, nothing could ever offer to remove it again.
   const { home, profileDir } = await makeHome()
   try {
-    const seatDir = await makeDesktopSeat(home, 'dsh-desktop-safe-market',
-      '- insert:\n    - id: safe-market\n      name: dsh-desktop-safe-market\n')
-    await listBundle(profileDir, 'dsh-desktop-safe-market')
+    const seatDir = await makeDesktopSeat(home, 'safer-dsh-market',
+      '- insert:\n    - id: safe-market\n      name: safer-dsh-market\n')
+    await listBundle(profileDir, 'safer-dsh-market')
     const { loader, updates } = stubLoader([{ id: 'include:safe-market' }])
-    const result = await makeManager(home, loader).uninstall('dsh-desktop-safe-market')
+    const result = await makeManager(home, loader).uninstall('safer-dsh-market')
     assert.equal(existsSync(seatDir), false, 'the copy is the install')
     assert.deepEqual(updates, [], 'but the running market is not stopped from inside itself')
     assert.equal(result.notice, undefined, 'and nothing is reported as a fault')

@@ -1,5 +1,5 @@
 /**
- * dsh-desktop-safe-market client plugin: the browser half of the safe plugin
+ * safer-dsh-market client plugin: the browser half of the safe plugin
  * marketplace. Mounts the safeMarket Remote namespace, contributes the
  * market pages to the left navigation and right sidebar, and owns the install
  * hand-off — which opens a session in the current or most recent workspace and
@@ -26,6 +26,7 @@ import type {
   SafeMarketSettings,
   SafeMarketSettingsUpdate,
 } from '../contract.ts'
+import { createDirectInstaller, type InstallHost } from './directInstall.ts'
 import { stageReviewPrompt } from './handoff.ts'
 import { SAFE_MARKET_REMOTE } from './remote.ts'
 import {
@@ -120,8 +121,8 @@ function wait(ms: number): Promise<void> {
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => adoptStyles(), 'dsh-desktop-safe-market: styles')
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-desktop-safe-market: dictionaries')
+  ctx.effect(() => adoptStyles(), 'safer-dsh-market: styles')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'safer-dsh-market: dictionaries')
 
   const scope = createMarketStore({ value: defaultSettings(), profile: null as string | null, version: '' })
   let settingsGeneration = 0
@@ -131,7 +132,7 @@ export function apply(ctx: ClientContext): void {
   const navigation = ctx.get('uiWorkspace') as MarketUiWorkspace
 
   const reportError = (operation: string, error: unknown): void => {
-    console.error(`[dsh-desktop-safe-market] ${operation} failed:`, error)
+    console.error(`[safer-dsh-market] ${operation} failed:`, error)
   }
 
   // The mounted namespace handle resolves through the service store
@@ -181,7 +182,7 @@ export function apply(ctx: ClientContext): void {
     const dispose = await ctx.remote.$mount(SAFE_MARKET_REMOTE)
     market = (ctx.reflect as unknown as { get(name: string): unknown }).get('remote.safeMarket') as SafeMarketFace | undefined
     if (market === undefined) {
-      throw new Error('dsh-desktop-safe-market: the safeMarket Remote namespace did not mount')
+      throw new Error('safer-dsh-market: the safeMarket Remote namespace did not mount')
     }
     await Promise.all([loadSettings(), loadEnvironment()])
     return () => {
@@ -189,7 +190,7 @@ export function apply(ctx: ClientContext): void {
       market = undefined
       void dispose()
     }
-  }, 'dsh-desktop-safe-market: remote')
+  }, 'safer-dsh-market: remote')
 
   // Reconnect may have rebuilt the host: the durable switch and the
   // deployment facts are re-read rather than assumed to have survived.
@@ -384,8 +385,11 @@ export function apply(ctx: ClientContext): void {
     },
   }
 
+  const directInstaller = createDirectInstaller(() => ctx.reflect.get('remote.pluginManager') as InstallHost | undefined)
+
   const injectMarket = (): MarketSectionInjected => ({
     hooks: { scope },
+    directInstaller,
     setEnabled,
     loadCatalog,
     listSkills,

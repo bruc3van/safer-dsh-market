@@ -118,7 +118,7 @@ test('deriveMarket rebuilds the url from the slug only', () => {
 test('deriveMarket rejects an unsupported schema version and an empty market', () => {
   assert.throws(() => deriveMarket({}, 200), /schema version/)
   assert.throws(() => deriveMarket({ schema_version: 1, entries: [] }, 200), /no entries/)
-  assert.throws(() => deriveMarket({ schema_version: 2, entries: [entry()] }, 200), /schema version/)
+  assert.throws(() => deriveMarket({ schema_version: 3, entries: [entry()] }, 200), /schema version/)
   assert.throws(() => deriveMarket({ schema_version: '1', entries: [entry()] }, 200), /schema version/)
 })
 
@@ -417,18 +417,18 @@ test('the reader works memory-only when no cache seat exists', async () => {
 /** One macrotask, enough for a rejected fetch's continuation to run. */
 const tick = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0))
 
-test('the default base fails over to the jsDelivr mirror on a network failure', async () => {
+test('the default base fails over to the unpkg mirror on a network failure', async () => {
   const fetch = stubFetch()
   try {
     const seat = stubCache()
     const source = createCatalogSource({ base: DEFAULT_CATALOG_BASE, marketSize: 200, cache: seat.cache })
     const pending = source.read(false)
     assert.equal(fetch.calls.length, 1, 'the primary goes first')
-    assert.equal(fetch.calls[0]!.url, `${DEFAULT_CATALOG_BASE}/market.json`)
+    assert.equal(fetch.calls[0]!.url, DEFAULT_CATALOG_BASE)
     fetch.parked[0]!.reject(new Error('The operation was aborted due to timeout'))
     await tick()
     assert.equal(fetch.calls.length, 2, 'the timeout moves the read to the mirror')
-    assert.equal(fetch.calls[1]!.url, `${MIRROR_CATALOG_BASE}/market.json`)
+    assert.equal(fetch.calls[1]!.url, MIRROR_CATALOG_BASE)
     fetch.parked[1]!.resolve(jsonResponse(
       { schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'mirror/row' })] },
       '"m-mirror"',
@@ -459,7 +459,7 @@ test('after a failover the mirror is sticky: the next read goes straight to it',
     // first attempt, and the ETag it issued is the conditional's.
     const second = source.read(true)
     assert.equal(fetch.calls.length, 3)
-    assert.equal(fetch.calls[2]!.url, `${MIRROR_CATALOG_BASE}/market.json`)
+    assert.equal(fetch.calls[2]!.url, MIRROR_CATALOG_BASE)
     const headers = fetch.calls[2]!.init?.headers as Record<string, string> | undefined
     assert.equal(headers?.['if-none-match'], '"m-g"')
     fetch.parked[2]!.resolve(NOT_MODIFIED())
@@ -479,7 +479,7 @@ test('a cached sticky base is tried first after a restart', async () => {
     const source = createCatalogSource({ base: DEFAULT_CATALOG_BASE, marketSize: 200, cache: seat.cache })
     const pending = source.read(false)
     assert.equal(fetch.calls.length, 1, 'the sticky base from disk is the only attempt')
-    assert.equal(fetch.calls[0]!.url, `${MIRROR_CATALOG_BASE}/market.json`)
+    assert.equal(fetch.calls[0]!.url, MIRROR_CATALOG_BASE)
     fetch.parked[0]!.resolve(NOT_MODIFIED())
     const result = await pending
     assert.equal(result.stale, false)
@@ -498,7 +498,7 @@ test('a legacy cached catalog (no serving base) revalidates against the primary'
     const source = createCatalogSource({ base: DEFAULT_CATALOG_BASE, marketSize: 200, cache: seat.cache })
     const pending = source.read(false)
     assert.equal(fetch.calls.length, 1)
-    assert.equal(fetch.calls[0]!.url, `${DEFAULT_CATALOG_BASE}/market.json`)
+    assert.equal(fetch.calls[0]!.url, DEFAULT_CATALOG_BASE)
     const headers = fetch.calls[0]!.init?.headers as Record<string, string> | undefined
     assert.equal(headers?.['if-none-match'], '"m-legacy"', 'the legacy ETag belongs to the primary')
     fetch.parked[0]!.resolve(NOT_MODIFIED())
@@ -521,8 +521,8 @@ test('when both bases fail the error names both hosts', async () => {
     const result = await pending
     assert.equal(result.catalog, null)
     assert.equal(result.stale, false)
-    assert.match(result.error, /raw\.githubusercontent\.com: primary down/)
-    assert.match(result.error, /cdn\.jsdelivr\.net: mirror down/)
+    assert.match(result.error, /cdn\.jsdelivr\.net: primary down/)
+    assert.match(result.error, /unpkg\.com: mirror down/)
   } finally {
     fetch.restore()
   }

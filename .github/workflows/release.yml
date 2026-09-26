@@ -7,7 +7,7 @@ name: Release
 # here so a tag cannot ship GitHub-only.
 #
 # npm uses Trusted Publishing (OIDC), not a stored token. One-time setup:
-# on https://www.npmjs.com/package/dsh-desktop-safe-market → Settings →
+# on https://www.npmjs.com/package/safer-dsh-market → Settings →
 # Trusted Publisher → GitHub Actions, with workflow filename `release.yml`
 # (this file) and allowed action `npm publish`.
 

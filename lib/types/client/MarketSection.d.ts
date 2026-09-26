@@ -1,3 +1,4 @@
+import type { DirectInstaller } from './directInstall.ts';
 import type { SkillsSessionSource } from './skillsSubscription.ts';
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
@@ -5,8 +6,8 @@ import type { SkillsSessionSource } from './skillsSubscription.ts';
  * **Plugins** is the community shortlist. While the market is off it is one
  * card that says what turning it on will do and asks; the switch is the
  * plugin's own durable setting, so the answer survives a restart. While it is
- * on, each card's action stages a security-review prompt in a new session —
- * it installs nothing itself.
+ * on, cards default to official Host installation, with an independent
+ * prompt-based review mode.
  *
  * **Skills** is what this deployment can already resolve. It needs neither the
  * switch nor the network.
@@ -70,6 +71,7 @@ export type ChooseWorkspaceOutcome = {
 export type WorkspaceReadiness = 'pending' | 'none' | 'present';
 /** Injected business face: the live source and the section's verbs. */
 export interface MarketSectionInjected {
+    directInstaller?: DirectInstaller;
     hooks: {
         scope: SafeMarketSource;
     };
@@ -110,4 +112,4 @@ export type MarketSectionProps = {
     close: () => void;
 } & InjectFace<MarketSectionInjected> & PropsLocale<'settings.safeMarket'>;
 /** The Marketplace section. */
-export declare function MarketSection({ useScope, setEnabled, loadCatalog, listSkills, skillsSession, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, close, t, }: MarketSectionProps): ReactElement;
+export declare function MarketSection({ useScope, setEnabled, loadCatalog, listSkills, skillsSession, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, close, t, }: MarketSectionProps): ReactElement;

@@ -1,7 +1,24 @@
-# `market.json` 发布规范（上游 awesome-dsh-plugin → 下游 dsh-desktop-safe-market）
+# 当前消费协议：market-v2.json
+
+默认地址为 `https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json`，回退到 `https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-v2.json`。`catalogBase` 支持完整 JSON URL 或旧目录地址。消费端同时接受 schema_version 1 / 2。
+
+v2 保留 v1 仓库字段，并允许可选的 `packages`：
+
+- `mode`: `command` 或 `manual`。
+- `targets[]`: `install`、`profile`、`note`。只将 install 作为官方 Remote 的单个 spec 参数；command/source 不进入安装调用。最多保留 30 个目标。
+- `tasks[]` / `requirements[]`: 功能搜索标签 / 安装要求；每组最多 30 项。
+- `note` / `manual_instructions`: 展示备注或手动安装说明。
+
+文字按 2000 字符截断；目标限制 2048 字符，接受受限 npm 包名及版本/tag、GitHub HTTPS 仓库及 tarball URL。命令、路径、凭据 URL、选项或空白不作为可直接安装目标。手动条目不自动转为直接安装。来源 profile 仅展示，实际由当前宿主管理器决定安装位置。旧缓存缺少安装元数据时仍可浏览和使用提示词模式。
+
+以下保留旧 v1 发布协议，仅适用于旧自定义源；其分发渠道和条数限制不代表 v2。
+
+---
+
+# `market.json` 发布规范（上游 awesome-dsh-plugin → 下游 safer-dsh-market）
 
 > 本文是两仓之间的接口协议。awesome-dsh-plugin（发布方）每日生成 `data/market.json`；
-> dsh-desktop-safe-market（消费方）只读这一个文件渲染市场。消费端已按本规范实现，
+> safer-dsh-market（消费方）只读这一个文件渲染市场。消费端已按本规范实现，
 > 发布端按本规范生成并通过 CI 校验后，两边即接通。字段命名沿用上游快照
 > `repositories.json` 的既有命名，生成逻辑是它的纯投影，不需要新的爬取。
 

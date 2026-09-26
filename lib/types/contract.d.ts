@@ -11,9 +11,11 @@
  * already fixed the shape of.
  */
 import { z } from 'zod';
+import { type InstallInfo } from './installInfo.ts';
 import type { InvocationDescriptor } from '@deepseek-ai/dsh-typert-protocol';
 /** One row of the market: a community plugin the catalog kept. */
 export interface MarketPlugin {
+    readonly installInfo?: InstallInfo;
     /** `owner/name`, the catalog's identity for the entry. */
     readonly fullName: string;
     readonly owner: string;
@@ -201,6 +203,21 @@ export interface UninstallInstalledUpdate {
 }
 /** Strict wire codec for one market row. */
 export declare const marketPluginSchema: z.ZodReadonly<z.ZodObject<{
+    installInfo: z.ZodOptional<z.ZodObject<{
+        mode: z.ZodEnum<{
+            command: "command";
+            manual: "manual";
+        }>;
+        targets: z.ZodArray<z.ZodObject<{
+            install: z.ZodString;
+            profile: z.ZodString;
+            note: z.ZodString;
+        }, z.core.$strip>>;
+        tasks: z.ZodArray<z.ZodString>;
+        requirements: z.ZodArray<z.ZodString>;
+        note: z.ZodString;
+        manual: z.ZodString;
+    }, z.core.$strip>>;
     fullName: z.ZodString;
     owner: z.ZodString;
     name: z.ZodString;
@@ -225,6 +242,21 @@ export declare const marketCategorySchema: z.ZodReadonly<z.ZodObject<{
 /** Strict wire codec for the reduced catalog. */
 export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
     items: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+        installInfo: z.ZodOptional<z.ZodObject<{
+            mode: z.ZodEnum<{
+                command: "command";
+                manual: "manual";
+            }>;
+            targets: z.ZodArray<z.ZodObject<{
+                install: z.ZodString;
+                profile: z.ZodString;
+                note: z.ZodString;
+            }, z.core.$strip>>;
+            tasks: z.ZodArray<z.ZodString>;
+            requirements: z.ZodArray<z.ZodString>;
+            note: z.ZodString;
+            manual: z.ZodString;
+        }, z.core.$strip>>;
         fullName: z.ZodString;
         owner: z.ZodString;
         name: z.ZodString;
@@ -253,6 +285,21 @@ export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
 export declare const marketCatalogResultSchema: z.ZodReadonly<z.ZodObject<{
     catalog: z.ZodUnion<readonly [z.ZodReadonly<z.ZodObject<{
         items: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+            installInfo: z.ZodOptional<z.ZodObject<{
+                mode: z.ZodEnum<{
+                    command: "command";
+                    manual: "manual";
+                }>;
+                targets: z.ZodArray<z.ZodObject<{
+                    install: z.ZodString;
+                    profile: z.ZodString;
+                    note: z.ZodString;
+                }, z.core.$strip>>;
+                tasks: z.ZodArray<z.ZodString>;
+                requirements: z.ZodArray<z.ZodString>;
+                note: z.ZodString;
+                manual: z.ZodString;
+            }, z.core.$strip>>;
             fullName: z.ZodString;
             owner: z.ZodString;
             name: z.ZodString;

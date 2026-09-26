@@ -19,7 +19,7 @@ import type {
 
 /** The safeMarket Remote namespace's client contribution. */
 export const SAFE_MARKET_REMOTE: TypertRemoteContribution = {
-  package: 'dsh-desktop-safe-market',
+  package: 'safer-dsh-market',
   descriptors: SAFE_MARKET_INVOCATIONS,
 }
 

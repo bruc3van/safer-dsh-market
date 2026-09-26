@@ -1,3 +1,6 @@
+import type { DirectInstaller } from './directInstall.ts'
+import { InstallModeSelector } from './InstallModeSelector.tsx'
+import { DirectInstallPanel } from './DirectInstallPanel.tsx'
 import type { SkillsSessionSource } from './skillsSubscription.ts'
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
@@ -5,8 +8,8 @@ import type { SkillsSessionSource } from './skillsSubscription.ts'
  * **Plugins** is the community shortlist. While the market is off it is one
  * card that says what turning it on will do and asks; the switch is the
  * plugin's own durable setting, so the answer survives a restart. While it is
- * on, each card's action stages a security-review prompt in a new session —
- * it installs nothing itself.
+ * on, cards default to official Host installation, with an independent
+ * prompt-based review mode.
  *
  * **Skills** is what this deployment can already resolve. It needs neither the
  * switch nor the network.
@@ -78,6 +81,7 @@ export type WorkspaceReadiness = 'pending' | 'none' | 'present'
 
 /** Injected business face: the live source and the section's verbs. */
 export interface MarketSectionInjected {
+  directInstaller?: DirectInstaller
   hooks: { scope: SafeMarketSource }
   /** Turn the market on or off (durable). */
   setEnabled: (enabled: boolean) => Promise<void>
@@ -268,12 +272,12 @@ function useInstalled({ t, active, listInstalled, setInstalledEnabled, uninstall
     })
   }
 
-  const reload = (): void => {
+  const reload = useCallback((): void => {
     setState({ status: 'loading' })
     setNotice('')
     setActionError('')
     load()
-  }
+  }, [load])
 
   const count = state.status === 'ready' && state.result.error === '' ? state.result.packages.length : 0
   return { state, busy, confirming, notice, actionError, count, reload, toggle, uninstall, setConfirming }
@@ -501,7 +505,7 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onInstall }: {
+function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onInstall, directInstaller }: {
   t: MarketLocale
   english: boolean
   snapshot: SafeMarketSnapshot
@@ -512,10 +516,13 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
   uninstallInstalled: MarketSectionInjected['uninstallInstalled']
   chooseWorkspace: MarketSectionInjected['chooseWorkspace']
   workspaceReadiness: MarketSectionInjected['workspaceReadiness']
+  directInstaller?: DirectInstaller
   cards: Readonly<Record<string, CardState>>
   installBusy: boolean
   onInstall: (cardKey: string, prompt: string, viaNewWorkspace: boolean) => void
 }): ReactElement {
+  const [installMode, setInstallMode] = useState<'direct' | 'prompt'>('direct')
+  const [directItem, setDirectItem] = useState<MarketPlugin | null>(null)
   const enabled = snapshot.value.enabled
   const [state, setState] = useState<CatalogState>(enabled ? { status: 'loading' } : { status: 'idle' })
   const [switching, setSwitching] = useState(false)
@@ -702,7 +709,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
       {/* Says the prerequisite out loud before a click runs into it, and
           offers the same one action the cards do. It does not block browsing:
           the shortlist is worth reading without a workspace. */}
-      {readiness === 'none' && (
+      {installMode === 'prompt' && readiness === 'none' && (
         <div className="dsh_market_notice">
           <p className="dsh_market_noticeBody">{t('workspace.needed')}</p>
           {chooseError !== '' && <p className="dsh_market_status" data-error="true">{chooseError}</p>}
@@ -716,6 +723,9 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
           </button>
         </div>
       )}
+      <InstallModeSelector value={installMode} onChange={setInstallMode} t={t} />
+      {directInstaller && <DirectInstallPanel item={directItem} installer={directInstaller} t={t}
+        onClose={() => setDirectItem(null)} onInstalled={installed.reload} />}
       <div className="dsh_market_bar dsh_market_dockable">
         <input
           className="dsh_market_search"
@@ -812,7 +822,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
               </p>
               )}
 
-      {snapshot.profile === null && catalog !== null && !installedSelected && (
+      {installMode === 'prompt' && snapshot.profile === null && catalog !== null && !installedSelected && (
         <p className="dsh_market_status">{t('install.profilePending')}</p>
       )}
 
@@ -850,7 +860,13 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
                   ].filter(part => part !== '').join(' · ')}
                 </p>
                 {item.description !== '' && <p className="dsh_market_desc">{item.description}</p>}
-                {card?.status === 'staged'
+                {installMode === 'direct' ? (
+                  <div className="dsh_market_foot">
+                    <a className="dsh_market_link" href={item.url} target="_blank" rel="noreferrer">{t('repo')}</a>
+                    <button type="button" className="dsh_market_install" disabled={!directInstaller || installBusy}
+                      onClick={() => setDirectItem(item)}>{t(item.installInfo?.mode === 'command' && item.installInfo.targets.length ? 'direct.install' : 'direct.details')}</button>
+                  </div>
+                ) : card?.status === 'staged'
                   ? (
                     <div className="dsh_market_staged">
                       <span className="dsh_market_stagedTitle">{t('staged')}</span>
@@ -916,7 +932,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
 /** The Marketplace section. */
 export function MarketSection({
   useScope, setEnabled, loadCatalog, listSkills, skillsSession, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
-  listInstalled, setInstalledEnabled, uninstallInstalled, close, t,
+  listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, close, t,
 }: MarketSectionProps): ReactElement {
   const snapshot = useScope(value => value)
   // The slot props carry a translate function, not a locale tag; the
@@ -1108,6 +1124,7 @@ export function MarketSection({
           cards={cards}
           installBusy={installBusy}
           onInstall={runInstall}
+          directInstaller={directInstaller}
         />
       </div>
       {page === 'skills' && (

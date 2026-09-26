@@ -1,52 +1,13 @@
-/**
- * The catalog source: the curated market published by awesome-dsh-plugin.
- *
- * Every editorial decision — who is excluded, how rows are categorized, how
- * the list is balanced across categories — happens upstream. This plugin
- * reads the single published `market.json` (the daily crawl reduced there to
- * a balanced list of at most 300 entries) and answers the browser by
- * truncating that order to the configured market size, so the two sides of
- * the integration never disagree about the selection rule. The crawl that
- * feeds the market stays upstream; this side downloads a small curated file,
- * not a 2.4 MB snapshot plus a curation sidecar.
- *
- * The published body is still remote text from a public file and is treated
- * as hostile here: slugs are shape-checked, links are rebuilt from the slug,
- * branch names are kept only when they match the safe pattern, and every
- * field is re-truncated before the browser sees it.
- *
- * Resilience: the primary is the published GitHub file. When the deployment
- * keeps the default base, a primary that cannot answer — timeout, DNS or
- * connection failure, or an HTTP error status — fails the read over to the
- * jsDelivr CDN mirror of the same published file. The base that answered last
- * is remembered in the durable
- * cache (when one exists) and tried first on the next read, so an
- * environment where GitHub never answers does not pay the primary's timeout
- * on every refresh; if the sticky base later fails, the chain tries the
- * other one and the stick moves. A deployment that configured its own
- * `catalogBase` gets exactly that one source — the mirror belongs to the
- * default GitHub base only.
+/** Read the curated v2 feed; preserve v1 support for custom directory sources.
+ * Remote metadata is validated before entering the client wire contract.
  */
+import { parseInstallInfo } from './installInfo.ts'
 import type { MarketCatalog, MarketCategory, MarketPlugin } from './contract.ts'
 import { isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
 
-/**
- * The published community catalog this market reads by default: the
- * awesome-dsh-plugin `data/` directory on GitHub raw. This is also the config
- * schema's default `catalogBase` (the entry imports it), so the address lives
- * here in one seat, next to its mirror, instead of being mirrored itself.
- */
-export const DEFAULT_CATALOG_BASE = 'https://raw.githubusercontent.com/bruc3van/awesome-dsh-plugin/main/data'
-
-/**
- * The jsDelivr CDN mirror of the same published file, tried when the default
- * base fails. jsDelivr serves the repo's `main` from a CDN that is reachable
- * where GitHub raw is not, answers with an ETag so the conditional-request
- * path still works, and sets `access-control-allow-origin: *`. Its edge cache
- * can lag the source by up to its `s-maxage` (hours), which is acceptable for
- * a fallback the market only reaches when GitHub itself failed.
- */
-export const MIRROR_CATALOG_BASE = 'https://cdn.jsdelivr.net/gh/bruc3van/awesome-dsh-plugin@main/data'
+/** Default feed and CDN fallback serve the same npm package dataset. */
+export const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json'
+export const MIRROR_CATALOG_BASE = 'https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-v2.json'
 
 /** The market is refreshed daily upstream; asking more often than this is noise. */
 const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1_000
@@ -57,11 +18,12 @@ const FETCH_TIMEOUT_MS = 20_000
 /** A description longer than this is a README pasted into the field, not a summary. */
 const DESCRIPTION_LIMIT = 300
 
-/** The only published schema this plugin understands. */
+/** The legacy schema remains accepted for custom sources. */
 const SCHEMA_VERSION = 1
 
 /** One published entry, before the wire pass. Every field may be anything. */
 interface RawEntry {
+  packages?: unknown
   full_name?: unknown
   description?: unknown
   stargazers_count?: unknown
@@ -93,7 +55,7 @@ export interface CatalogCache {
 
 /** Deployment-varying knobs the plugin config owns. */
 export interface CatalogOptions {
-  /** Base URL holding `market.json`. */
+  /** A complete JSON feed URL, or a directory containing market.json. */
   readonly base: string
   /** How many plugins the market shows. */
   readonly marketSize: number
@@ -144,7 +106,7 @@ function branchName(value: unknown): string {
  */
 export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
   const envelope = body as { schema_version?: unknown; entries?: unknown; source_fetched_at?: unknown; source_repo_count?: unknown }
-  if (envelope.schema_version !== SCHEMA_VERSION) {
+  if (envelope.schema_version !== SCHEMA_VERSION && envelope.schema_version !== 2) {
     const version = envelope.schema_version === undefined ? 'absent' : String(envelope.schema_version)
     throw new Error(`unsupported market.json schema version ${version}`)
   }
@@ -163,6 +125,7 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
     if (category === '') continue
     const slash = fullName.indexOf('/')
     items.push({
+      ...(row.packages === undefined ? {} : { installInfo: parseInstallInfo(row.packages) }),
       fullName,
       owner: fullName.slice(0, slash),
       name: fullName.slice(slash + 1),
@@ -220,7 +183,7 @@ export interface CatalogSource {
  */
 export function createCatalogSource(options: CatalogOptions): CatalogSource {
   const primary = options.base.replace(/\/+$/, '')
-  // The mirror stands behind the DEFAULT GitHub base only. A deployment that
+  // The mirror stands behind the default feed only. A deployment that
   // pointed the market at its own mirror or curation gets exactly that one
   // source — silently switching datasets is not what `catalogBase` was
   // configured for.
@@ -243,6 +206,7 @@ export function createCatalogSource(options: CatalogOptions): CatalogSource {
     if (catalog !== null) return
     const cached = options.cache?.read()
     if (cached === undefined || cached.catalog === null) return
+    if (cached.activeBase && !chain.includes(cached.activeBase)) return
     catalog = cached.catalog
     marketEtag = cached.marketEtag
     activeBase = cached.activeBase
@@ -263,7 +227,7 @@ export function createCatalogSource(options: CatalogOptions): CatalogSource {
    * base in the chain starts from the same place.
    */
   const attempt = async (base: string): Promise<MarketCatalog> => {
-    const marketUrl = `${base}/market.json`
+    const marketUrl = base.endsWith('.json') ? base : `${base}/market.json`
     // The stored ETag certifies one server's content; a conditional request
     // only goes to the base that issued it. An unknown serving base (legacy
     // record) can only have been the primary.

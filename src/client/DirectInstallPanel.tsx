@@ -1,0 +1,79 @@
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
+import type { MarketPlugin } from '../contract.ts'
+import type { MarketLocale } from './copy.ts'
+import type { DirectInstaller } from './directInstall.ts'
+
+/** One shared installation remains observable if the recommendation page remounts. */
+export function DirectInstallPanel({ item, installer, t, onClose, onInstalled }: {
+  item: MarketPlugin | null; installer: DirectInstaller; t: MarketLocale
+  onClose: () => void; onInstalled: () => void
+}) {
+  const state = useSyncExternalStore(installer.subscribe, installer.getSnapshot)
+  const [selected, setSelected] = useState('0')
+  const [submitted, setSubmitted] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+  const id = useId()
+  const dialog = useRef<HTMLDialogElement>(null)
+  const open = !dismissed && (item !== null || state.phase !== 'idle')
+  useEffect(() => {
+    if (open && !dialog.current?.open) dialog.current?.showModal()
+    if (!open && dialog.current?.open) dialog.current.close()
+  }, [open])
+  const busy = ['checking', 'installing', 'cancelling', 'unknown'].includes(state.phase)
+  useEffect(() => { setSelected('0'); setSubmitted(false); if (item) setDismissed(false) }, [item])
+  useEffect(() => { if (state.phase === 'done') onInstalled() }, [state, onInstalled])
+  const visibleItem = busy && !submitted ? null : item
+  const dismiss = () => { setDismissed(true); installer.reset(); onClose() }
+  const info = visibleItem?.installInfo
+  const target = info?.targets[Number(selected)]
+  const available = info?.mode === 'command' && target !== undefined
+  const showResult = submitted || busy || !item
+  const needsApproval = showResult && state.phase === 'failed' && state.pendingBuilds.length > 0
+  const finished = showResult && state.phase === 'done'
+  const canDismiss = !busy || state.phase === 'unknown'
+  const start = () => { if (target) { setSubmitted(true); void installer.start(target.install) } }
+  const outcome = state.application as 'applied' | 'restart-required' | 'overridden' | 'cancelled' | undefined
+  return <dialog ref={dialog} className="dsh_market_directPanel" aria-labelledby={id}
+    onCancel={e => { e.preventDefault(); if (canDismiss) dismiss() }}>
+    <div className="dsh_market_directHead">
+      <div className="dsh_market_installHeading">
+        <span>{t('direct.title')}</span>
+        <h3 id={id}>{visibleItem?.name || state.spec || t('direct.title')}</h3>
+      </div>
+      {canDismiss && <button type="button" className="dsh_market_directClose" aria-label={t('direct.close')} onClick={dismiss}>
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+      </button>}
+    </div>
+    {showResult && <div className="dsh_market_installStatus" role="status" aria-live="polite">
+      <strong>{needsApproval ? t('direct.authorization') : finished && outcome ? t(`direct.${outcome}`) : t(`direct.${state.phase}`)}</strong>
+      {needsApproval && <>
+        <p>{t('direct.buildHint')}</p>
+        <ul className="dsh_market_buildList">{state.pendingBuilds.map(name => <li key={name}>{name}</li>)}</ul>
+      </>}
+      {state.message && <details className="dsh_market_installDiagnostic"><summary>{t('direct.diagnostic')}</summary><pre className="dsh_market_directMessage">{state.message}</pre></details>}
+    </div>}
+    {visibleItem && !available && <p className="dsh_market_installUnavailable">{info?.manual || t('direct.noTarget')}</p>}
+    {visibleItem && <details className="dsh_market_installDetails" key={visibleItem.fullName}>
+      <summary>{t('direct.more')}</summary>
+      {info?.targets.length === 1 ? <code>{target?.install}</code> : info?.targets.length ? <label>{t('direct.target')}
+        <select value={selected} disabled={busy || showResult} onChange={e => { setSelected(e.target.value); setSubmitted(false) }}>
+          {info.targets.map((target, i) => <option key={i} value={i}>{target.install}{target.profile ? ` (${target.profile})` : ''}</option>)}
+        </select>
+      </label> : null}
+      {target?.note && <p>{target.note}</p>}
+      {info?.requirements.length ? <ul>{info.requirements.map((r, i) => <li key={i}>{r}</li>)}</ul> : null}
+      {info?.note && <p>{info.note}</p>}
+      <p>{t('direct.explain')}</p>
+    </details>}
+    <div className="dsh_market_installFooter">
+      {needsApproval ? <>
+        <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t('direct.decline')}</button>
+        <button type="button" className="dsh_market_primary" onClick={() => { void installer.approve() }}>{t('direct.allowContinue')}</button>
+      </> : finished ? <button type="button" className="dsh_market_primary" onClick={dismiss}>{t('direct.finish')}</button>
+        : state.phase === 'unknown' ? <button type="button" className="dsh_market_primary" onClick={() => { void installer.recover() }}>{t('direct.recover')}</button>
+        : busy ? <button type="button" className="dsh_market_ghost" disabled={state.phase !== 'installing'} onClick={() => { void installer.cancel() }}>{t('direct.cancel')}</button>
+        : available ? <button type="button" className="dsh_market_primary" onClick={start}>{showResult && state.phase === 'failed' ? t('direct.retry') : t('direct.confirm')}</button>
+        : <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t('direct.close')}</button>}
+    </div>
+  </dialog>
+}

@@ -1,20 +1,18 @@
-# dsh-desktop-safe-market
+# safer-dsh-market
 
-**Review first, then install.**
+The package has been renamed from `dsh-desktop-safe-market` to `safer-dsh-market`. The new npm package requires its own publication and Trusted Publisher setup; the old package does not automatically upgrade to it. Disable the old plugin before installing and enabling the new one, and reapply configuration as needed. Cache and pending-removal storage paths are preserved. The GitHub repository URL is unchanged.
 
-Installs, plugin upgrades, and market upgrades use one review template: review only the artifact to be installed, execute none of its scripts during review, and pin an exact version or commit. Suspicious findings, installation mismatches, and build gates stop the flow for your decision. Reports default to three sections: verdict, installed artifact and integrity value, and exceptions. The Host supplies the target profile for prompt filling (default `web`).
+**Discover plugins. Install what you need.**
 
 [中文](./README.md) | English
 
-A **review-before-install** extension marketplace for the DeepSeek Harness web GUI. It deliberately differs from click-to-install marketplaces on two counts:
+Browse awesome-dsh-plugin-feed recommendations by name, package, task and category.
 
-- **A curated source.** The list is not a raw crawl of the `dsh-plugin` topic. It is the daily, human-curated output of the [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) snapshot pipeline — topic riders, archived and disabled repositories are removed upstream, and entries are dealt round by round across categories — so what you browse is an editorially filtered shortlist, never a popularity dump.
-- **Review before install.** The install button installs nothing. It opens a new session and stages a **security-review prompt**; an agent reads the repository's actual code, and only a clean reading proceeds to the official install command. The plugin itself has no interface that could run an install — review and install are inseparable by construction.
+**Simple (direct install)** is the default. Choose a recommendation and confirm its target; the current Host's official plugin manager checks, installs and enables it. No workspace or conversation is needed. Requirements and notes are shown first. Dependency build scripts require explicit approval. Cancellation, lost-reply recovery and application outcomes are displayed.
 
-Open **Safe Market** from the left navigation or right sidebar, with two pages:
+**Prompt (AI review)** preserves the existing review hand-off. Plugin upgrades and self-upgrades still use prompts. Direct installation does not perform an AI security audit; directory inclusion and README verification are not safety or compatibility guarantees.
 
-- **Plugins** — browse the curated catalog with search and category filters. Select **Installed** to view profile-installed packages and their runtime state, and enable, disable, or uninstall them.
-- **Skills** — what the current session can actually resolve.
+Direct targets come from `packages.targets[].install`, never `command`. Multiple targets are choices, not a batch script. Manual entries remain manual. Example profiles in the feed do not change the current Host profile. Direct installation requires the official pluginManager Remote (compatibility baseline: 0.1.7-rc.2).
 
 ## Two ways to browse
 
@@ -36,15 +34,15 @@ Both views share the market switch and operations. Left navigation requires DSH'
 
 Installing a plugin means running someone else's code on your machine. An ordinary catalog answers *which plugins exist* and leaves the risk to your click; *is this one safe* stays unanswered — yet that is exactly what you are betting on at the moment you click install.
 
-This plugin joins the two halves: a community shortlist that has **already had the non-plugins curated out**, and a **code review performed by an agent**. It downloads nothing, executes nothing, and judges nothing itself — it puts the request in front of you. That is the whole differentiation from an ordinary market: **a curated entrance, and an install that cannot skip its review.**
+The marketplace connects curated recommendations to official installation services, with optional prompt-based AI review.
 
 ## DSH version compatibility
 
-**Safe Market 0.6.0 requires at least DSH `0.1.7-rc.2` and is not backward compatible with older hosts.** This release uses the new host APIs without a legacy fallback. It does not support the DSH 0.1.1 or 0.1.2 lines, or DSH 0.1.5. Check your host version before choosing a plugin version.
+**Safe Market 0.7.0 requires at least DSH `0.1.7-rc.2` and is not backward compatible with older hosts.** This release uses the new host APIs without a legacy fallback. It does not support the DSH 0.1.1 or 0.1.2 lines, or DSH 0.1.5. Check your host version before choosing a plugin version.
 
 | DSH host version | Plugin version to use | npm install target |
 | --- | --- | --- |
-| `0.1.7-rc.2` (the version adapted and tested) | `0.6.0` | `dsh-desktop-safe-market@0.6.0` |
+| `0.1.7-rc.2` (the version adapted and tested) | `0.7.0` | `safer-dsh-market@0.7.0` |
 | `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -55,26 +53,26 @@ This plugin joins the two halves: a community shortlist that has **already had t
 dsh plugin --profile web add dsh-desktop-safe-market@0.5.2
 ```
 
-Before installing plugin `0.6.0`, upgrade DSH to `0.1.7-rc.2`. The host now saves the market switch in the active profile's `cordis.patch.yml`, applies it live, and restores it after restart. The old `safe-market` section in `settings.yaml` is not migrated automatically; if the market is disabled after upgrading, enable it once from the page.
+Before installing plugin `0.7.0`, upgrade DSH to `0.1.7-rc.2`. The host now saves the market switch in the active profile's `cordis.patch.yml`, applies it live, and restores it after restart. The old `safe-market` section in `settings.yaml` is not migrated automatically; if the market is disabled after upgrading, enable it once from the page.
 
 ## Install
 
-The following commands target DSH `0.1.7-rc.2`. Prefer the pinned [npm](https://www.npmjs.com/package/dsh-desktop-safe-market) version:
+The following commands target DSH `0.1.7-rc.2`. Prefer the pinned [npm](https://www.npmjs.com/package/safer-dsh-market) version:
 
 ```sh
-dsh plugin --profile web add dsh-desktop-safe-market@0.6.0
+dsh plugin --profile web add safer-dsh-market@0.7.0
 ```
 
 Or hand the install to your agent — copy this one-line prompt:
 
 ```text
-Install DSH Safe Market for me: first confirm that the host is DSH 0.1.7-rc.2, then run the official command `dsh plugin --profile web add dsh-desktop-safe-market@0.6.0` into the web profile and remind me to restart dsh web. If the host is older, explain the incompatibility before installing or upgrading anything.
+Install DSH Safe Market for me: first confirm that the host is DSH 0.1.7-rc.2, then run the official command `dsh plugin --profile web add safer-dsh-market@0.7.0` into the web profile and remind me to restart dsh web. If the host is older, explain the incompatibility before installing or upgrading anything.
 ```
 
 To pin the version this document names, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.6.0.tar.gz
+dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.7.0.tar.gz
 ```
 
 The official command installs the dependency into the profile and **joins it into `dsh.profile.bundles` by itself** (any dependency declaring `dsh.bundle` is reconciled into the layer stack), so there is no `package.json` to edit. Restart `dsh web` (or the desktop client) afterwards.
@@ -109,11 +107,11 @@ Whether it is sent is your Enter key. With no workspace yet, a notice at the top
 
 ### Already installed: review and upgrade
 
-A catalog row already installed into this profile is marked **Installed vX.Y.Z** in its card, and its button reads **Review and upgrade** instead of Review and install — so you are not offered an install for something you already have.
+In prompt mode, a catalog row already installed into this profile is marked **Installed vX.Y.Z** in its card, and its button reads **Review and upgrade** instead of Review and install — so you are not offered an install for something you already have.
 
 The join is the installed package's `repository` field (every npm spelling is reduced to `owner/name`), because the catalog is keyed by GitHub repository while an install is keyed by package name, and the two are only sometimes spelled alike. A package that declares no repository falls back to matching its short name against the repository name — but only while that name picks out exactly one installed package: when two share it, neither claims the row, because an answer that depends on iteration order is worse than no answer.
 
-**The catalog carries no versions** (the upstream `market.json` records repository facts, not releases), so whether a newer version exists is something this plugin cannot compute locally — and does not guess. The upgrade prompt's first step is to have the agent establish the newest upstream version — the latest release tag, or the version the repository publishes to npm — and, **if it is not newer, say so and change nothing**; only a real update leads on to a review of the new artifact — the same scan standard as a fresh install, not a diff-oriented review of what changed between versions. Upgrades install through the same ladder as fresh installs (npm / release tarball / commit-pinned source) and the same `allowBuilds` rules. As with install, the plugin runs no command itself.
+**The catalog is not an update resolver**, so the review-and-upgrade flow still checks upstream releases. The upgrade prompt's first step is to have the agent establish the newest upstream version — the latest release tag, or the version the repository publishes to npm — and, **if it is not newer, say so and change nothing**; only a real update leads on to a review of the new artifact — the same scan standard as a fresh install, not a diff-oriented review of what changed between versions. Upgrades install through the same ladder as fresh installs (npm / release tarball / commit-pinned source) and the same `allowBuilds` rules. As with install, the plugin runs no command itself.
 
 ## The installed panel
 
@@ -132,7 +130,7 @@ Uninstall removes the current profile's `bundles` entry, then checks whether ano
 
 If the client is still installed and still set to seat the built-in Safe Market, it will put the plugin back the next time it starts; the card says so. To stop it coming back, turn the switch off in the client's connection settings. An in-box bundle with no ownership marker belongs to the deployment itself: it is neither listed nor removable here.
 
-By design it matches "review and install": **disable, listing, and in-box uninstall stay local file edits plus loader calls**. Uninstall of a user plugin is the one verb that spawns: `pnpm remove` in this profile directory, never an install over the network. With the market switched off, though, the page is the switch and nothing else: what you turned off is this marketplace, and it should not keep a plugin manager running in your settings.
+By design it matches "review and install": **disable, listing, and in-box uninstall stay local file edits plus loader calls**. Legacy uninstall of a user plugin spawns: `pnpm remove` in this profile directory, while direct installs use the official Host service. With the market switched off, though, the page is the switch and nothing else: what you turned off is this marketplace, and it should not keep a plugin manager running in your settings.
 
 ![The installed panel](./assets/screenshots/marketplace-installed.png)
 
@@ -146,14 +144,9 @@ Addressing it by session is required, not lazy: the skill registry is host+per-s
 
 ## Where the data comes from
 
-The market reads a single published file, [`market.json`](https://github.com/bruc3van/awesome-dsh-plugin/blob/main/data/market.json), from [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin)'s daily snapshot pipeline. Every editorial decision happens upstream, where the crawl and the human curation live:
+The default is [market-v2.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json), with the same npm package on unpkg as fallback. Custom catalogBase values remain independent. Complete JSON URLs and legacy directories containing market.json are accepted. Both schema 1 and 2 are supported, with ETag caching and manual refresh.
 
-- the crawl of repositories tagged `dsh-plugin` (`repositories.json`) is filtered there — a description is required, archived/disabled repositories are dropped, and the exclusions in `curated.json` are applied;
-- rows are categorized and **balanced** there — not a straight star ranking (that would hand almost every slot to two or three categories), but entries dealt round by round so every category places its best entry before any places its second, with capacity configured upstream;
-- this plugin truncates that order to `marketSize` (default 1000 — a ceiling, not a target: upstream's deal decides the actual count) and re-validates every row on the Host before the browser sees it;
-- **network resilience (automatic failover)**: the default read comes from GitHub raw. When the default address cannot answer (timeout, DNS/connection failure, or an HTTP error), the read automatically falls over to the jsDelivr CDN mirror of the same published file ([bruc3van/awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin)'s `cdn.jsdelivr.net/gh/…@main/data/market.json`, which answers with an ETag so the conditional request still works). The side that answered is remembered (sticky) and tried first next time, falling back the other way if it later fails — no configuration needed. A deployment with its own `catalogBase` keeps exactly that one source.
-
-The wire protocol — field shapes, truncation limits, the branch-name whitelist, the ordering invariant, and the versioning rules — is documented in [docs/market-json-spec.md](docs/market-json-spec.md).
+Host validation preserves supported npm specs and GitHub HTTPS targets, notes, requirements and task labels. Shell commands and local paths from the feed are never executed. See [the feed contract](docs/market-json-spec.md).
 
 ## Configuration
 
@@ -162,13 +155,13 @@ Override in `~/.dsh/profiles/web/cordis.patch.yml`:
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | Allow community catalog reads; page changes are saved live by the host |
-| `catalogBase` | awesome-dsh-plugin's `data/` directory | Point the market at a mirror of the same file |
+| `catalogBase` | npm feed market-v2.json URL | Complete JSON URL or legacy directory |
 | `marketSize` | `1000` | Ceiling on the rows shown. Upstream supplies the catalog in `market.json`; this parameter caps the rows returned to the UI |
 
 ## Security boundary
 
-- **The plugin runs no install command and exposes no interface that could** — review and install are therefore inseparable;
-- **the market file is fetched and re-validated on the Host** before the browser sees it — the curated catalog rather than the full crawl — and persisted at `$DSH_HOME/storages/safe_market.json` so a restart asks conditionally (one 304, or the jsDelivr mirror when the default address is unreachable, or the last catalog when both are);
+- **Direct installation calls the official pluginManager Remote.** Prompt mode only stages a review draft. Feed command fields are never executed;
+- **the market file is fetched and re-validated on the Host** before the browser sees it — the curated catalog rather than the full crawl — and persisted at `$DSH_HOME/storages/safe_market.json` so a restart asks conditionally (one 304, or the unpkg mirror when the default address is unreachable, or the last catalog when both are);
 - **repository links are rebuilt from `owner/name`** rather than trusted from the file, so a poisoned file cannot contribute a URL scheme of its own — the wire codec enforces the rebuilt shape, not just a comment;
 - **prompts do not interpolate catalog branch names or free text**: only a validated repository URL, the target profile, and the installed package identity for upgrades;
 - **the configured profile name is pattern-checked too** (`[A-Za-z0-9][A-Za-z0-9._-]{0,63}`): it is the one value that reaches the prompt as configuration rather than as catalog data, and it is interpolated into the `--profile` argument — a name outside that shape makes the market refuse to start rather than stage a command it cannot name;
@@ -182,8 +175,7 @@ Override in `~/.dsh/profiles/web/cordis.patch.yml`:
 ## Known limitations
 
 - **Skills are read-only for now.** The Skills page answers "what do I have". Skills are distributed as filesystem directories rather than npm packages, so installing them is the next step.
-- **It does not audit what you already installed.** The installed panel views, disables, and uninstalls, but it does not re-review code that is already running — the before-install review is still the gate.
-- **The market does not run the install itself.** The command lives in the prompt and the agent runs it, which is what makes the review impossible to skip — at the cost of no progress display inside the market.
+- **It does not audit what you already installed.** The installed panel views, disables, and uninstalls, but it does not re-review code that is already running — direct mode does not add an AI review.
 
 ## Development
 
@@ -196,7 +188,7 @@ pnpm run build     # lib/index.js (Host ESM), lib/client.js (browser, ModuleLoad
 
 A version bump has places that must move together: `package.json`, `dsh.plugin.json`, and the tarball URLs in both READMEs. The version gate in `pnpm test` (`test/version.test.ts`) checks those, and that each README still offers the npm package-name install; CI (`.github/workflows/check.yml`) runs the same check on every push and PR.
 
-Pushing a `vX.Y.Z` tag is what publishes: CI (`.github/workflows/release.yml`) cuts the GitHub Release and Trusted-Publishes the same version to [npm](https://www.npmjs.com/package/dsh-desktop-safe-market) — there is no separate `npm publish` to remember. The first time, the npm package settings need this repository's `release.yml` registered as a Trusted Publisher (user `bruc3van`, repo `dsh-desktop-safe-market`, workflow filename `release.yml`, allow `npm publish`).
+Pushing a `vX.Y.Z` tag is what publishes: CI (`.github/workflows/release.yml`) cuts the GitHub Release and Trusted-Publishes the same version to [npm](https://www.npmjs.com/package/safer-dsh-market) — there is no separate `npm publish` to remember. The first time, the npm package settings need this repository's `release.yml` registered as a Trusted Publisher (user `bruc3van`, repo `dsh-desktop-safe-market`, workflow filename `release.yml`, allow `npm publish`).
 
 `devDependencies` are pinned to the published `@deepseek-ai/*` versions the runtime actually loads; every `peerDependency` is optional and supplied by the profile's node_modules.
 

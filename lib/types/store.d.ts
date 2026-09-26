@@ -19,6 +19,21 @@ export declare const pendingUninstallState: z.ZodObject<{
 export declare const safeMarketDomainState: z.ZodObject<{
     catalog: z.ZodUnion<readonly [z.ZodReadonly<z.ZodObject<{
         items: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+            installInfo: z.ZodOptional<z.ZodObject<{
+                mode: z.ZodEnum<{
+                    command: "command";
+                    manual: "manual";
+                }>;
+                targets: z.ZodArray<z.ZodObject<{
+                    install: z.ZodString;
+                    profile: z.ZodString;
+                    note: z.ZodString;
+                }, z.core.$strip>>;
+                tasks: z.ZodArray<z.ZodString>;
+                requirements: z.ZodArray<z.ZodString>;
+                note: z.ZodString;
+                manual: z.ZodString;
+            }, z.core.$strip>>;
             fullName: z.ZodString;
             owner: z.ZodString;
             name: z.ZodString;
@@ -74,6 +89,21 @@ export declare const safeMarketDomainSpec: {
         schema: z.ZodObject<{
             catalog: z.ZodUnion<readonly [z.ZodReadonly<z.ZodObject<{
                 items: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                    installInfo: z.ZodOptional<z.ZodObject<{
+                        mode: z.ZodEnum<{
+                            command: "command";
+                            manual: "manual";
+                        }>;
+                        targets: z.ZodArray<z.ZodObject<{
+                            install: z.ZodString;
+                            profile: z.ZodString;
+                            note: z.ZodString;
+                        }, z.core.$strip>>;
+                        tasks: z.ZodArray<z.ZodString>;
+                        requirements: z.ZodArray<z.ZodString>;
+                        note: z.ZodString;
+                        manual: z.ZodString;
+                    }, z.core.$strip>>;
                     fullName: z.ZodString;
                     owner: z.ZodString;
                     name: z.ZodString;
@@ -124,6 +154,18 @@ export declare const safeMarketDomainSpec: {
                     category: string;
                     categoryZh: string;
                     categoryEn: string;
+                    installInfo?: {
+                        mode: "command" | "manual";
+                        targets: {
+                            install: string;
+                            profile: string;
+                            note: string;
+                        }[];
+                        tasks: string[];
+                        requirements: string[];
+                        note: string;
+                        manual: string;
+                    } | undefined;
                 }>[];
                 categories: readonly Readonly<{
                     key: string;

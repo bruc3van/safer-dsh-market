@@ -11,6 +11,7 @@
  * already fixed the shape of.
  */
 import { z } from 'zod'
+import { isInstallSpec, type InstallInfo } from './installInfo.ts'
 import type { InvocationDescriptor } from '@deepseek-ai/dsh-typert-protocol'
 // The dependency-free shapes live in their own module so `./index.ts` and
 // `./catalog.ts` can reach them without evaluating every codec below.
@@ -18,6 +19,7 @@ import { isSafeBranchName, PACKAGE_NAME_PATTERN, REPOSITORY_SLUG_PATTERN } from 
 
 /** One row of the market: a community plugin the catalog kept. */
 export interface MarketPlugin {
+  readonly installInfo?: InstallInfo
   /** `owner/name`, the catalog's identity for the entry. */
   readonly fullName: string
   readonly owner: string
@@ -215,8 +217,17 @@ export interface UninstallInstalledUpdate {
   readonly packageName: string
 }
 
+const installInfoSchema = z.object({
+  mode: z.enum(['command', 'manual']),
+  targets: z.array(z.object({ install: z.string().refine(isInstallSpec), profile: z.string().max(2000), note: z.string().max(2000) })).max(30),
+  tasks: z.array(z.string().max(2000)).max(30),
+  requirements: z.array(z.string().max(2000)).max(30),
+  note: z.string().max(2000), manual: z.string().max(2000),
+})
+
 /** Strict wire codec for one market row. */
 export const marketPluginSchema = z.object({
+  installInfo: installInfoSchema.optional(),
   fullName: z.string().regex(REPOSITORY_SLUG_PATTERN),
   owner: z.string().min(1),
   name: z.string().min(1),
@@ -348,7 +359,7 @@ export const uninstallInstalledUpdateSchema = z.object({
 /** The safeMarket Remote namespace's strict invocation descriptors. */
 export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
   {
-    id: 'dsh-desktop-safe-market#safeMarket/getCatalog',
+    id: 'safer-dsh-market#safeMarket/getCatalog',
     service: 'safeMarket',
     namespace: 'safeMarket',
     method: 'getCatalog',
@@ -360,7 +371,7 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         source: 'json',
         codec: {
           mode: 'strict',
-          typeSymbol: 'dsh-desktop-safe-market#ForceRefresh',
+          typeSymbol: 'safer-dsh-market#ForceRefresh',
           create: () => z.boolean(),
         },
       },
@@ -368,12 +379,12 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     cancellation: { parameter: 'signal' },
     result: {
       mode: 'strict',
-      typeSymbol: 'dsh-desktop-safe-market#MarketCatalogResult',
+      typeSymbol: 'safer-dsh-market#MarketCatalogResult',
       create: () => marketCatalogResultSchema,
     },
   },
   {
-    id: 'dsh-desktop-safe-market#safeMarket/listSkills',
+    id: 'safer-dsh-market#safeMarket/listSkills',
     service: 'safeMarket',
     namespace: 'safeMarket',
     method: 'listSkills',
@@ -392,12 +403,12 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     cancellation: { parameter: 'signal' },
     result: {
       mode: 'strict',
-      typeSymbol: 'dsh-desktop-safe-market#MarketSkillsResult',
+      typeSymbol: 'safer-dsh-market#MarketSkillsResult',
       create: () => marketSkillsResultSchema,
     },
   },
   {
-    id: 'dsh-desktop-safe-market#safeMarket/describe',
+    id: 'safer-dsh-market#safeMarket/describe',
     service: 'safeMarket',
     namespace: 'safeMarket',
     method: 'describe',
@@ -405,12 +416,12 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     parameters: [],
     result: {
       mode: 'strict',
-      typeSymbol: 'dsh-desktop-safe-market#MarketEnvironment',
+      typeSymbol: 'safer-dsh-market#MarketEnvironment',
       create: () => marketEnvironmentSchema,
     },
   },
   {
-    id: 'dsh-desktop-safe-market#safeMarket/getSettings',
+    id: 'safer-dsh-market#safeMarket/getSettings',
     service: 'safeMarket',
     namespace: 'safeMarket',
     method: 'getSettings',
@@ -418,12 +429,12 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     parameters: [],
     result: {
       mode: 'strict',
-      typeSymbol: 'dsh-desktop-safe-market#SafeMarketSettings',
+      typeSymbol: 'safer-dsh-market#SafeMarketSettings',
       create: () => safeMarketSettingsSchema,
     },
   },
   {
-    id: 'dsh-desktop-safe-market#safeMarket/updateSettings',
+    id: 'safer-dsh-market#safeMarket/updateSettings',
     service: 'safeMarket',
     namespace: 'safeMarket',
     method: 'updateSettings',
@@ -435,19 +446,19 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         source: 'json',
         codec: {
           mode: 'strict',
-          typeSymbol: 'dsh-desktop-safe-market#SafeMarketSettingsUpdate',
+          typeSymbol: 'safer-dsh-market#SafeMarketSettingsUpdate',
           create: () => safeMarketSettingsUpdateSchema,
         },
       },
     ],
     result: {
       mode: 'strict',
-      typeSymbol: 'dsh-desktop-safe-market#SafeMarketSettings',
+      typeSymbol: 'safer-dsh-market#SafeMarketSettings',
       create: () => safeMarketSettingsSchema,
     },
   },
   {
-    id: 'dsh-desktop-safe-market#safeMarket/listInstalled',
+    id: 'safer-dsh-market#safeMarket/listInstalled',
     service: 'safeMarket',
     namespace: 'safeMarket',
     method: 'listInstalled',
@@ -455,12 +466,12 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     parameters: [],
     result: {
       mode: 'strict',
-      typeSymbol: 'dsh-desktop-safe-market#MarketInstalledResult',
+      typeSymbol: 'safer-dsh-market#MarketInstalledResult',
       create: () => marketInstalledResultSchema,
     },
   },
   {
-    id: 'dsh-desktop-safe-market#safeMarket/setInstalledEnabled',
+    id: 'safer-dsh-market#safeMarket/setInstalledEnabled',
     service: 'safeMarket',
     namespace: 'safeMarket',
     method: 'setInstalledEnabled',
@@ -472,19 +483,19 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         source: 'json',
         codec: {
           mode: 'strict',
-          typeSymbol: 'dsh-desktop-safe-market#SetInstalledEnabledUpdate',
+          typeSymbol: 'safer-dsh-market#SetInstalledEnabledUpdate',
           create: () => setInstalledEnabledUpdateSchema,
         },
       },
     ],
     result: {
       mode: 'strict',
-      typeSymbol: 'dsh-desktop-safe-market#MarketInstalledResult',
+      typeSymbol: 'safer-dsh-market#MarketInstalledResult',
       create: () => marketInstalledResultSchema,
     },
   },
   {
-    id: 'dsh-desktop-safe-market#safeMarket/uninstallInstalled',
+    id: 'safer-dsh-market#safeMarket/uninstallInstalled',
     service: 'safeMarket',
     namespace: 'safeMarket',
     method: 'uninstallInstalled',
@@ -496,14 +507,14 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         source: 'json',
         codec: {
           mode: 'strict',
-          typeSymbol: 'dsh-desktop-safe-market#UninstallInstalledUpdate',
+          typeSymbol: 'safer-dsh-market#UninstallInstalledUpdate',
           create: () => uninstallInstalledUpdateSchema,
         },
       },
     ],
     result: {
       mode: 'strict',
-      typeSymbol: 'dsh-desktop-safe-market#MarketInstalledResult',
+      typeSymbol: 'safer-dsh-market#MarketInstalledResult',
       create: () => marketInstalledResultSchema,
     },
   },

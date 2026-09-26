@@ -1,5 +1,5 @@
 /**
- * dsh-desktop-safe-market host plugin: the package entry, and deliberately
+ * safer-dsh-market host plugin: the package entry, and deliberately
  * nothing more than a guard around the real body in `./plugin.ts`.
  *
  * The market is seated into a profile that ANY dsh installation may boot —
@@ -24,12 +24,12 @@
  *
  * `name`, `inject` and `Config` stay here because the Loader reads them
  * before deciding to load anything at all.
- * @module dsh-desktop-safe-market
+ * @module safer-dsh-market
  */
 import type { Context, Volatile } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
 /** Cordis plugin name (the Loader entry and client bundle id). */
-export declare const name = "dsh-desktop-safe-market";
+export declare const name = "safer-dsh-market";
 /**
  * Services required before load. `skills` and `storageDomain` join the
  * settings and Typert seats: the market lists what this deployment can
@@ -47,7 +47,7 @@ export type { MarketCatalog, MarketCatalogResult, MarketCategory, MarketEnvironm
 export interface Config {
     /** Live, profile-persisted permission to fetch the community catalog. */
     enabled: Volatile<boolean>;
-    /** Base URL holding `market.json`. */
+    /** A complete JSON feed URL, or a directory containing market.json. */
     catalogBase: string;
     /** How many plugins the market shows. */
     marketSize: number;

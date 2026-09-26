@@ -129,6 +129,7 @@ function messageOf(error: unknown): string {
 }
 
 /** The harness-home directory holding every pending-uninstall seat. */
+// Keep the legacy storage path so pending removals survive the package rename.
 const PENDING_DIR = 'dsh-desktop-safe-market'
 
 /**
@@ -153,7 +154,7 @@ async function readPendingFile(file: string): Promise<PendingUninstall[]> {
     content = await readFile(file, 'utf8')
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
-    console.warn('[dsh-desktop-safe-market] pending-uninstall seat unreadable:', file, messageOf(error))
+    console.warn('[safer-dsh-market] pending-uninstall seat unreadable:', file, messageOf(error))
     return []
   }
   try {
@@ -169,7 +170,7 @@ async function readPendingFile(file: string): Promise<PendingUninstall[]> {
         completed: (row as { completed?: unknown }).completed !== false,
       }))
   } catch (error) {
-    console.warn('[dsh-desktop-safe-market] pending-uninstall seat corrupt, treating as empty:', file, messageOf(error))
+    console.warn('[safer-dsh-market] pending-uninstall seat corrupt, treating as empty:', file, messageOf(error))
     return []
   }
 }
@@ -458,7 +459,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
         rowsWritten = true
       } catch (error) {
         faults.push('stop rows: ' + messageOf(error))
-        console.warn('[dsh-desktop-safe-market] uninstall stop rows failed:', error)
+        console.warn('[safer-dsh-market] uninstall stop rows failed:', error)
       }
       if (rowsWritten) {
         try {
@@ -466,7 +467,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
           await writePending([...pending, { packageName, entryIds: ids, at: new Date().toISOString(), completed: false }])
         } catch (error) {
           faults.push('sweep record: ' + messageOf(error))
-          console.warn('[dsh-desktop-safe-market] uninstall sweep record failed:', error)
+          console.warn('[safer-dsh-market] uninstall sweep record failed:', error)
         }
       }
       try {
@@ -501,14 +502,14 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
         if (!pruned.ok) faults.push('pnpm remove: ' + pruned.detail)
       } catch (error) {
         faults.push('pnpm remove: ' + messageOf(error))
-        console.warn('[dsh-desktop-safe-market] uninstall pnpm remove failed:', error)
+        console.warn('[safer-dsh-market] uninstall pnpm remove failed:', error)
       }
       try {
         const after = await readManifest(profileDir)
         if (removeBundle(after, packageName)) await writeManifest(profileDir, after)
       } catch (error) {
         faults.push('manifest: ' + messageOf(error))
-        console.warn('[dsh-desktop-safe-market] uninstall manifest edit failed:', error)
+        console.warn('[safer-dsh-market] uninstall manifest edit failed:', error)
       }
       const verified = await readManifest(profileDir)
       if (Object.hasOwn(verified.dependencies ?? {}, packageName) || verified.dsh?.profile?.bundles?.includes(packageName)) {
@@ -518,7 +519,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
         await removePackageInstallGate(profileDir, packageName)
       } catch (error) {
         faults.push('install gate: ' + messageOf(error))
-        console.warn('[dsh-desktop-safe-market] uninstall install-gate cleanup failed:', error)
+        console.warn('[safer-dsh-market] uninstall install-gate cleanup failed:', error)
       }
     }
     try {
@@ -564,7 +565,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
       await setEntryDisabled(patchPath, [...new Set(pending.flatMap(record => [...record.entryIds]))], false)
       await writePending(all.filter(record => !pending.includes(record)))
     } catch (error) {
-      console.warn('[dsh-desktop-safe-market] uninstall sweep failed:', error)
+      console.warn('[safer-dsh-market] uninstall sweep failed:', error)
     }
   }
 

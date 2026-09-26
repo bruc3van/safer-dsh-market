@@ -13,7 +13,7 @@ import { SAFE_MARKET_INVOCATIONS } from './contract.ts'
 
 /** The safeMarket namespace's host manifest (strict codecs shared with the client). */
 export const TYPERT_MANIFEST: TypertContribution = {
-  package: 'dsh-desktop-safe-market',
+  package: 'safer-dsh-market',
   face: 'host',
   schemas: [],
   model: {

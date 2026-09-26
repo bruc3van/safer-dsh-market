@@ -1,8 +1,8 @@
 /**
- * Single-file client + ESM host build for dsh-desktop-safe-market.
+ * Single-file client + ESM host build for safer-dsh-market.
  *
  * The web server serves exactly one file per plugin
- * (/plugins/dsh-desktop-safe-market/client.js), so the client half is one CJS
+ * (/plugins/safer-dsh-market/client.js), so the client half is one CJS
  * bundle wrapped in the ModuleLoader factory handshake; @deepseek-ai/dsh-* and
  * react stay external (the profile's healed node_modules and the app's module
  * system provide them). The host half is plain ESM for Node, externalizing
@@ -100,7 +100,7 @@ await build({
   jsx: 'automatic',
   external: [...dshExternal, 'react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'scheduler'],
   banner: {
-    js: "window.__ModuleLoader__.load({ id: 'dsh-desktop-safe-market', factory: (require) => { var module = { exports: {} }; var exports = module.exports;",
+    js: "window.__ModuleLoader__.load({ id: 'safer-dsh-market', factory: (require) => { var module = { exports: {} }; var exports = module.exports;",
   },
   footer: {
     js: 'return module.exports; } });',

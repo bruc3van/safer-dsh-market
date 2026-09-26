@@ -1,20 +1,18 @@
-# dsh-desktop-safe-market
+# safer-dsh-market
 
-**先审查，再安装。**
+包名已由 `dsh-desktop-safe-market` 改为 `safer-dsh-market`。新名称需要单独发布到 npm 并配置 Trusted Publisher；旧包不会自动升级为新包。迁移时先停用旧插件，再安装并启用新插件，按需重新设置原来的配置。缓存和待卸载记录继续沿用原存储路径。GitHub 仓库地址保持不变。
 
-新装、插件升级和市场自身升级使用统一的审查提示词：只审实际安装产物，审查期不执行产物脚本，锁定精确版本或 commit；遇到可疑内容、安装不一致或 build 门禁就停止并交由你决定。默认只报告结论、安装产物与完整性值、例外三段。目标 profile 由 Host 返回并自动填入提示词（默认 `web`）。
+**发现插件，按需安装。**
 
 中文 | [English](./README_EN.md)
 
-一个**先审查、再安装**的 DeepSeek Harness 插件市场。它与「点一下就装」的普通市场刻意保持距离，差异集中在两件事：
+基于 awesome-dsh-plugin-feed 推荐目录的 DeepSeek Harness 插件市场，支持按名称、安装包名、功能标签和分类搜索。
 
-- **精选来源**：市场列表不是 GitHub topic 的原始抓取，而是 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) 每日快照管线的**人工精选**产物——蹭 topic 的非插件、归档/停用仓库在上游就被剔除，席位再按类目逐轮均衡发牌——你浏览的是一份经过编辑把关的短名单，而不是热度堆场。
-- **先审查再安装**：点「安全安装」不会装任何东西。它打开一个新会话、把一段**安全审查提示词**放进输入框，由 Agent 实际读仓库代码，确认干净后才执行官方安装命令。插件自身没有任何能执行安装的接口——审查与安装因此在结构上不可分割、绕不过去。
+默认使用 **精简安装（直接安装）**：点击推荐卡片，选择并确认安装目标，调用当前宿主的官方插件管理器检查、安装并启用。无需工作区，不发送提示词。安装前展示要求和备注；需要执行依赖脚本时单独确认，支持取消及连接中断后的结果查询。安装结果区分已生效、需要重启、被配置覆盖、失败和取消。
 
-使用上，从左侧导航或右侧栏打开**安全市场**，分两页：
+也可切换到 **提示词安装（AI 审查）**，保留原来的会话审查流程。插件升级和市场自身升级仍使用审查提示词。直接安装不会执行 AI 安全审查，目录收录及 README 核验均不等于安全或兼容保证。
 
-- **插件**：默认浏览精选目录，支持搜索、分类筛选；点击「已安装」查看当前 profile 安装的插件、运行状态，并执行启用、停用或卸载。
-- **技能**：列出当前会话实际能解析到的技能。
+`packages.targets[].install` 是直接安装目标，`command` 不会被执行。多目标由用户选择，每次只安装一个；来源中的 profile 仅作参考，实际操作当前宿主的 profile。`manual` 条目或缺少合法目标的条目提供说明，不猜测安装地址。直接安装需要宿主提供 `pluginManager` Remote（本项目兼容基线为 0.1.7-rc.2）。
 
 ## 两种查看方式
 
@@ -36,15 +34,15 @@
 
 装插件本质上是在自己的机器上运行别人写的代码。普通目录回答「有哪些插件」，然后把风险留给你的那一次点击；「这个插件安全吗」始终无人回答——而它恰恰是你点安装那一刻真正在赌的东西。
 
-这个插件把两件事接在一起：一份**已经过人工精选**的社区短名单，和一次**由 Agent 执行的代码审查**。它自己不下载、不执行、不判断，只把请求摆到你面前——这就是它与普通市场的全部差异：**入口是精选的，安装是带审查的。**
+这个插件连接社区推荐数据与官方安装能力：按用途发现插件，直接确认安装；需要 AI 审查时切换到提示词模式。
 
 ## DSH 版本兼容
 
-**Safe Market 0.6.0 最低要求 DSH `0.1.7-rc.2`，不兼容旧版宿主。** 本次升级迁移到了新版接口，没有保留旧版回退路径；不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+**Safe Market 0.7.0 最低要求 DSH `0.1.7-rc.2`，不兼容旧版宿主。** 本次升级迁移到了新版接口，没有保留旧版回退路径；不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 应使用的插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.1.7-rc.2`（当前适配并验证的版本） | `0.6.0` | `dsh-desktop-safe-market@0.6.0` |
+| `0.1.7-rc.2`（当前适配并验证的版本） | `0.7.0` | `safer-dsh-market@0.7.0` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -55,26 +53,26 @@
 dsh plugin --profile web add dsh-desktop-safe-market@0.5.2
 ```
 
-升级到插件 `0.6.0` 时，先将 DSH 升级到 `0.1.7-rc.2`。市场开关现在由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效并在重启后保留。旧版 `settings.yaml` 中的 `safe-market` 设置不会自动迁入；升级后若市场关闭，请在页面上重新启用一次。
+升级到插件 `0.7.0` 时，先将 DSH 升级到 `0.1.7-rc.2`。市场开关现在由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效并在重启后保留。旧版 `settings.yaml` 中的 `safe-market` 设置不会自动迁入；升级后若市场关闭，请在页面上重新启用一次。
 
 ## 安装
 
-以下安装命令适用于 DSH `0.1.7-rc.2`。优先从 [npm](https://www.npmjs.com/package/dsh-desktop-safe-market) 安装指定版本：
+以下安装命令适用于 DSH `0.1.7-rc.2`。优先从 [npm](https://www.npmjs.com/package/safer-dsh-market) 安装指定版本：
 
 ```sh
-dsh plugin --profile web add dsh-desktop-safe-market@0.6.0
+dsh plugin --profile web add safer-dsh-market@0.7.0
 ```
 
 也可以把安装这件事直接交给你的 Agent——复制这句提示词发过去即可：
 
 ```text
-帮我安装 DSH 安全市场：先确认宿主为 DSH 0.1.7-rc.2，再用官方命令 `dsh plugin --profile web add dsh-desktop-safe-market@0.6.0` 装进 web profile，完成后提醒我重启 dsh web 才会生效；如果仍在使用旧宿主，先说明版本不兼容，不要直接安装或升级。
+帮我安装 DSH 安全市场：先确认宿主为 DSH 0.1.7-rc.2，再用官方命令 `dsh plugin --profile web add safer-dsh-market@0.7.0` 装进 web profile，完成后提醒我重启 dsh web 才会生效；如果仍在使用旧宿主，先说明版本不兼容，不要直接安装或升级。
 ```
 
 要锁到当前文档对应的那一版，用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.6.0.tar.gz
+dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.7.0.tar.gz
 ```
 
 这条官方命令会把依赖装进 profile，并**自动把它并入 `dsh.profile.bundles`**（凡是声明了 `dsh.bundle` 的依赖都会自动入列），不需要手工改 `package.json`。装完重启 `dsh web`（或桌面客户端）即可。
@@ -109,11 +107,11 @@ npm 路径会记录已审查的精确版本及 `dist.integrity`，校验 tarball
 
 ### 已经装过的：安全升级
 
-目录里已经装在本 profile 的插件，卡片右上角标出「已安装 vX.Y.Z」，按钮也从「安全安装」变成**「安全升级」**——省得对着一个装好的插件反复点安装。
+在提示词模式下，目录里已经装在本 profile 的插件，卡片右上角标出「已安装 vX.Y.Z」，按钮也从「安全安装」变成**「安全升级」**——省得对着一个装好的插件反复点安装。
 
 认亲靠的是已安装包 `package.json` 里的 `repository` 字段（各种写法都会归约成 `owner/name`），因为目录是按 GitHub 仓库编排的，而安装是按包名编排的，两者只是有时拼写相同。没写 `repository` 的包退回「包短名 ≈ 仓库名」的猜测，且仅在该短名只对应一个已装包时才算数——两个包重名时宁可都不标，也不能让结论取决于遍历顺序。
 
-**目录里没有版本号**（上游 `market.json` 只收录仓库事实，不收录发布版本），所以「有没有新版」这件事插件本地算不出来，也不去猜：升级提示词的第一步就是让 Agent 去确认上游最新版本——release tag，或该仓库发布到 npm 的版本——**不比当前新就直接回「已是最新」、不做任何改动**；确有新版才继续审查新版产物——与全新安装同一套扫描标准，不做两版 diff 的定向审查。升级的安装方式与全新安装是同一套优先级（npm / release tarball / 锁 commit 的源码）与 `allowBuilds` 规则。和安装一样，插件自己不执行任何命令。
+**目录目标不等于最新版本查询**，因此安全升级仍由 Agent 判断是否有新版：升级提示词的第一步就是让 Agent 去确认上游最新版本——release tag，或该仓库发布到 npm 的版本——**不比当前新就直接回「已是最新」、不做任何改动**；确有新版才继续审查新版产物——与全新安装同一套扫描标准，不做两版 diff 的定向审查。升级的安装方式与全新安装是同一套优先级（npm / release tarball / 锁 commit 的源码）与 `allowBuilds` 规则。该升级流程仅准备提示词。
 
 ## 已安装面板
 
@@ -132,7 +130,7 @@ npm 路径会记录已审查的精确版本及 `dist.integrity`，校验 tarball
 
 如果客户端还装着、且没有关掉它连接设置里的「接入内置安全市场」，那么它下次启动会把插件重新装回。卡片上写明了这一点：要彻底不再出现，请在客户端那边关掉开关。没有归属标记的 in-box bundle 属于部署自身，面板不列出、也不提供卸载。
 
-设计上与「安全安装」一致：**停用、列表和内置座位仍是本地文件编辑 + loader 调用**。用户插件的卸载是唯一会启动进程的动词：在本 profile 目录跑 `pnpm remove`，不联网安装任何东西。市场关掉时这一页只剩开关本身：你关掉的是这个市场，它不该继续在你的设置里开着一个插件管理器。
+设计上与「安全安装」一致：**停用、列表和内置座位仍是本地文件编辑 + loader 调用**。旧已安装面板的用户插件卸载会启动进程：在本 profile 目录跑 `pnpm remove`，直接安装则由官方宿主服务执行。市场关掉时这一页只剩开关本身：你关掉的是这个市场，它不该继续在你的设置里开着一个插件管理器。
 
 ![已安装面板](./assets/screenshots/marketplace-installed.png)
 
@@ -146,14 +144,9 @@ npm 路径会记录已审查的精确版本及 `dist.integrity`，校验 tarball
 
 ## 数据来源
 
-市场只读 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) 每日快照管线发布的一个精选文件 [`market.json`](https://github.com/bruc3van/awesome-dsh-plugin/blob/main/data/market.json)，全部编辑决策都在上游（爬取与人工名单所在处）完成：
+默认读取 [market-v2.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json)，失败时尝试同一 npm 包的 unpkg 镜像。保留 ETag、缓存及手动刷新；自定义 `catalogBase` 不被替换，可填完整 JSON URL，也兼容旧的目录地址（追加 `/market.json`）。
 
-- 上游对带 `dsh-plugin` 标签的爬取（`repositories.json`）做过滤：要求有简介、剔除归档/停用仓库、应用 `curated.json` 人工排除名单；
-- 分类与**均衡发牌**也在上游——不是纯按 star 排序（那样两三个分类就会吃掉几乎所有席位），而是每类先出最强、再出次强，名额由上游目录配置决定；
-- 本插件按该顺序截断到 `marketSize`（默认 1000，是上限兜底而非目标条数——实际条数由上游发牌决定），并在 Host 侧重校验每一行后才发给浏览器；
-- **网络韧性（自动切换）**：默认从 GitHub raw 读取。当默认地址不可达或请求出错（超时、DNS/连接失败、HTTP 错误）时，自动改用同一文件的 jsDelivr CDN 镜像（[bruc3van/awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) 的 `cdn.jsdelivr.net/gh/…@main/data/market.json`，带 ETag，可走条件请求）；回答过的那一侧会被记住（粘性），下次读取直接走它，镜像失败再回到 GitHub，无需任何配置。自己配置过 `catalogBase` 的部署不受影响——只读它指定的那一个来源。
-
-接口协议——字段形状、截断上限、分支名白名单、顺序不变量与版本规则——见 [docs/market-json-spec.md](docs/market-json-spec.md)。
+支持 schema 1 和 2。v2 附加 `packages` 安装信息，经 Host 校验后进入客户端；功能标签也参与搜索。安装目标仅接受支持的 npm spec 和 GitHub HTTPS 地址，不执行命令、环境变量、路径或 shell 片段。协议见 [docs/market-json-spec.md](docs/market-json-spec.md)。
 
 ## 配置
 
@@ -162,13 +155,13 @@ npm 路径会记录已审查的精确版本及 `dist.integrity`，校验 tarball
 | 字段 | 默认值 | 说明 |
 | --- | --- | --- |
 | `enabled` | `false` | 是否允许读取社区目录；页面操作由宿主即时保存 |
-| `catalogBase` | awesome-dsh-plugin 的 `data/` 目录 | 指向该文件的镜像 |
+| `catalogBase` | npm feed 的 `market-v2.json` 完整 URL | JSON 地址或含 market.json 的目录 |
 | `marketSize` | `1000` | 展示条数的上限。条数由上游决定（`market.json`），本参数限制返回给界面的最大条数 |
 
 ## 安全边界
 
-- **插件自身不执行任何安装命令**，也没有能执行它的接口——审查与安装因此不可分割；
-- **市场文件在 Host 侧读取并重新校验**后才发给浏览器（精选目录，而不是完整爬取快照），并持久化在 `$DSH_HOME/storages/safe_market.json`，重启后走 ETag 条件请求（一次 304；默认地址连不上时自动改用 jsDelivr 镜像，两边都连不上才用上次的目录）；
+- **直接安装调用官方 pluginManager Remote**；提示词模式仅准备审查草稿，两种模式独立。不会执行 feed 的 command 字段；
+- **市场文件在 Host 侧读取并重新校验**后才发给浏览器（精选目录，而不是完整爬取快照），并持久化在 `$DSH_HOME/storages/safe_market.json`，重启后走 ETag 条件请求（一次 304；默认地址连不上时自动改用 unpkg 镜像，两边都连不上才用上次的目录）；
 - **仓库链接由 `owner/name` 重新拼装**，不采信文件里的地址，因此被投毒的文件无法塞进自己的 URL scheme——wire codec 也会强制校验这个形状，而不只是靠注释；
 - **提示词不插入目录中的分支名或自由文本**：只填入经校验的仓库 URL、目标 profile，以及升级时的已安装包标识；
 - **配置的 profile 名同样要过形状校验**（`[A-Za-z0-9][A-Za-z0-9._-]{0,63}`）：它是唯一一个以配置身份进入提示词的值，会拼进 `--profile` 参数；不合格时插件直接拒绝启动，而不是发出一条自己都说不清目标的命令；
@@ -182,8 +175,7 @@ npm 路径会记录已审查的精确版本及 `dist.integrity`，校验 tarball
 ## 已知限制
 
 - **只读技能，还不能装技能**：技能页目前只回答「我有什么」。技能的分发形态与插件不同（文件系统目录而非 npm 包），装技能是下一步。
-- **不体检已安装插件**：已安装面板能查看、停用、卸载，但不重新审计已经装上的代码——「装之前」的审查仍然不可省。
-- **市场自己不执行安装**：命令写在提示词里由 Agent 执行，所以审查与安装绑在一起、绕不过去；代价是市场里看不到安装进度。
+- **不体检已安装插件**：已安装面板能查看、停用、卸载，但不重新审计已经装上的代码——直接模式不会自动补做安全审查。
 
 ## 开发
 
@@ -196,7 +188,7 @@ pnpm run build     # lib/index.js（Host，ESM）、lib/client.js（浏览器，
 
 发版时版本号有几处要一起动：`package.json`、`dsh.plugin.json`，以及两份 README 里的 tarball 地址。`pnpm test` 里的版本门禁（`test/version.test.ts`）会核对这几处，以及 README 是否仍给出 npm 包名安装命令；CI（`.github/workflows/check.yml`）在每次推送与 PR 上跑同一套检查。
 
-推送 `vX.Y.Z` 标签后，CI（`.github/workflows/release.yml`）会切 GitHub Release，并用 Trusted Publishing 把同一版本发到 [npm](https://www.npmjs.com/package/dsh-desktop-safe-market)——不必再手工 `npm publish`。第一次需要在 npm 包设置里把本仓库的 `release.yml` 配成 Trusted Publisher（user `bruc3van`，repo `dsh-desktop-safe-market`，workflow filename `release.yml`，允许 `npm publish`）。
+推送 `vX.Y.Z` 标签后，CI（`.github/workflows/release.yml`）会切 GitHub Release，并用 Trusted Publishing 把同一版本发到 [npm](https://www.npmjs.com/package/safer-dsh-market)——不必再手工 `npm publish`。第一次需要在 npm 包设置里把本仓库的 `release.yml` 配成 Trusted Publisher（user `bruc3van`，repo `dsh-desktop-safe-market`，workflow filename `release.yml`，允许 `npm publish`）。
 
 `devDependencies` 固定在与运行时一致的 `@deepseek-ai/*` 已发布版本上；`peerDependencies` 全部可选，实际由 profile 的 node_modules 提供。
 

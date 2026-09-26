@@ -1,10 +1,10 @@
 /**
- * Package-owned invariant companion for `dsh-desktop-safe-market`.
- * @module dsh-desktop-safe-market/invariant
+ * Package-owned invariant companion for `safer-dsh-market`.
+ * @module safer-dsh-market/invariant
  */
 import type { Context } from '@deepseek-ai/cordis';
 /** Cordis companion plugin name. */
-export declare const name = "dsh-desktop-safe-market-invariant";
+export declare const name = "safer-dsh-market-invariant";
 /** Service required before the companion can reserve package ownership. */
 export declare const inject: string[];
 /**

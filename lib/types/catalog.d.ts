@@ -1,49 +1,7 @@
-/**
- * The catalog source: the curated market published by awesome-dsh-plugin.
- *
- * Every editorial decision — who is excluded, how rows are categorized, how
- * the list is balanced across categories — happens upstream. This plugin
- * reads the single published `market.json` (the daily crawl reduced there to
- * a balanced list of at most 300 entries) and answers the browser by
- * truncating that order to the configured market size, so the two sides of
- * the integration never disagree about the selection rule. The crawl that
- * feeds the market stays upstream; this side downloads a small curated file,
- * not a 2.4 MB snapshot plus a curation sidecar.
- *
- * The published body is still remote text from a public file and is treated
- * as hostile here: slugs are shape-checked, links are rebuilt from the slug,
- * branch names are kept only when they match the safe pattern, and every
- * field is re-truncated before the browser sees it.
- *
- * Resilience: the primary is the published GitHub file. When the deployment
- * keeps the default base, a primary that cannot answer — timeout, DNS or
- * connection failure, or an HTTP error status — fails the read over to the
- * jsDelivr CDN mirror of the same published file. The base that answered last
- * is remembered in the durable
- * cache (when one exists) and tried first on the next read, so an
- * environment where GitHub never answers does not pay the primary's timeout
- * on every refresh; if the sticky base later fails, the chain tries the
- * other one and the stick moves. A deployment that configured its own
- * `catalogBase` gets exactly that one source — the mirror belongs to the
- * default GitHub base only.
- */
 import type { MarketCatalog } from './contract.ts';
-/**
- * The published community catalog this market reads by default: the
- * awesome-dsh-plugin `data/` directory on GitHub raw. This is also the config
- * schema's default `catalogBase` (the entry imports it), so the address lives
- * here in one seat, next to its mirror, instead of being mirrored itself.
- */
-export declare const DEFAULT_CATALOG_BASE = "https://raw.githubusercontent.com/bruc3van/awesome-dsh-plugin/main/data";
-/**
- * The jsDelivr CDN mirror of the same published file, tried when the default
- * base fails. jsDelivr serves the repo's `main` from a CDN that is reachable
- * where GitHub raw is not, answers with an ETag so the conditional-request
- * path still works, and sets `access-control-allow-origin: *`. Its edge cache
- * can lag the source by up to its `s-maxage` (hours), which is acceptable for
- * a fallback the market only reaches when GitHub itself failed.
- */
-export declare const MIRROR_CATALOG_BASE = "https://cdn.jsdelivr.net/gh/bruc3van/awesome-dsh-plugin@main/data";
+/** Default feed and CDN fallback serve the same npm package dataset. */
+export declare const DEFAULT_CATALOG_BASE = "https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json";
+export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-v2.json";
 /**
  * Where a parsed catalog survives a restart. The catalog source neither opens
  * nor closes this — the plugin body owns the domain's lifecycle and hands the
@@ -70,7 +28,7 @@ export interface CatalogCache {
 }
 /** Deployment-varying knobs the plugin config owns. */
 export interface CatalogOptions {
-    /** Base URL holding `market.json`. */
+    /** A complete JSON feed URL, or a directory containing market.json. */
     readonly base: string;
     /** How many plugins the market shows. */
     readonly marketSize: number;

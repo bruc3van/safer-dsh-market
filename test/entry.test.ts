@@ -33,7 +33,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const entryFile = join(root, 'lib', 'index.js')
 
 /** The catalog base the entry's schema fills in, mirrored from `src/index.ts`. */
-const DEFAULT_CATALOG_BASE = 'https://raw.githubusercontent.com/bruc3van/awesome-dsh-plugin/main/data'
+const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json'
 
 /** The symbols whose evaluation at import time is what the split defers. */
 const DEFERRED = ['TypertRemoteService', 'defineDomain'] as const
@@ -72,7 +72,7 @@ test('a runtime that cannot load the body loses the market and nothing else', as
       inject: string[]
       apply: (ctx: unknown, config?: unknown) => void
     }
-    assert.equal(module.name, 'dsh-desktop-safe-market')
+    assert.equal(module.name, 'safer-dsh-market')
     // The Loader reads these before deciding to load anything; they must
     // survive on a runtime whose body will not load.
     assert.deepEqual(module.inject, ['typert', 'settings', 'skills', 'storageDomain', 'loader'])

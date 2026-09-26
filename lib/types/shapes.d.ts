@@ -14,7 +14,7 @@
  *
  * Anything added here must stay importable by the entry: no dependencies, no
  * module-scope work beyond a literal.
- * @module dsh-desktop-safe-market/shapes
+ * @module safer-dsh-market/shapes
  */
 /**
  * This package's name, and with it the cordis plugin name, the client bundle
@@ -23,7 +23,7 @@
  * bundle in behind it, and the entry must stay free of anything the body
  * reaches.
  */
-export declare const PACKAGE_NAME = "dsh-desktop-safe-market";
+export declare const PACKAGE_NAME = "safer-dsh-market";
 /**
  * The only `owner/name` shape the market keeps. The repository link is
  * rebuilt on the Host from a slug matching this pattern, and the wire codec

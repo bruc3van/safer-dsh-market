@@ -1,7 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { PropsRuntime, PropsLocale, InjectFace } from '@deepseek-ai/dsh-client-ui-slots';
 import { type MarketSectionInjected } from './MarketSection.tsx';
-export declare const MARKET_TAB_ID = "dsh-desktop-safe-market";
+export declare const MARKET_TAB_ID = "safer-dsh-market";
 declare const NS = "settings.safeMarket";
 type MarketSidebarProps = PropsRuntime<'sidebar.right.pane.tab'> & InjectFace<MarketSectionInjected> & PropsLocale<typeof NS>;
 /** Reuse the market face; the tab owns dismissal after a successful hand-off. */

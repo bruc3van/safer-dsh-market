@@ -6,7 +6,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import { MarketSection, type MarketSectionInjected } from './MarketSection.tsx'
 
-export const MARKET_TAB_ID = 'dsh-desktop-safe-market'
+export const MARKET_TAB_ID = 'safer-dsh-market'
 const NS = 'settings.safeMarket'
 
 type MarketSidebarProps = PropsRuntime<'sidebar.right.pane.tab'>

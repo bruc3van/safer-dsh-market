@@ -141,7 +141,7 @@ test('every class the stylesheet defines is namespaced to this plugin', () => {
   for (const selector of cssText.match(/\.[A-Za-z_][\w-]*/g) ?? []) {
     assert.ok(selector.startsWith('.dsh_market'), `${selector} is not namespaced`)
   }
-  assert.equal(STYLE_ID, 'dsh-desktop-safe-market-style')
+  assert.equal(STYLE_ID, 'safer-dsh-market-style')
 })
 
 test('one overlapping client module cannot remove another module copy\'s stylesheet', async () => {
