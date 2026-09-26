@@ -43,8 +43,8 @@ export declare const zh: {
     readonly 'direct.install': "安装";
     readonly 'direct.title': "安装插件";
     readonly 'direct.close': "关闭";
-    readonly 'direct.explain': "安装到当前客户端并启用，无需发送提示词。此模式不进行 AI 安全审查；括号内是来源示例，不会切换安装位置。";
-    readonly 'direct.target': "安装目标";
+    readonly 'direct.explain': "安装到当前客户端并启用。";
+    readonly 'direct.target': "选择要安装的组件";
     readonly 'direct.noTarget': "暂无可直接安装的目标，请切换到提示词安装或查看仓库说明。";
     readonly 'direct.confirm': "安装";
     readonly 'direct.idle': "待安装";

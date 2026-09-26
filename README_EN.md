@@ -38,11 +38,11 @@ The marketplace connects curated recommendations to official installation servic
 
 ## DSH version compatibility
 
-**Safe Market 0.7.2 requires at least DSH `0.1.7-rc.2` and is not backward compatible with older hosts.** This release uses the new host APIs without a legacy fallback. It does not support the DSH 0.1.1 or 0.1.2 lines, or DSH 0.1.5. Check your host version before choosing a plugin version.
+**Safe Market 0.7.3 requires at least DSH `0.1.7-rc.2` and is not backward compatible with older hosts.** This release uses the new host APIs without a legacy fallback. It does not support the DSH 0.1.1 or 0.1.2 lines, or DSH 0.1.5. Check your host version before choosing a plugin version.
 
 | DSH host version | Plugin version to use | npm install target |
 | --- | --- | --- |
-| `0.1.7-rc.2` (the version adapted and tested) | `0.7.2` | `safer-dsh-market@0.7.2` |
+| `0.1.7-rc.2` (the version adapted and tested) | `0.7.3` | `safer-dsh-market@0.7.3` |
 | `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -53,26 +53,26 @@ The marketplace connects curated recommendations to official installation servic
 dsh plugin --profile web add dsh-desktop-safe-market@0.5.2
 ```
 
-Before installing plugin `0.7.2`, upgrade DSH to `0.1.7-rc.2`. The host now saves the market switch in the active profile's `cordis.patch.yml`, applies it live, and restores it after restart. The old `safe-market` section in `settings.yaml` is not migrated automatically; if the market is disabled after upgrading, enable it once from the page.
+Before installing plugin `0.7.3`, upgrade DSH to `0.1.7-rc.2`. The host now saves the market switch in the active profile's `cordis.patch.yml`, applies it live, and restores it after restart. The old `safe-market` section in `settings.yaml` is not migrated automatically; if the market is disabled after upgrading, enable it once from the page.
 
 ## Install
 
 The following commands target DSH `0.1.7-rc.2`. Prefer the pinned [npm](https://www.npmjs.com/package/safer-dsh-market) version:
 
 ```sh
-dsh plugin --profile web add safer-dsh-market@0.7.2
+dsh plugin --profile web add safer-dsh-market@0.7.3
 ```
 
 Or hand the install to your agent — copy this one-line prompt:
 
 ```text
-Install DSH Safe Market for me: first confirm that the host is DSH 0.1.7-rc.2, then run the official command `dsh plugin --profile web add safer-dsh-market@0.7.2` into the web profile and remind me to restart dsh web. If the host is older, explain the incompatibility before installing or upgrading anything.
+Install DSH Safe Market for me: first confirm that the host is DSH 0.1.7-rc.2, then run the official command `dsh plugin --profile web add safer-dsh-market@0.7.3` into the web profile and remind me to restart dsh web. If the host is older, explain the incompatibility before installing or upgrading anything.
 ```
 
 To pin the version this document names, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile web add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.7.2.tar.gz
+dsh plugin --profile web add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.7.3.tar.gz
 ```
 
 The official command installs the dependency into the profile and **joins it into `dsh.profile.bundles` by itself** (any dependency declaring `dsh.bundle` is reconciled into the layer stack), so there is no `package.json` to edit. Restart `dsh web` (or the desktop client) afterwards.

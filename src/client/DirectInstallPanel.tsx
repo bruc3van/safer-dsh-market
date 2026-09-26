@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import type { MarketPlugin } from '../contract.ts'
 import type { MarketLocale } from './copy.ts'
+import { installChoices, installLabel } from './installTargets.ts'
 import type { DirectInstaller } from './directInstall.ts'
 
 /** One shared installation remains observable if the recommendation page remounts. */
@@ -25,7 +26,8 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled }:
   const visibleItem = busy && !submitted ? null : item
   const dismiss = () => { setDismissed(true); installer.reset(); onClose() }
   const info = visibleItem?.installInfo
-  const target = info?.targets[Number(selected)]
+  const targets = installChoices(info?.targets ?? [])
+  const target = targets[Number(selected)]
   const available = info?.mode === 'command' && target !== undefined
   const showResult = submitted || busy || !item
   const needsApproval = showResult && state.phase === 'failed' && state.pendingBuilds.length > 0
@@ -53,13 +55,17 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled }:
       {state.message && <details className="dsh_market_installDiagnostic"><summary>{t('direct.diagnostic')}</summary><pre className="dsh_market_directMessage">{state.message}</pre></details>}
     </div>}
     {visibleItem && !available && <p className="dsh_market_installUnavailable">{info?.manual || t('direct.noTarget')}</p>}
+    {visibleItem && available && targets.length > 1 && <fieldset className="dsh_market_installChoices" disabled={busy || showResult}>
+      <legend>{t('direct.target')}</legend>
+      {targets.map((entry, i) => <label key={entry.install} className="dsh_market_installChoice">
+        <input type="radio" name={`${id}-component`} value={i} checked={selected === String(i)}
+          onChange={() => { setSelected(String(i)); setSubmitted(false) }} />
+        <span>{installLabel(entry.install)}</span>
+      </label>)}
+    </fieldset>}
     {visibleItem && <details className="dsh_market_installDetails" key={visibleItem.fullName}>
       <summary>{t('direct.more')}</summary>
-      {info?.targets.length === 1 ? <code>{target?.install}</code> : info?.targets.length ? <label>{t('direct.target')}
-        <select value={selected} disabled={busy || showResult} onChange={e => { setSelected(e.target.value); setSubmitted(false) }}>
-          {info.targets.map((target, i) => <option key={i} value={i}>{target.install}{target.profile ? ` (${target.profile})` : ''}</option>)}
-        </select>
-      </label> : null}
+      {target && <code>{target.install}</code>}
       {target?.note && <p>{target.note}</p>}
       {info?.requirements.length ? <ul>{info.requirements.map((r, i) => <li key={i}>{r}</li>)}</ul> : null}
       {info?.note && <p>{info.note}</p>}

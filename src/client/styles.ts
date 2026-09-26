@@ -33,7 +33,7 @@ export const cssText = `
   position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
   color: var(--dsw-alias-label-secondary); pointer-events: none;
 }
-.dsh_market_modeTrigger, .dsh_market_directPanel select {
+.dsh_market_modeTrigger {
   font: inherit; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-3);
   border: 1px solid var(--dsw-alias-border-l2); max-width: 100%;
 }
@@ -52,11 +52,11 @@ export const cssText = `
 .dsh_market_modeMenu button:hover, .dsh_market_modeMenu button:focus-visible {
   background: var(--dsw-alias-interactive-bg-hover); outline: none;
 }
-.dsh_market_directPanel select { border-radius: 8px; padding: 6px 10px; }
+
 .dsh_market_directPanel {
   color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-3);
   border: 1px solid var(--dsw-alias-border-l2); border-radius: 20px; padding: 24px;
-  box-sizing: border-box; width: min(480px, calc(100vw - 32px)); max-height: 80vh; overflow: auto; overflow-wrap: anywhere;
+  box-sizing: border-box; width: min(480px, calc(100vw - 32px)); max-height: 80vh; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere;
 }
 .dsh_market_directPanel::backdrop { background: rgba(0, 0, 0, .3); }
 .dsh_market_directHead { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
@@ -82,6 +82,12 @@ export const cssText = `
 .dsh_market_directClose:focus-visible, .dsh_market_installDetails summary:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px;
 }
+.dsh_market_installChoices { min-width: 0; margin: 20px 0 0; padding: 0; border: 0; }
+.dsh_market_installChoices legend { margin-bottom: 10px; padding: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.dsh_market_directPanel .dsh_market_installChoice { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; margin: 6px 0; border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; font-size: 13px; cursor: pointer; }
+.dsh_market_installChoice:has(input:checked) { background: var(--dsw-alias-interactive-bg-hover); border-color: var(--dsw-alias-label-secondary); }
+.dsh_market_installChoice input { flex: none; margin: 0; accent-color: var(--dsw-alias-label-primary); }
+.dsh_market_installChoice span { min-width: 0; overflow-wrap: anywhere; }
 .dsh_market_installDetails { margin: 20px 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .dsh_market_installDetails summary { cursor: pointer; width: fit-content; }
 .dsh_market_installDetails[open] summary { margin-bottom: 14px; }
@@ -89,7 +95,7 @@ export const cssText = `
 
 .dsh_market_directPanel p { margin: 12px 0; font-size: 13px; line-height: 1.6; }
 .dsh_market_directPanel label { display: grid; gap: 8px; }
-.dsh_market_directPanel code { display: block; margin: 8px 0; }
+.dsh_market_directPanel code { display: block; min-width: 0; max-width: 100%; margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 .dsh_market_directMessage { white-space: pre-wrap; max-height: 200px; overflow: auto; font-size: 12px; }
 
 .dsh_market_main {
