@@ -1,5 +1,10 @@
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type { SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
+
 /** Workspace identities are opaque to this adapter and only passed back to DSH services. */
-export type WorkspaceTarget = string
+export type WorkspaceTarget = Parameters<UiWorkspace['openWorkspace']>[0]
 
 /** Workspace facts exposed by the DSH Workspace Controller. */
 export interface WorkspaceState {
@@ -14,23 +19,18 @@ export interface WorkspaceState {
 /** Session-list facts needed to select the current or most recent Workspace. */
 export interface SessionListState {
   readonly phase: 'pending' | 'ready'
-  readonly current?: string
-  readonly byId: Readonly<Record<string, { readonly updatedAt?: number }>>
+  readonly byId: Readonly<Record<string, Pick<SessionSummary, 'id' | 'updatedAt' | 'retainedBy'>>>
 }
 
 /** Workspace Controller face consumed by the market. */
-export interface MarketWorkspaces {
-  readonly list: {
-    getSnapshot(): WorkspaceState
-    subscribe(listener: () => void): () => void
-  }
-  create(input: { path: string }): Promise<{ workspaceId: WorkspaceTarget }>
-}
+export type MarketWorkspaces = Pick<IWorkspaces, 'list' | 'create'>
 
 /** Cross-Controller navigation supplied by the DSH Web profile. */
-export interface MarketUiWorkspace {
-  connectWorkspace(workspaceId: WorkspaceTarget): Promise<string>
-  pickDirectory(): Promise<string | null>
+export type MarketUiWorkspace = Pick<UiWorkspace, 'openWorkspace' | 'pickDirectory'>
+
+/** The main conversation owns a mainView reference; other references do not select it. */
+export function currentSessionOf(sessions: SessionListState): SessionSummary['id'] | undefined {
+  return Object.values(sessions.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
 }
 
 /** Whether the active DSH generation has received both Workspace and Session baselines. */
@@ -46,7 +46,7 @@ export function workspaceTargetOf(
   state: WorkspaceState,
   sessions: SessionListState,
 ): WorkspaceTarget | undefined {
-  const current = sessions.current
+  const current = currentSessionOf(sessions)
   const currentWorkspaceId = current === undefined
     ? undefined
     : state.items.find(item => item.sessionIds.includes(current))?.workspaceId

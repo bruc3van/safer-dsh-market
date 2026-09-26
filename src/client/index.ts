@@ -26,6 +26,7 @@ import type {
   SafeMarketSettings,
   SafeMarketSettingsUpdate,
 } from '../contract.ts'
+import { stageReviewPrompt } from './handoff.ts'
 import { SAFE_MARKET_REMOTE } from './remote.ts'
 import {
   type ChooseWorkspaceOutcome,
@@ -41,6 +42,7 @@ import {
   type MarketUiWorkspace,
   type MarketWorkspaces,
   type WorkspaceTarget,
+  currentSessionOf,
   workspaceReady,
   workspaceTargetOf,
 } from './workspaceCompat.ts'
@@ -68,9 +70,8 @@ export const NS = 'settings.safeMarket'
 /** Required DSH services: locale, Remote, split Controllers, navigation, and conversation. */
 export const inject = ['slots', 'locale', 'remote', 'sessions', 'workspaces', 'uiWorkspace', 'conversation']
 
-/** How long the hand-off waits for a freshly opened session to own a client scope. */
-const SCOPE_WAIT_MS = 4_000
-const SCOPE_POLL_MS = 60
+/** Poll only for the newly registered workspace to reach its list mirror. */
+const WORKSPACE_POLL_MS = 60
 /** How long a freshly registered workspace gets to reach the list mirror. */
 const WORKSPACE_WAIT_MS = 4_000
 
@@ -125,9 +126,9 @@ export function apply(ctx: ClientContext): void {
   const scope = createMarketStore({ value: defaultSettings(), profile: null as string | null, version: '' })
   let settingsGeneration = 0
 
-  const workspaces = ctx.get('workspaces') as unknown as MarketWorkspaces
-  const sessions = ctx.get('sessions') as unknown as ISessions
-  const navigation = ctx.get('uiWorkspace') as unknown as MarketUiWorkspace
+  const workspaces = ctx.get('workspaces') as MarketWorkspaces
+  const sessions = ctx.get('sessions') as ISessions
+  const navigation = ctx.get('uiWorkspace') as MarketUiWorkspace
 
   const reportError = (operation: string, error: unknown): void => {
     console.error(`[dsh-desktop-safe-market] ${operation} failed:`, error)
@@ -234,25 +235,26 @@ export function apply(ctx: ClientContext): void {
   const listSkills = async (): Promise<MarketSkillsResult> => {
     const remote = market
     if (remote === undefined) throw new Error('the safeMarket Remote is not mounted')
-    const sessions = ctx.get('sessions') as unknown as ISessions
+    const sessions = ctx.get('sessions') as ISessions
     const snapshot = sessions.list.getSnapshot()
     // "Pending" means the first list pull has not landed yet — telling the
     // user "open a session first" while the list is still loading would be
     // a wrong answer, not the honest one.
     if (snapshot.phase !== 'ready') return { skills: [], complete: true, error: SESSIONS_PENDING }
-    if (snapshot.current === undefined) return { skills: [], complete: true, error: NO_SESSION }
-    const result = await remote.listSkills(snapshot.current as unknown as string)
+    const current = currentSessionOf(snapshot)
+    if (current === undefined) return { skills: [], complete: true, error: NO_SESSION }
+    const result = await remote.listSkills(current)
     if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
     return result.value
   }
 
   const skillsSession = {
     getSnapshot: (): string => {
-      const state = (ctx.get('sessions') as unknown as ISessions).list.getSnapshot()
-      return JSON.stringify([state.phase, state.current ?? null])
+      const state = (ctx.get('sessions') as ISessions).list.getSnapshot()
+      return JSON.stringify([state.phase, currentSessionOf(state) ?? null])
     },
     subscribe: (listener: () => void): (() => void) =>
-      (ctx.get('sessions') as unknown as ISessions).list.subscribe(listener),
+      (ctx.get('sessions') as ISessions).list.subscribe(listener),
   }
 
   const loadCatalog = async (force: boolean): Promise<MarketCatalogResult> => {
@@ -294,28 +296,7 @@ export function apply(ctx: ClientContext): void {
    * service face; nothing here reads the DOM, and nothing here sends.
    */
   const stageIn = async (workspaceId: WorkspaceTarget, prompt: string): Promise<InstallOutcome> => {
-    const conversation = ctx.get('conversation') as IConversation
-    try {
-      const sessionId = await navigation.connectWorkspace(workspaceId)
-      const typedSessionId = sessionId as Parameters<ISessions['open']>[0]
-      sessions.open(typedSessionId)
-      // The session's client scope appears when the session mounts, which is
-      // a render away from the open above — so the draft waits for its seat
-      // rather than being written into nothing.
-      const deadline = Date.now() + SCOPE_WAIT_MS
-      let actx = sessions.scope(typedSessionId)
-      while (actx === undefined && Date.now() < deadline) {
-        await wait(SCOPE_POLL_MS)
-        actx = sessions.scope(typedSessionId)
-      }
-      if (actx === undefined) {
-        return { ok: false, reason: 'failed', message: 'the new session did not open' }
-      }
-      conversation.input.for(actx).setDraft(prompt)
-      return { ok: true }
-    } catch (error) {
-      return { ok: false, reason: 'failed', message: error instanceof Error ? error.message : String(error) }
-    }
+    return stageReviewPrompt(sessions, navigation, ctx.get('conversation') as IConversation, workspaceId, prompt)
   }
 
   /**
@@ -337,12 +318,12 @@ export function apply(ctx: ClientContext): void {
       // their mind, and the card says so instead of showing an error.
       if (path === null) return { ok: false, reason: 'cancelled' }
       const created = await workspaces.create({ path })
-      // `connectWorkspace` resolves against the list mirror, which the create
-      // response reaches one projection later. Same shape as the scope wait.
+      // `openWorkspace` resolves against the list mirror, which the create
+      // response reaches one projection later.
       const deadline = Date.now() + WORKSPACE_WAIT_MS
       while (Date.now() < deadline
         && !workspaces.list.getSnapshot().items.some(item => item.workspaceId === created.workspaceId)) {
-        await wait(SCOPE_POLL_MS)
+        await wait(WORKSPACE_POLL_MS)
       }
       return { ok: true, id: created.workspaceId, path }
     } catch (error) {
@@ -363,7 +344,7 @@ export function apply(ctx: ClientContext): void {
     if (!workspaceReady(workspaceState, sessionState)) return { ok: false, reason: 'not-ready' }
     const workspaceId = workspaceTargetOf(
       workspaceState,
-      sessionState as unknown as Parameters<typeof workspaceTargetOf>[1],
+      sessionState,
     )
     if (workspaceId === undefined) return { ok: false, reason: 'no-workspace' }
     return await stageIn(workspaceId, prompt)

@@ -38,35 +38,48 @@ Installing a plugin means running someone else's code on your machine. An ordina
 
 This plugin joins the two halves: a community shortlist that has **already had the non-plugins curated out**, and a **code review performed by an agent**. It downloads nothing, executes nothing, and judges nothing itself — it puts the request in front of you. That is the whole differentiation from an ordinary market: **a curated entrance, and an install that cannot skip its review.**
 
-## Install
+## DSH version compatibility
 
-Prefer the [npm](https://www.npmjs.com/package/dsh-desktop-safe-market) package:
+**Safe Market 0.6.0 requires at least DSH `0.1.7-rc.2` and is not backward compatible with older hosts.** This release uses the new host APIs without a legacy fallback. It does not support the DSH 0.1.1 or 0.1.2 lines, or DSH 0.1.5. Check your host version before choosing a plugin version.
+
+| DSH host version | Plugin version to use | npm install target |
+| --- | --- | --- |
+| `0.1.7-rc.2` (the version adapted and tested) | `0.6.0` | `dsh-desktop-safe-market@0.6.0` |
+| `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
+| `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
+| `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
+
+**Pin the plugin version on older hosts; do not upgrade using `latest` or an unversioned package name.** For example, when staying on DSH `0.1.5`:
 
 ```sh
-dsh plugin --profile web add dsh-desktop-safe-market
+dsh plugin --profile web add dsh-desktop-safe-market@0.5.2
+```
+
+Before installing plugin `0.6.0`, upgrade DSH to `0.1.7-rc.2`. The host now saves the market switch in the active profile's `cordis.patch.yml`, applies it live, and restores it after restart. The old `safe-market` section in `settings.yaml` is not migrated automatically; if the market is disabled after upgrading, enable it once from the page.
+
+## Install
+
+The following commands target DSH `0.1.7-rc.2`. Prefer the pinned [npm](https://www.npmjs.com/package/dsh-desktop-safe-market) version:
+
+```sh
+dsh plugin --profile web add dsh-desktop-safe-market@0.6.0
 ```
 
 Or hand the install to your agent — copy this one-line prompt:
 
 ```text
-Install DSH Safe Market for me: run the official command `dsh plugin --profile web add dsh-desktop-safe-market` into the web profile, then remind me to restart dsh web for it to load.
+Install DSH Safe Market for me: first confirm that the host is DSH 0.1.7-rc.2, then run the official command `dsh plugin --profile web add dsh-desktop-safe-market@0.6.0` into the web profile and remind me to restart dsh web. If the host is older, explain the incompatibility before installing or upgrading anything.
 ```
 
 To pin the version this document names, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.5.2.tar.gz
+dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.6.0.tar.gz
 ```
 
 The official command installs the dependency into the profile and **joins it into `dsh.profile.bundles` by itself** (any dependency declaring `dsh.bundle` is reconciled into the layer stack), so there is no `package.json` to edit. Restart `dsh web` (or the desktop client) afterwards.
 
 The browser, the CLI, and the desktop client share one profile, so the entry appears in all three.
-
-### DSH version compatibility
-
-Safe Market 0.5.2 requires at least **DSH `0.1.5-rc.1`**, with DSH peer and development dependencies aligned to that baseline. It directly uses the split Session/Workspace Controllers, `uiWorkspace`, and the new Settings Provider API.
-
-This is an intentional compatibility trade-off: Safe Market 0.5.2 **does not support the DSH 0.1.1 or 0.1.2 lines** and no longer includes a fallback to the monolithic `dsh-client-runtime`. Environments that remain on 0.1.1 should keep `dsh-desktop-safe-market@0.3.0`; environments on 0.1.2 (at least `0.1.2-alpha.3`) should keep `dsh-desktop-safe-market@0.4.3`. Upgrade DSH to `0.1.5-rc.1` before upgrading to Safe Market 0.5.2.
 
 ## You turn it on yourself
 
@@ -148,6 +161,7 @@ Override in `~/.dsh/profiles/web/cordis.patch.yml`:
 
 | Field | Default | Meaning |
 | --- | --- | --- |
+| `enabled` | `false` | Allow community catalog reads; page changes are saved live by the host |
 | `catalogBase` | awesome-dsh-plugin's `data/` directory | Point the market at a mirror of the same file |
 | `marketSize` | `1000` | Ceiling on the rows shown. Upstream supplies the catalog in `market.json`; this parameter caps the rows returned to the UI |
 
@@ -170,7 +184,6 @@ Override in `~/.dsh/profiles/web/cordis.patch.yml`:
 - **Skills are read-only for now.** The Skills page answers "what do I have". Skills are distributed as filesystem directories rather than npm packages, so installing them is the next step.
 - **It does not audit what you already installed.** The installed panel views, disables, and uninstalls, but it does not re-review code that is already running — the before-install review is still the gate.
 - **The market does not run the install itself.** The command lives in the prompt and the agent runs it, which is what makes the review impossible to skip — at the cost of no progress display inside the market.
-- **The nav icon is a skin-level swap.** The settings shell hardcodes section nav icons by id (unknown ids get the gear) and the slot contract has no icon option; this plugin finds its own labeled row and re-skins the icon. If the shell restructures, the worst case is the gear returning — nothing functional breaks.
 
 ## Development
 

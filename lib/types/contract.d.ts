@@ -100,7 +100,7 @@ export interface MarketEnvironment {
      */
     readonly version: string;
 }
-/** The `safe-market` settings namespace's durable shape. */
+/** The marketplace's live configuration fields exposed to the browser. */
 export interface SafeMarketSettings {
     /**
      * Whether the market is on. Default false: the tab explains itself and

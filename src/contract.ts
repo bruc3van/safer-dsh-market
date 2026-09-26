@@ -112,7 +112,7 @@ export interface MarketEnvironment {
   readonly version: string
 }
 
-/** The `safe-market` settings namespace's durable shape. */
+/** The marketplace's live configuration fields exposed to the browser. */
 export interface SafeMarketSettings {
   /**
    * Whether the market is on. Default false: the tab explains itself and
@@ -361,7 +361,7 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         codec: {
           mode: 'strict',
           typeSymbol: 'dsh-desktop-safe-market#ForceRefresh',
-          schema: z.boolean(),
+          create: () => z.boolean(),
         },
       },
     ],
@@ -369,7 +369,7 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     result: {
       mode: 'strict',
       typeSymbol: 'dsh-desktop-safe-market#MarketCatalogResult',
-      schema: marketCatalogResultSchema,
+      create: () => marketCatalogResultSchema,
     },
   },
   {
@@ -386,14 +386,14 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         lookup: 'agent',
         // The type symbol must equal the agent lookup provider's wire identity
         // exactly — the gateway's strict path rejects a mismatched symbol.
-        codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-session/types#SessionId', schema: sessionIdSchema },
+        codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-session/types#SessionId', create: () => sessionIdSchema },
       },
     ],
     cancellation: { parameter: 'signal' },
     result: {
       mode: 'strict',
       typeSymbol: 'dsh-desktop-safe-market#MarketSkillsResult',
-      schema: marketSkillsResultSchema,
+      create: () => marketSkillsResultSchema,
     },
   },
   {
@@ -406,7 +406,7 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     result: {
       mode: 'strict',
       typeSymbol: 'dsh-desktop-safe-market#MarketEnvironment',
-      schema: marketEnvironmentSchema,
+      create: () => marketEnvironmentSchema,
     },
   },
   {
@@ -419,7 +419,7 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     result: {
       mode: 'strict',
       typeSymbol: 'dsh-desktop-safe-market#SafeMarketSettings',
-      schema: safeMarketSettingsSchema,
+      create: () => safeMarketSettingsSchema,
     },
   },
   {
@@ -436,14 +436,14 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         codec: {
           mode: 'strict',
           typeSymbol: 'dsh-desktop-safe-market#SafeMarketSettingsUpdate',
-          schema: safeMarketSettingsUpdateSchema,
+          create: () => safeMarketSettingsUpdateSchema,
         },
       },
     ],
     result: {
       mode: 'strict',
       typeSymbol: 'dsh-desktop-safe-market#SafeMarketSettings',
-      schema: safeMarketSettingsSchema,
+      create: () => safeMarketSettingsSchema,
     },
   },
   {
@@ -456,7 +456,7 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     result: {
       mode: 'strict',
       typeSymbol: 'dsh-desktop-safe-market#MarketInstalledResult',
-      schema: marketInstalledResultSchema,
+      create: () => marketInstalledResultSchema,
     },
   },
   {
@@ -473,14 +473,14 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         codec: {
           mode: 'strict',
           typeSymbol: 'dsh-desktop-safe-market#SetInstalledEnabledUpdate',
-          schema: setInstalledEnabledUpdateSchema,
+          create: () => setInstalledEnabledUpdateSchema,
         },
       },
     ],
     result: {
       mode: 'strict',
       typeSymbol: 'dsh-desktop-safe-market#MarketInstalledResult',
-      schema: marketInstalledResultSchema,
+      create: () => marketInstalledResultSchema,
     },
   },
   {
@@ -497,14 +497,14 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         codec: {
           mode: 'strict',
           typeSymbol: 'dsh-desktop-safe-market#UninstallInstalledUpdate',
-          schema: uninstallInstalledUpdateSchema,
+          create: () => uninstallInstalledUpdateSchema,
         },
       },
     ],
     result: {
       mode: 'strict',
       typeSymbol: 'dsh-desktop-safe-market#MarketInstalledResult',
-      schema: marketInstalledResultSchema,
+      create: () => marketInstalledResultSchema,
     },
   },
 ]

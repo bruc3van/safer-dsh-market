@@ -1,7 +1,7 @@
 {
   "name": "dsh-desktop-safe-market",
   "description": "A safety-first plugin marketplace for the DeepSeek Harness web GUI",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "entry": {
     "name": "dsh-desktop-safe-market",
     "inject": [

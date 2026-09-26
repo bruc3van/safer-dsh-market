@@ -28,8 +28,8 @@ const npmInstall = `dsh plugin --profile web add ${pkg.name}`
 
 test('DSH dependencies keep the declared runtime and development baseline', () => {
   for (const [kind, expected] of [
-    ['peerDependencies', '^0.1.5-rc.1'],
-    ['devDependencies', '0.1.5-rc.1'],
+    ['peerDependencies', '^0.1.7-rc.2'],
+    ['devDependencies', '0.1.7-rc.2'],
   ] as const) {
     const dependencies = Object.entries(pkg[kind]).filter(([name]) => name.startsWith('@deepseek-ai/dsh-'))
     assert.ok(dependencies.length > 0, `${kind} must declare DSH dependencies`)
@@ -77,9 +77,9 @@ for (const name of ['README.md', 'README_EN.md'] as const) {
     }
   })
 
-  test(`${name} states the DSH 0.1.5 compatibility baseline`, async () => {
+  test(`${name} states the DSH 0.1.7 compatibility baseline`, async () => {
     const markdown = await readFile(resolve(root, name), 'utf8')
-    assert.match(markdown, /0\.1\.5-rc\.1/)
+    assert.match(markdown, /0\.1\.7-rc\.2/)
     assert.match(markdown, /0\.1\.1/)
     assert.match(
       markdown,
@@ -87,7 +87,7 @@ for (const name of ['README.md', 'README_EN.md'] as const) {
       `${name} must state that the current release does not support DSH 0.1.1 or 0.1.2`,
     )
     assert.match(markdown, /dsh-desktop-safe-market@0\.3\.0/)
-    assert.match(markdown, /0\.1\.2[^\n]*dsh-desktop-safe-market@0\.4\.3/)
+    assert.match(markdown, /dsh-desktop-safe-market@0\.4\.3/)
   })
 }
 

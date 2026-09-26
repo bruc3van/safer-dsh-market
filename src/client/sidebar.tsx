@@ -60,7 +60,7 @@ export function registerMarketSidebar(ctx: Context, injectMarket: () => MarketSe
       id: MARKET_TAB_ID,
       kind: MARKET_TAB_ID,
       title: () => t('nav'),
-      guide: [{ order: 60, title: () => t('nav'), description: () => t('sidebar.description'), icon: MarketIcon }],
+      guide: [{ id: MARKET_TAB_ID, order: 60, title: () => t('nav'), description: () => t('sidebar.description'), icon: MarketIcon }],
     }
     sidebarCtx.effect(() => sidebarCtx.sidebarRightTabs.register(definition), 'safe-market: sidebar type')
     sidebarCtx.effect(() => sidebarCtx.slots.inject('sidebar.right.pane.tab', () => sidebarCtx.slots.register({

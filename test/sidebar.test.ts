@@ -88,6 +88,7 @@ test('sidebar registration waits for its service, shares the face, and follows p
   assert.equal(types.size, 1)
   const definition = types.get(MARKET_TAB_ID)
   assert.equal(definition.kind, MARKET_TAB_ID)
+  assert.equal(definition.guide[0].id, MARKET_TAB_ID)
   assert.equal(definition.title(), '安全市场')
   assert.equal(definition.guide[0].description(), zh['sidebar.description'])
   dictionary = en

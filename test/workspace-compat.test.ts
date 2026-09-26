@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  currentSessionOf,
   workspaceReady,
   workspaceTargetOf,
 } from '../src/client/workspaceCompat.ts'
@@ -30,11 +31,22 @@ test('workspace selection derives the latest target for split Controllers', () =
   }
   assert.equal(workspaceTargetOf(state, {
     phase: 'ready',
-    byId: { s1: { updatedAt: 10 }, s2: { updatedAt: 20 } },
+    byId: { s1: { id: 's1', updatedAt: 10, retainedBy: {} }, s2: { id: 's2', updatedAt: 20, retainedBy: {} } },
   }), 'newer')
   assert.equal(workspaceTargetOf(state, {
     phase: 'ready',
-    current: 's1',
-    byId: { s1: { updatedAt: 10 }, s2: { updatedAt: 20 } },
+    byId: { s1: { id: 's1', updatedAt: 10, retainedBy: { mainView: 1 } }, s2: { id: 's2', updatedAt: 20, retainedBy: {} } },
   }), 'older')
+})
+
+test('current session follows main-view retention rather than sidebar or background ownership', () => {
+  const byId = {
+    side: { id: 'side', updatedAt: 30, retainedBy: { sidebar: 1 } },
+    main: { id: 'main', updatedAt: 10, retainedBy: { mainView: 1 } },
+  }
+  assert.equal(currentSessionOf({ phase: 'ready', byId }), 'main')
+  byId.main.retainedBy.mainView = 0
+  assert.equal(currentSessionOf({ phase: 'ready', byId }), undefined)
+  byId.side.retainedBy.mainView = 1
+  assert.equal(currentSessionOf({ phase: 'ready', byId }), 'side')
 })

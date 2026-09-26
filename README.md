@@ -38,41 +38,54 @@
 
 这个插件把两件事接在一起：一份**已经过人工精选**的社区短名单，和一次**由 Agent 执行的代码审查**。它自己不下载、不执行、不判断，只把请求摆到你面前——这就是它与普通市场的全部差异：**入口是精选的，安装是带审查的。**
 
-## 安装
+## DSH 版本兼容
 
-优先从 [npm](https://www.npmjs.com/package/dsh-desktop-safe-market) 装：
+**Safe Market 0.6.0 最低要求 DSH `0.1.7-rc.2`，不兼容旧版宿主。** 本次升级迁移到了新版接口，没有保留旧版回退路径；不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+
+| DSH 宿主版本 | 应使用的插件版本 | npm 安装目标 |
+| --- | --- | --- |
+| `0.1.7-rc.2`（当前适配并验证的版本） | `0.6.0` | `dsh-desktop-safe-market@0.6.0` |
+| `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
+| `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
+| `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
+
+**旧宿主请固定插件版本，不要直接安装 `latest` 或使用不带版本号的包名升级。** 例如，继续使用 DSH `0.1.5` 时：
 
 ```sh
-dsh plugin --profile web add dsh-desktop-safe-market
+dsh plugin --profile web add dsh-desktop-safe-market@0.5.2
+```
+
+升级到插件 `0.6.0` 时，先将 DSH 升级到 `0.1.7-rc.2`。市场开关现在由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效并在重启后保留。旧版 `settings.yaml` 中的 `safe-market` 设置不会自动迁入；升级后若市场关闭，请在页面上重新启用一次。
+
+## 安装
+
+以下安装命令适用于 DSH `0.1.7-rc.2`。优先从 [npm](https://www.npmjs.com/package/dsh-desktop-safe-market) 安装指定版本：
+
+```sh
+dsh plugin --profile web add dsh-desktop-safe-market@0.6.0
 ```
 
 也可以把安装这件事直接交给你的 Agent——复制这句提示词发过去即可：
 
 ```text
-帮我安装 DSH 安全市场：用官方命令 `dsh plugin --profile web add dsh-desktop-safe-market` 装进 web profile，完成后提醒我重启 dsh web 才会生效。
+帮我安装 DSH 安全市场：先确认宿主为 DSH 0.1.7-rc.2，再用官方命令 `dsh plugin --profile web add dsh-desktop-safe-market@0.6.0` 装进 web profile，完成后提醒我重启 dsh web 才会生效；如果仍在使用旧宿主，先说明版本不兼容，不要直接安装或升级。
 ```
 
 要锁到当前文档对应的那一版，用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.5.2.tar.gz
+dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.6.0.tar.gz
 ```
 
 这条官方命令会把依赖装进 profile，并**自动把它并入 `dsh.profile.bundles`**（凡是声明了 `dsh.bundle` 的依赖都会自动入列），不需要手工改 `package.json`。装完重启 `dsh web`（或桌面客户端）即可。
 
 浏览器与桌面客户端连接同一 profile 时可访问相同市场数据；CLI 用于安装和管理插件，不显示这些界面入口。
 
-### DSH 版本兼容
-
-Safe Market 0.5.2 的最低 DSH 版本为 **`0.1.5-rc.1`**，DSH peer 依赖与开发依赖均以该版本为基线。它直接使用拆分后的 Session/Workspace Controller、`uiWorkspace` 与新版 Settings Provider API。
-
-这是有意的兼容性取舍：Safe Market 0.5.2 **不兼容 DSH 0.1.1 和 0.1.2 系列**，也不再包含旧版单体 `dsh-client-runtime` 的回退路径。仍在使用 0.1.1 的环境请保留 `dsh-desktop-safe-market@0.3.0`；仍在使用 0.1.2（最低 `0.1.2-alpha.3`）的环境请保留 `dsh-desktop-safe-market@0.4.3`。升级到 Safe Market 0.5.2 前，请先将 DSH 升级到 `0.1.5-rc.1`。
-
 ## 首次使用要手动开启
 
 「插件」页的市场部分默认是**关闭**状态，只显示一张说明卡片和一个「启用安全市场」按钮。
 
-这是刻意的：**开启才会让本机去 GitHub 读取目录快照**，关闭时插件不发起任何网络请求。一个装上就开始联网的插件，等于替你做了决定。开关是插件自己的持久化设置，开一次之后一直有效。页面不再提供「停用市场」按钮。
+这是刻意的：**开启才会让本机去 GitHub 读取目录快照**，关闭时插件不发起任何网络请求。一个装上就开始联网的插件，等于替你做了决定。开关是插件自己的持久化配置，开一次之后一直有效。页面不再提供「停用市场」按钮。
 
 ## 「安全安装」做了什么
 
@@ -148,6 +161,7 @@ npm 路径会记录已审查的精确版本及 `dist.integrity`，校验 tarball
 
 | 字段 | 默认值 | 说明 |
 | --- | --- | --- |
+| `enabled` | `false` | 是否允许读取社区目录；页面操作由宿主即时保存 |
 | `catalogBase` | awesome-dsh-plugin 的 `data/` 目录 | 指向该文件的镜像 |
 | `marketSize` | `1000` | 展示条数的上限。条数由上游决定（`market.json`），本参数限制返回给界面的最大条数 |
 
@@ -170,7 +184,6 @@ npm 路径会记录已审查的精确版本及 `dist.integrity`，校验 tarball
 - **只读技能，还不能装技能**：技能页目前只回答「我有什么」。技能的分发形态与插件不同（文件系统目录而非 npm 包），装技能是下一步。
 - **不体检已安装插件**：已安装面板能查看、停用、卸载，但不重新审计已经装上的代码——「装之前」的审查仍然不可省。
 - **市场自己不执行安装**：命令写在提示词里由 Agent 执行，所以审查与安装绑在一起、绕不过去；代价是市场里看不到安装进度。
-- **导航图标是皮肤级的替换**：设置壳按 section id 硬编码导航图标（未知 id 一律齿轮），slot 契约没有图标位。本插件按自己的导航文案找到对应行并替换图标，壳结构变化时最坏退回齿轮，不影响功能。
 
 ## 开发
 

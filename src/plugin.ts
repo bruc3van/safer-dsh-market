@@ -70,7 +70,7 @@ function readSelfVersion(): string {
 export function applyMarket(ctx: Context, resolved: Config): () => void {
   // The durable enable switch: the runtime reads its live value on every
   // call, so toggling it in the Web settings takes effect immediately.
-  const settings = registerSafeMarketSettings(ctx)
+  const settings = registerSafeMarketSettings(ctx, resolved)
   const readSettings = () => settings.get()
   const writeSettings = async (update: SafeMarketSettingsUpdate) => {
     // Write the field the update names. The wire codec (a discriminated

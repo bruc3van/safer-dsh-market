@@ -17,7 +17,7 @@
  * plugins die with the market, and so does any CLI sharing the profile.
  *
  * Hence the split. This file touches only what is bundled into its own
- * artifact (schemastery, the contract's zod codecs) and reaches the body
+ * artifact (schemastery and configuration constants) and reaches the body
  * through a dynamic import inside `ctx.effect`. On a runtime that cannot
  * satisfy it, the import rejects, the market says so once, and every other
  * plugin boots untouched.
@@ -26,7 +26,7 @@
  * before deciding to load anything at all.
  * @module dsh-desktop-safe-market
  */
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { DEFAULT_CATALOG_BASE } from './catalog.ts'
 import { PACKAGE_NAME, PROFILE_NAME_PATTERN } from './shapes.ts'
@@ -60,6 +60,8 @@ export type {
 
 /** Host plugin configuration, validated at load by the Loader. */
 export interface Config {
+  /** Live, profile-persisted permission to fetch the community catalog. */
+  enabled: Volatile<boolean>
   /** Base URL holding `market.json`. */
   catalogBase: string
   /** How many plugins the market shows. */
@@ -78,6 +80,7 @@ export interface Config {
  * command aimed at someone else's.
  */
 export const Config = z.object({
+  enabled: z.boolean().default(false).volatile(),
   catalogBase: z.string().default(DEFAULT_CATALOG_BASE),
   marketSize: z.natural().min(1).default(1000),
   profile: z.string().default('web'),
@@ -91,10 +94,10 @@ export const Config = z.object({
  * inlined module the bundler would have evaluated eagerly — which is the
  * whole point of the split.
  * @param ctx - host cordis context.
- * @param config - plugin configuration (schema defaults applied here).
+ * @param config - Loader-validated configuration, retaining its live references.
  */
 export function apply(ctx: Context, config?: Config): void {
-  const resolved: Config = Config(config ?? {})
+  const resolved: Config = config ?? Config({})
   // The profile is the one configured value that leaves this process as
   // prompt text: it names `--profile` in the install command staged into the
   // composer. `resolveProfileDir` holds it to the launcher's directory rules,
