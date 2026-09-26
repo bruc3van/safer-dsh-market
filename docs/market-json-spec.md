@@ -127,7 +127,7 @@ trim，再按码点截断到上限；截断时以 `…` 结尾，且不得切在
    - （可选加固，建议一并实现）若 `curated.json` 增加了 `excluded_repo_ids`
      （`id → reason` 映射），同样按 `id` 排除——使黑名单在仓库改名后不失效；
    - 不在发布端自排除表：
-     `bruc3van/dsh-desktop`、`bruc3van/dsh-desktop-safe-market`、
+     `bruc3van/dsh-desktop`、`bruc3van/safer-dsh-market`、
      `bruc3van/awesome-dsh-plugin`；
    - 类目可判定（规则匹配或 override 命中；`category_overrides` 沿用现有逻辑，键
      大小写不敏感）。

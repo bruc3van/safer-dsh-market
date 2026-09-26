@@ -1,6 +1,6 @@
 # safer-dsh-market
 
-包名已由 `dsh-desktop-safe-market` 改为 `safer-dsh-market`。新名称需要单独发布到 npm 并配置 Trusted Publisher；旧包不会自动升级为新包。迁移时先停用旧插件，再安装并启用新插件，按需重新设置原来的配置。缓存和待卸载记录继续沿用原存储路径。GitHub 仓库地址保持不变。
+包名已由 `dsh-desktop-safe-market` 改为 `safer-dsh-market`。新名称需要单独发布到 npm 并配置 Trusted Publisher；旧包不会自动升级为新包。迁移时先停用旧插件，再安装并启用新插件，按需重新设置原来的配置。缓存和待卸载记录继续沿用原存储路径。GitHub 仓库同步更名为 `bruc3van/safer-dsh-market`。
 
 **发现插件，按需安装。**
 
@@ -26,7 +26,7 @@
 
 - **入口**：保留左侧导航和右侧栏，设置页不再重复提供市场入口。
 - **刷新市场**：右上角读取最新市场目录，刷新中显示状态并禁止重复点击。
-- **更多操作（⋯）**：包含「升级市场插件」、[GitHub 仓库](https://github.com/bruc3van/dsh-desktop-safe-market)和[联系作者](https://x.com/bruc3van)。升级仍先准备审查提示词。
+- **更多操作（⋯）**：包含「升级市场插件」、[GitHub 仓库](https://github.com/bruc3van/safer-dsh-market)和[联系作者](https://x.com/bruc3van)。升级仍先准备审查提示词。
 - **滚动浏览**：标题、副标题、标签栏和搜索区域固定；分类与卡片列表独立滚动。宽度足够时，向后浏览会把搜索框带动效移到标签栏右侧，反向滚动恢复；窄侧栏保留整行搜索。
 - **回到顶部**：列表滚动超过约半屏（至少 240px）后，右下角显示按钮，返回当前列表顶部；支持系统减少动效偏好。
 
@@ -72,7 +72,7 @@ dsh plugin --profile web add safer-dsh-market@0.7.1
 要锁到当前文档对应的那一版，用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.7.1.tar.gz
+dsh plugin --profile web add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.7.1.tar.gz
 ```
 
 这条官方命令会把依赖装进 profile，并**自动把它并入 `dsh.profile.bundles`**（凡是声明了 `dsh.bundle` 的依赖都会自动入列），不需要手工改 `package.json`。装完重启 `dsh web`（或桌面客户端）即可。
@@ -188,7 +188,7 @@ pnpm run build     # lib/index.js（Host，ESM）、lib/client.js（浏览器，
 
 发版时版本号有几处要一起动：`package.json`、`dsh.plugin.json`，以及两份 README 里的 tarball 地址。`pnpm test` 里的版本门禁（`test/version.test.ts`）会核对这几处，以及 README 是否仍给出 npm 包名安装命令；CI（`.github/workflows/check.yml`）在每次推送与 PR 上跑同一套检查。
 
-推送 `vX.Y.Z` 标签后，CI（`.github/workflows/release.yml`）会切 GitHub Release，并用 Trusted Publishing 把同一版本发到 [npm](https://www.npmjs.com/package/safer-dsh-market)——不必再手工 `npm publish`。第一次需要在 npm 包设置里把本仓库的 `release.yml` 配成 Trusted Publisher（user `bruc3van`，repo `dsh-desktop-safe-market`，workflow filename `release.yml`，允许 `npm publish`）。
+推送 `vX.Y.Z` 标签后，CI（`.github/workflows/release.yml`）会切 GitHub Release，并用 Trusted Publishing 把同一版本发到 [npm](https://www.npmjs.com/package/safer-dsh-market)——不必再手工 `npm publish`。第一次需要在 npm 包设置里把本仓库的 `release.yml` 配成 Trusted Publisher（user `bruc3van`，repo `safer-dsh-market`，workflow filename `release.yml`，允许 `npm publish`）。
 
 `devDependencies` 固定在与运行时一致的 `@deepseek-ai/*` 已发布版本上；`peerDependencies` 全部可选，实际由 profile 的 node_modules 提供。
 

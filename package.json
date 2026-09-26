@@ -5,13 +5,13 @@
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
-  "homepage": "https://github.com/bruc3van/dsh-desktop-safe-market#readme",
+  "homepage": "https://github.com/bruc3van/safer-dsh-market#readme",
   "bugs": {
-    "url": "https://github.com/bruc3van/dsh-desktop-safe-market/issues"
+    "url": "https://github.com/bruc3van/safer-dsh-market/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bruc3van/dsh-desktop-safe-market.git"
+    "url": "git+https://github.com/bruc3van/safer-dsh-market.git"
   },
   "keywords": [
     "dsh",

@@ -1060,7 +1060,7 @@ export function MarketSection({
               ? t('installing')
               : t('self.upgrade')}
         </button>
-        <a className="dsh_market_headerAction" href="https://github.com/bruc3van/dsh-desktop-safe-market" target="_blank" rel="noopener noreferrer">
+        <a className="dsh_market_headerAction" href="https://github.com/bruc3van/safer-dsh-market" target="_blank" rel="noopener noreferrer">
           <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M9 19c-4.3 1.3-4.3-2.2-6-2.7M15 22v-3.8a3.3 3.3 0 0 0-.9-2.5c3-.3 6.2-1.5 6.2-6.9a5.4 5.4 0 0 0-1.5-3.8 5 5 0 0 0-.1-3.8s-1.2-.4-3.9 1.4a13.4 13.4 0 0 0-7 0C5.1.8 3.9 1.2 3.9 1.2A5 5 0 0 0 3.8 5a5.4 5.4 0 0 0-1.5 3.8c0 5.4 3.2 6.6 6.2 6.9a3.3 3.3 0 0 0-.9 2.5V22" />
           </svg>

@@ -39,10 +39,10 @@ export function installedUpdateCardKey(packageName: string): string {
  * MarketPlugin shape lets the header use the exact same hand-off as a card.
  */
 export const SELF_MARKET_PLUGIN: MarketPlugin = {
-  fullName: 'bruc3van/dsh-desktop-safe-market',
+  fullName: 'bruc3van/safer-dsh-market',
   owner: 'bruc3van',
   name: PACKAGE_NAME,
-  url: 'https://github.com/bruc3van/dsh-desktop-safe-market',
+  url: 'https://github.com/bruc3van/safer-dsh-market',
   description: '',
   stars: 0,
   language: 'TypeScript',

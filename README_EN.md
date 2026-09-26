@@ -1,6 +1,6 @@
 # safer-dsh-market
 
-The package has been renamed from `dsh-desktop-safe-market` to `safer-dsh-market`. The new npm package requires its own publication and Trusted Publisher setup; the old package does not automatically upgrade to it. Disable the old plugin before installing and enabling the new one, and reapply configuration as needed. Cache and pending-removal storage paths are preserved. The GitHub repository URL is unchanged.
+The package has been renamed from `dsh-desktop-safe-market` to `safer-dsh-market`. The new npm package requires its own publication and Trusted Publisher setup; the old package does not automatically upgrade to it. Disable the old plugin before installing and enabling the new one, and reapply configuration as needed. Cache and pending-removal storage paths are preserved. The GitHub repository is also renamed to `bruc3van/safer-dsh-market`.
 
 **Discover plugins. Install what you need.**
 
@@ -26,7 +26,7 @@ Both views share the market switch and operations. Left navigation requires DSH'
 
 - **Navigation:** left navigation and the right sidebar remain; the duplicate Settings entry has been removed.
 - **Refresh market:** the upper-right action fetches the latest catalog, shows progress, and prevents repeated clicks while refreshing.
-- **More actions (⋯):** upgrade the market plugin through the review-prompt flow, open the [GitHub repository](https://github.com/bruc3van/dsh-desktop-safe-market), or [contact the author](https://x.com/bruc3van).
+- **More actions (⋯):** upgrade the market plugin through the review-prompt flow, open the [GitHub repository](https://github.com/bruc3van/safer-dsh-market), or [contact the author](https://x.com/bruc3van).
 - **Scrolling:** the heading, subtitle, tabs, and search remain visible while categories and cards scroll independently. In wide panels, browsing forward animates search into the right end of the tab row; reverse scrolling restores it. Narrow sidebars keep the full-row search.
 - **Back to top:** after roughly half a screen (at least 240px), a lower-right button returns the current list to the top. Reduced-motion preferences are respected.
 
@@ -72,7 +72,7 @@ Install DSH Safe Market for me: first confirm that the host is DSH 0.1.7-rc.2, t
 To pin the version this document names, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.7.1.tar.gz
+dsh plugin --profile web add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.7.1.tar.gz
 ```
 
 The official command installs the dependency into the profile and **joins it into `dsh.profile.bundles` by itself** (any dependency declaring `dsh.bundle` is reconciled into the layer stack), so there is no `package.json` to edit. Restart `dsh web` (or the desktop client) afterwards.
@@ -188,7 +188,7 @@ pnpm run build     # lib/index.js (Host ESM), lib/client.js (browser, ModuleLoad
 
 A version bump has places that must move together: `package.json`, `dsh.plugin.json`, and the tarball URLs in both READMEs. The version gate in `pnpm test` (`test/version.test.ts`) checks those, and that each README still offers the npm package-name install; CI (`.github/workflows/check.yml`) runs the same check on every push and PR.
 
-Pushing a `vX.Y.Z` tag is what publishes: CI (`.github/workflows/release.yml`) cuts the GitHub Release and Trusted-Publishes the same version to [npm](https://www.npmjs.com/package/safer-dsh-market) — there is no separate `npm publish` to remember. The first time, the npm package settings need this repository's `release.yml` registered as a Trusted Publisher (user `bruc3van`, repo `dsh-desktop-safe-market`, workflow filename `release.yml`, allow `npm publish`).
+Pushing a `vX.Y.Z` tag is what publishes: CI (`.github/workflows/release.yml`) cuts the GitHub Release and Trusted-Publishes the same version to [npm](https://www.npmjs.com/package/safer-dsh-market) — there is no separate `npm publish` to remember. The first time, the npm package settings need this repository's `release.yml` registered as a Trusted Publisher (user `bruc3van`, repo `safer-dsh-market`, workflow filename `release.yml`, allow `npm publish`).
 
 `devDependencies` are pinned to the published `@deepseek-ai/*` versions the runtime actually loads; every `peerDependency` is optional and supplied by the profile's node_modules.
 
