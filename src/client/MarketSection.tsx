@@ -116,7 +116,7 @@ export interface MarketSectionInjected {
 export type MarketSectionProps =
   { close: () => void }
   & InjectFace<MarketSectionInjected>
-  & PropsLocale<'settings.safeMarket'>
+  & PropsLocale<'settings.saferMarket'>
 
 type CatalogState =
   | { readonly status: 'idle' }

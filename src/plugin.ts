@@ -1,5 +1,5 @@
 /**
- * The market's actual body: mounts the `safeMarket` Typert Remote service
+ * The market's actual body: mounts the `saferMarket` Typert Remote service
  * (the reduced community plugin catalog, the deployment's resolvable skills,
  * and the market's own durable settings) and registers its strict Typert
  * manifest. The client half ships in the same package (`./client`); the web

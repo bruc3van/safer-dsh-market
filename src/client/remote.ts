@@ -1,6 +1,6 @@
 /**
- * The client-side Typert Remote contribution for the safeMarket host service:
- * mounts the shared strict descriptors into `ctx.remote.safeMarket`. The
+ * The client-side Typert Remote contribution for the saferMarket host service:
+ * mounts the shared strict descriptors into `ctx.remote.saferMarket`. The
  * descriptors and codecs come from the shared contract module, so the browser
  * bundle and the host manifest stay on one wire definition.
  */
@@ -17,7 +17,7 @@ import type {
   UninstallInstalledUpdate,
 } from '../contract.ts'
 
-/** The safeMarket Remote namespace's client contribution. */
+/** The saferMarket Remote namespace's client contribution. */
 export const SAFE_MARKET_REMOTE: TypertRemoteContribution = {
   package: 'safer-dsh-market',
   descriptors: SAFE_MARKET_INVOCATIONS,
@@ -25,12 +25,12 @@ export const SAFE_MARKET_REMOTE: TypertRemoteContribution = {
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   // Typed face of the mounted namespace. Note: the runtime access is NOT the
-  // dotted `ctx.remote.safeMarket` read — that path walks the cordis fiber
+  // dotted `ctx.remote.saferMarket` read — that path walks the cordis fiber
   // chain and stops at the Loader's runtime-less internal forks between a
   // plugin entry and the root fiber. The plugin resolves the namespace
-  // service through `ctx.reflect.get('remote.safeMarket')` instead
+  // service through `ctx.reflect.get('remote.saferMarket')` instead
   // (see client/index.ts).
-  /** The `safeMarket` namespace face mounted under `ctx.remote.safeMarket`. */
+  /** The `saferMarket` namespace face mounted under `ctx.remote.saferMarket`. */
   interface TypertRemoteNamespace$736166654d61726b6574 {
     getCatalog: (force: boolean, signal?: AbortSignal) => Promise<RemoteResult<MarketCatalogResult>>
     // The `agent` lookup parameter marshals as the first positional argument
@@ -44,16 +44,16 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     uninstallInstalled: (update: UninstallInstalledUpdate) => Promise<RemoteResult<MarketInstalledResult>>
   }
   interface TypertRemoteMap {
-    'safeMarket/getCatalog': (force: boolean, signal?: AbortSignal) => Promise<RemoteResult<MarketCatalogResult>>
-    'safeMarket/listSkills': (agentId: string, signal?: AbortSignal) => Promise<RemoteResult<MarketSkillsResult>>
-    'safeMarket/describe': () => Promise<RemoteResult<MarketEnvironment>>
-    'safeMarket/getSettings': () => Promise<RemoteResult<SafeMarketSettings>>
-    'safeMarket/updateSettings': (update: SafeMarketSettingsUpdate) => Promise<RemoteResult<SafeMarketSettings>>
-    'safeMarket/listInstalled': () => Promise<RemoteResult<MarketInstalledResult>>
-    'safeMarket/setInstalledEnabled': (update: SetInstalledEnabledUpdate) => Promise<RemoteResult<MarketInstalledResult>>
-    'safeMarket/uninstallInstalled': (update: UninstallInstalledUpdate) => Promise<RemoteResult<MarketInstalledResult>>
+    'saferMarket/getCatalog': (force: boolean, signal?: AbortSignal) => Promise<RemoteResult<MarketCatalogResult>>
+    'saferMarket/listSkills': (agentId: string, signal?: AbortSignal) => Promise<RemoteResult<MarketSkillsResult>>
+    'saferMarket/describe': () => Promise<RemoteResult<MarketEnvironment>>
+    'saferMarket/getSettings': () => Promise<RemoteResult<SafeMarketSettings>>
+    'saferMarket/updateSettings': (update: SafeMarketSettingsUpdate) => Promise<RemoteResult<SafeMarketSettings>>
+    'saferMarket/listInstalled': () => Promise<RemoteResult<MarketInstalledResult>>
+    'saferMarket/setInstalledEnabled': (update: SetInstalledEnabledUpdate) => Promise<RemoteResult<MarketInstalledResult>>
+    'saferMarket/uninstallInstalled': (update: UninstallInstalledUpdate) => Promise<RemoteResult<MarketInstalledResult>>
   }
   interface TypertRemoteNamespaceMap {
-    safeMarket: TypertRemoteNamespace$736166654d61726b6574
+    saferMarket: TypertRemoteNamespace$736166654d61726b6574
   }
 }

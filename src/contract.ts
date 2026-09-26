@@ -1,5 +1,5 @@
 /**
- * The safeMarket wire contract, shared verbatim by the host manifest
+ * The saferMarket wire contract, shared verbatim by the host manifest
  * (`ctx.typert.register` in typert.ts) and the client contribution
  * (`ctx.remote.$mount` in client/remote.ts). The service exposes the reduced
  * community catalog and the plugin's own durable settings.
@@ -356,12 +356,12 @@ export const uninstallInstalledUpdateSchema = z.object({
   packageName: packageNameSchema,
 }).readonly()
 
-/** The safeMarket Remote namespace's strict invocation descriptors. */
+/** The saferMarket Remote namespace's strict invocation descriptors. */
 export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
   {
-    id: 'safer-dsh-market#safeMarket/getCatalog',
-    service: 'safeMarket',
-    namespace: 'safeMarket',
+    id: 'safer-dsh-market#saferMarket/getCatalog',
+    service: 'saferMarket',
+    namespace: 'saferMarket',
     method: 'getCatalog',
     invocation: { kind: 'direct' },
     parameters: [
@@ -384,9 +384,9 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     },
   },
   {
-    id: 'safer-dsh-market#safeMarket/listSkills',
-    service: 'safeMarket',
-    namespace: 'safeMarket',
+    id: 'safer-dsh-market#saferMarket/listSkills',
+    service: 'saferMarket',
+    namespace: 'saferMarket',
     method: 'listSkills',
     invocation: { kind: 'direct' },
     parameters: [
@@ -408,9 +408,9 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     },
   },
   {
-    id: 'safer-dsh-market#safeMarket/describe',
-    service: 'safeMarket',
-    namespace: 'safeMarket',
+    id: 'safer-dsh-market#saferMarket/describe',
+    service: 'saferMarket',
+    namespace: 'saferMarket',
     method: 'describe',
     invocation: { kind: 'direct' },
     parameters: [],
@@ -421,9 +421,9 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     },
   },
   {
-    id: 'safer-dsh-market#safeMarket/getSettings',
-    service: 'safeMarket',
-    namespace: 'safeMarket',
+    id: 'safer-dsh-market#saferMarket/getSettings',
+    service: 'saferMarket',
+    namespace: 'saferMarket',
     method: 'getSettings',
     invocation: { kind: 'direct' },
     parameters: [],
@@ -434,9 +434,9 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     },
   },
   {
-    id: 'safer-dsh-market#safeMarket/updateSettings',
-    service: 'safeMarket',
-    namespace: 'safeMarket',
+    id: 'safer-dsh-market#saferMarket/updateSettings',
+    service: 'saferMarket',
+    namespace: 'saferMarket',
     method: 'updateSettings',
     invocation: { kind: 'direct' },
     parameters: [
@@ -458,9 +458,9 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     },
   },
   {
-    id: 'safer-dsh-market#safeMarket/listInstalled',
-    service: 'safeMarket',
-    namespace: 'safeMarket',
+    id: 'safer-dsh-market#saferMarket/listInstalled',
+    service: 'saferMarket',
+    namespace: 'saferMarket',
     method: 'listInstalled',
     invocation: { kind: 'direct' },
     parameters: [],
@@ -471,9 +471,9 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     },
   },
   {
-    id: 'safer-dsh-market#safeMarket/setInstalledEnabled',
-    service: 'safeMarket',
-    namespace: 'safeMarket',
+    id: 'safer-dsh-market#saferMarket/setInstalledEnabled',
+    service: 'saferMarket',
+    namespace: 'saferMarket',
     method: 'setInstalledEnabled',
     invocation: { kind: 'direct' },
     parameters: [
@@ -495,9 +495,9 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     },
   },
   {
-    id: 'safer-dsh-market#safeMarket/uninstallInstalled',
-    service: 'safeMarket',
-    namespace: 'safeMarket',
+    id: 'safer-dsh-market#saferMarket/uninstallInstalled',
+    service: 'saferMarket',
+    namespace: 'saferMarket',
     method: 'uninstallInstalled',
     invocation: { kind: 'direct' },
     parameters: [

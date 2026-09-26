@@ -1,8 +1,8 @@
 /**
- * The safe-market Host Remote service (`ctx.safeMarket`, wire namespace
- * `safeMarket`). Registered as a TypertRemoteService so the Host Gateway
+ * The safe-market Host Remote service (`ctx.saferMarket`, wire namespace
+ * `saferMarket`). Registered as a TypertRemoteService so the Host Gateway
  * exports its `@Remote` methods to the Web client under
- * `/api/safeMarket/<method>`.
+ * `/api/saferMarket/<method>`.
  *
  * The catalog read lives here rather than in the browser for two reasons:
  * the crawl is 2.4 MB and the browser needs 1000 rows of it, and the rows
@@ -28,7 +28,7 @@ import type {
 /** Market service: the reduced catalog, the plugin's durable settings, and the installed-panel verbs. */
 export class SafeMarketRuntime extends TypertRemoteService {
   /**
-   * Register the service under the `safeMarket` key (the wire namespace).
+   * Register the service under the `saferMarket` key (the wire namespace).
    * @param ctx - owning cordis context.
    * @param catalog - the catalog reader.
    * @param readSettings - live settings read.
@@ -44,7 +44,7 @@ export class SafeMarketRuntime extends TypertRemoteService {
     private readonly environment: MarketEnvironment,
     private readonly installed: InstalledManager,
   ) {
-    super(ctx, 'safeMarket')
+    super(ctx, 'saferMarket')
   }
 
   /**

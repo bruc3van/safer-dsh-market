@@ -1,5 +1,5 @@
 /**
- * The hand-written Host Typert manifest for the safeMarket Remote. Registered
+ * The hand-written Host Typert manifest for the saferMarket Remote. Registered
  * through `ctx.typert.register` in the plugin body, it claims the wire
  * endpoints through the strict registry — the same path generated `./typert`
  * artifacts use — so the Host Gateway resolves the market's calls without
@@ -9,5 +9,5 @@
  * decorator module state.
  */
 import type { TypertContribution } from '@deepseek-ai/dsh-typert-registry/types';
-/** The safeMarket namespace's host manifest (strict codecs shared with the client). */
+/** The saferMarket namespace's host manifest (strict codecs shared with the client). */
 export declare const TYPERT_MANIFEST: TypertContribution;

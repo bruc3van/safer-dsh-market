@@ -6,11 +6,11 @@ export { NO_SESSION, SESSIONS_PENDING } from './SkillsView.tsx';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface LocaleNamespaceMap {
         /** The safe plugin marketplace's copy. */
-        'settings.safeMarket': SafeMarketLocaleKey;
+        'settings.saferMarket': SafeMarketLocaleKey;
     }
 }
 /** Dictionary namespace owned by this plugin. */
-export declare const NS = "settings.safeMarket";
+export declare const NS = "settings.saferMarket";
 /** Required DSH services: locale, Remote, split Controllers, navigation, and conversation. */
 export declare const inject: string[];
 /**

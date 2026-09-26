@@ -1,5 +1,5 @@
 /**
- * The safeMarket wire contract, shared verbatim by the host manifest
+ * The saferMarket wire contract, shared verbatim by the host manifest
  * (`ctx.typert.register` in typert.ts) and the client contribution
  * (`ctx.remote.$mount` in client/remote.ts). The service exposes the reduced
  * community catalog and the plugin's own durable settings.
@@ -454,5 +454,5 @@ export declare const setInstalledEnabledUpdateSchema: z.ZodReadonly<z.ZodObject<
 export declare const uninstallInstalledUpdateSchema: z.ZodReadonly<z.ZodObject<{
     packageName: z.ZodString;
 }, z.core.$strip>>;
-/** The safeMarket Remote namespace's strict invocation descriptors. */
+/** The saferMarket Remote namespace's strict invocation descriptors. */
 export declare const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[];

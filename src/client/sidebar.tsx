@@ -7,7 +7,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import { MarketSection, type MarketSectionInjected } from './MarketSection.tsx'
 
 export const MARKET_TAB_ID = 'safer-dsh-market'
-const NS = 'settings.safeMarket'
+const NS = 'settings.saferMarket'
 
 type MarketSidebarProps = PropsRuntime<'sidebar.right.pane.tab'>
   & InjectFace<MarketSectionInjected> & PropsLocale<typeof NS>

@@ -1,5 +1,5 @@
 /**
- * `settings.safeMarket` locale namespace: the market tab's copy.
+ * `settings.saferMarket` locale namespace: the market tab's copy.
  * Chinese is the product copy; English mirrors it.
  */
 /**

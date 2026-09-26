@@ -49,30 +49,46 @@ test('built market boots, exposes all RPC codecs, persists its switch, and resto
       })
       contexts.push(ctx)
       await ctx.loader.await()
-      assert.ok(ctx.get('safeMarket'), 'the built body must mount under the real Loader')
+      assert.ok(ctx.get('saferMarket'), 'the built body must mount under the real Loader')
       return ctx
     }
     const first = await start()
-    const market = first.get('safeMarket')
+    const market = first.get('saferMarket')
     assert.deepEqual(market.getSettings(), { enabled: false })
     assert.equal(market.describe().profile, 'test')
     assert.equal(first.settings.describe().find(row => row.ns === 'renamed-market').autoGenerate, false)
     await assert.rejects(market.getCatalog(false, new AbortController().signal), /disabled/)
     for (const descriptor of SAFE_MARKET_INVOCATIONS) {
-      const registered = first.typert.local.get(`safeMarket/${descriptor.method}`)
+      const registered = first.typert.local.get(`saferMarket/${descriptor.method}`)
       assert.ok(registered, `${descriptor.method} must be registered`)
       const codecs = [...registered.parameters.map(param => param.codec), registered.result]
       for (const codec of codecs) assert.equal(typeof codec.create().safeParse, 'function')
     }
+    // A legacy market may still be present while the renamed package starts.
+    // Its strict endpoint withdrawal must not invalidate the new namespace.
+    const legacyInvocations = SAFE_MARKET_INVOCATIONS.map(descriptor => ({
+      ...descriptor,
+      id: descriptor.id.replace('safer-dsh-market#saferMarket/', 'dsh-desktop-safe-market#safeMarket/'),
+      service: 'safeMarket', namespace: 'safeMarket',
+    }))
+    const legacy = first.typert.register({
+      package: 'dsh-desktop-safe-market', face: 'host', schemas: [],
+      model: { services: [], events: [], objects: [] }, invocations: legacyInvocations,
+    })
+    assert.ok(first.typert.local.get('safeMarket/updateSettings'))
+    await legacy()
+    assert.equal(first.typert.local.get('safeMarket/updateSettings'), undefined)
+    assert.ok(first.typert.local.hasSeen('safeMarket/updateSettings'))
+    assert.ok(first.typert.local.get('saferMarket/updateSettings'), 'legacy teardown must preserve the new strict endpoint')
     assert.deepEqual(await market.listInstalled(), { packages: [], profile: 'test', error: '' })
     assert.deepEqual(await market.updateSettings({ field: 'enabled', value: true }), { enabled: true })
     assert.deepEqual(market.getSettings(), { enabled: true }, 'the original service must observe live edits')
     assert.match(await readFile(profile.patchPath, 'utf8'), /enabled: true/)
     await first.fiber.dispose()
     const second = await start()
-    assert.deepEqual(second.get('safeMarket').getSettings(), { enabled: true })
-    await second.get('safeMarket').updateSettings({ field: 'enabled', value: false })
-    assert.deepEqual(second.get('safeMarket').getSettings(), { enabled: false })
+    assert.deepEqual(second.get('saferMarket').getSettings(), { enabled: true })
+    await second.get('saferMarket').updateSettings({ field: 'enabled', value: false })
+    assert.deepEqual(second.get('saferMarket').getSettings(), { enabled: false })
   } finally {
     for (const ctx of contexts.reverse()) await ctx.fiber.dispose()
     if (previousHome === undefined) delete process.env.DSH_HOME
