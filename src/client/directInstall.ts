@@ -1,10 +1,25 @@
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { isInstallSpec } from '../installInfo.ts'
 
-type Manager = Context['remote']['pluginManager']
-type RequestId = NonNullable<Parameters<Manager['installBundle']>[1]>['requestId']
-export type InstallHost = Pick<Manager, 'inspect' | 'installBundle' | 'cancelInstall' | 'waitForInstall'>
+// Structural boundary for the optional host service. Do not rely on ambient
+// plugin-manager declarations contributed by unrelated development packages.
+type Reply<T> = { ok: true; value: T } | { ok: false; error: { message: string } }
+type RequestId = string | undefined
+interface InstallResult {
+  application: 'applied' | 'restart-required' | 'overridden' | 'failed' | 'cancelled'
+  pendingBuilds?: string[]
+  warnings?: string[]
+  error?: { code: string; diagnostic?: string; incompatible?: { name: string; version: string; peers: Record<string, string> }[] }
+  packageResult?: { output?: string }
+}
+export interface InstallHost {
+  inspect(spec: string): Promise<Reply<
+    { status: 'accepted'; registry: string | null } |
+    { status: 'refused'; problem: string; reason: string }
+  >>
+  installBundle(spec: string, options?: { requestId?: string; registry?: string | null; enabled?: boolean; approvedBuilds?: string[] }): Promise<Reply<InstallResult>>
+  cancelInstall(requestId: string): Promise<Reply<{ status: string }>>
+  waitForInstall(requestId: string): Promise<Reply<InstallResult | null>>
+}
 export interface DirectState {
   phase: 'idle' | 'checking' | 'installing' | 'cancelling' | 'unknown' | 'done' | 'failed'
   spec: string

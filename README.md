@@ -38,11 +38,11 @@
 
 ## DSH 版本兼容
 
-**Safe Market 0.7.0 最低要求 DSH `0.1.7-rc.2`，不兼容旧版宿主。** 本次升级迁移到了新版接口，没有保留旧版回退路径；不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+**Safe Market 0.7.1 最低要求 DSH `0.1.7-rc.2`，不兼容旧版宿主。** 本次升级迁移到了新版接口，没有保留旧版回退路径；不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 应使用的插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.1.7-rc.2`（当前适配并验证的版本） | `0.7.0` | `safer-dsh-market@0.7.0` |
+| `0.1.7-rc.2`（当前适配并验证的版本） | `0.7.1` | `safer-dsh-market@0.7.1` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -53,26 +53,26 @@
 dsh plugin --profile web add dsh-desktop-safe-market@0.5.2
 ```
 
-升级到插件 `0.7.0` 时，先将 DSH 升级到 `0.1.7-rc.2`。市场开关现在由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效并在重启后保留。旧版 `settings.yaml` 中的 `safe-market` 设置不会自动迁入；升级后若市场关闭，请在页面上重新启用一次。
+升级到插件 `0.7.1` 时，先将 DSH 升级到 `0.1.7-rc.2`。市场开关现在由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效并在重启后保留。旧版 `settings.yaml` 中的 `safe-market` 设置不会自动迁入；升级后若市场关闭，请在页面上重新启用一次。
 
 ## 安装
 
 以下安装命令适用于 DSH `0.1.7-rc.2`。优先从 [npm](https://www.npmjs.com/package/safer-dsh-market) 安装指定版本：
 
 ```sh
-dsh plugin --profile web add safer-dsh-market@0.7.0
+dsh plugin --profile web add safer-dsh-market@0.7.1
 ```
 
 也可以把安装这件事直接交给你的 Agent——复制这句提示词发过去即可：
 
 ```text
-帮我安装 DSH 安全市场：先确认宿主为 DSH 0.1.7-rc.2，再用官方命令 `dsh plugin --profile web add safer-dsh-market@0.7.0` 装进 web profile，完成后提醒我重启 dsh web 才会生效；如果仍在使用旧宿主，先说明版本不兼容，不要直接安装或升级。
+帮我安装 DSH 安全市场：先确认宿主为 DSH 0.1.7-rc.2，再用官方命令 `dsh plugin --profile web add safer-dsh-market@0.7.1` 装进 web profile，完成后提醒我重启 dsh web 才会生效；如果仍在使用旧宿主，先说明版本不兼容，不要直接安装或升级。
 ```
 
 要锁到当前文档对应的那一版，用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.7.0.tar.gz
+dsh plugin --profile web add https://github.com/bruc3van/dsh-desktop-safe-market/archive/refs/tags/v0.7.1.tar.gz
 ```
 
 这条官方命令会把依赖装进 profile，并**自动把它并入 `dsh.profile.bundles`**（凡是声明了 `dsh.bundle` 的依赖都会自动入列），不需要手工改 `package.json`。装完重启 `dsh web`（或桌面客户端）即可。
