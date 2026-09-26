@@ -87,6 +87,10 @@ export const cssText = `
 .dsh_market_directPanel .dsh_market_installChoice { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; margin: 6px 0; border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; font-size: 13px; cursor: pointer; }
 .dsh_market_installChoice:has(input:checked) { background: var(--dsw-alias-interactive-bg-hover); border-color: var(--dsw-alias-label-secondary); }
 .dsh_market_installChoice input { flex: none; margin: 0; accent-color: var(--dsw-alias-label-primary); }
+.dsh_market_installQueue { list-style: none; padding: 0; margin: 16px 0; }
+.dsh_market_installQueue li { padding: 10px 0; border-bottom: 1px solid var(--dsw-alias-border-l2); overflow-wrap: anywhere; }
+.dsh_market_installQueue small { display: block; margin-top: 4px; color: var(--dsw-alias-label-secondary); }
+.dsh_market_installChoices p { font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .dsh_market_installChoice span { min-width: 0; overflow-wrap: anywhere; }
 .dsh_market_installDetails { margin: 20px 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .dsh_market_installDetails summary { cursor: pointer; width: fit-content; }

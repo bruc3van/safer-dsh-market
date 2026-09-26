@@ -50,11 +50,18 @@ export interface DirectState {
     message: string;
     application?: string;
     pendingBuilds: string[];
+    queue: {
+        spec: string;
+        phase: DirectState['phase'];
+        application?: string;
+        message: string;
+    }[];
 }
 export declare function createDirectInstaller(host: () => InstallHost | undefined): {
     getSnapshot: () => DirectState;
     subscribe: (fn: () => void) => () => void;
-    start: (spec: string, builds?: string[]) => Promise<void>;
+    start(input: string | string[]): Promise<void>;
+    retry(): Promise<void>;
     reset(): void;
     approve: () => Promise<void>;
     cancel(): Promise<void>;

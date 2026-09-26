@@ -76,3 +76,85 @@ test('concurrent clicks share one operation and cancellation waits for host sett
   await pending
   assert.equal(installer.getSnapshot().application, 'cancelled')
 })
+
+test('multiple selections install sequentially and deduplicate targets', async () => {
+  const calls: string[] = []
+  let active = 0
+  const installer = createDirectInstaller(() => host({ installBundle: async spec => {
+    assert.equal(active++, 0)
+    calls.push(spec)
+    await new Promise(resolve => setImmediate(resolve))
+    active--
+    return { ok: true, value: { application: spec === 'one' ? 'restart-required' : 'applied' } }
+  } }))
+  await installer.start(['one', 'two', 'one'])
+  assert.deepEqual(calls, ['one', 'two'])
+  assert.deepEqual(installer.getSnapshot().queue.map(entry => entry.application), ['restart-required', 'applied'])
+})
+
+test('failure pauses queue; retry does not repeat completed components', async () => {
+  const calls: string[] = []
+  const installer = createDirectInstaller(() => host({ installBundle: async spec => {
+    calls.push(spec)
+    return { ok: true, value: { application: calls.length === 2 ? 'failed' : 'applied' } }
+  } }))
+  await installer.start(['one', 'two', 'three'])
+  assert.deepEqual(calls, ['one', 'two'])
+  assert.equal(installer.getSnapshot().queue[2]?.phase, 'idle')
+  await installer.retry()
+  assert.deepEqual(calls, ['one', 'two', 'two', 'three'])
+})
+
+test('script permission pauses the queue and applies only to the current component', async () => {
+  const calls: {spec: string; builds: string[] | undefined}[] = []
+  const installer = createDirectInstaller(() => host({ installBundle: async (spec, options) => {
+    calls.push({ spec, builds: options?.approvedBuilds })
+    return calls.length === 1 ? { ok: true, value: { application: 'failed', pendingBuilds: ['native-addon'] } }
+      : { ok: true, value: { application: 'applied' } }
+  } }))
+  await installer.start(['one', 'two'])
+  await installer.retry()
+  assert.equal(calls.length, 1)
+  await installer.approve()
+  assert.deepEqual(calls, [{spec:'one',builds:undefined},{spec:'one',builds:['native-addon']},{spec:'two',builds:undefined}])
+})
+
+test('cancellation stops later components even when the current install succeeds', async () => {
+  let finish!: (value: any) => void
+  const calls: string[] = []
+  const installer = createDirectInstaller(() => host({ installBundle: spec => {
+    calls.push(spec)
+    return new Promise(resolve => { finish = resolve })
+  } }))
+  const pending = installer.start(['one', 'two'])
+  await new Promise(resolve => setImmediate(resolve))
+  await installer.cancel()
+  finish({ok:true,value:{application:'applied'}})
+  await pending
+  assert.deepEqual(calls, ['one'])
+  assert.equal(installer.getSnapshot().queue[1]?.phase, 'idle')
+})
+
+test('recovery continues the queue without reinstalling the uncertain component', async () => {
+  const calls: string[] = []
+  const installer = createDirectInstaller(() => host({ installBundle: async spec => {
+    calls.push(spec)
+    if (spec === 'one') throw new Error('Disconnected')
+    return {ok:true,value:{application:'applied'}}
+  } }))
+  await installer.start(['one','two'])
+  assert.deepEqual(calls,['one'])
+  await Promise.all([installer.recover(), installer.recover()])
+  assert.deepEqual(calls,['one','two'])
+  assert.equal(installer.getSnapshot().queue[0]?.application,'restart-required')
+})
+
+test('overridden results stop the queue for inspection', async () => {
+  const calls: string[] = []
+  const installer = createDirectInstaller(() => host({ installBundle: async spec => {
+    calls.push(spec)
+    return {ok:true,value:{application:'overridden'}}
+  } }))
+  await installer.start(['one','two'])
+  assert.deepEqual(calls,['one'])
+})

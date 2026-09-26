@@ -44,7 +44,11 @@ export declare const zh: {
     readonly 'direct.title': "安装插件";
     readonly 'direct.close': "关闭";
     readonly 'direct.explain': "安装到当前客户端并启用。";
-    readonly 'direct.target': "选择要安装的组件";
+    readonly 'direct.progress': "安装进度";
+    readonly 'direct.notStarted': "尚未安装";
+    readonly 'direct.batchDone': "本次安装已结束，请查看各组件结果";
+    readonly 'direct.multiHint': "按顺序安装所选组件；遇到问题会暂停。已装好的组件会保留。";
+    readonly 'direct.target': "选择要安装的组件（可多选）";
     readonly 'direct.noTarget': "暂不支持直接安装，请选择 AI 审查安装或查看安装说明。";
     readonly 'direct.confirm': "安装";
     readonly 'direct.idle': "待安装";
