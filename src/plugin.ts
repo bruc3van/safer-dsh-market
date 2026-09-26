@@ -18,6 +18,8 @@
  * costs the market and nothing else. See the note there.
  * @module safer-dsh-market/plugin
  */
+import type {} from '@deepseek-ai/dsh-app-boot'
+import { resolveActiveProfile } from './activeProfile.ts'
 import { createRequire } from 'node:module'
 import type { Context } from '@deepseek-ai/cordis'
 // Type-only: brings the `ctx.typert` Context merge into this program.
@@ -67,6 +69,7 @@ function readSelfVersion(): string {
  * @returns a disposer for the entry's effect seat.
  */
 export function applyMarket(ctx: Context, resolved: Config): () => void {
+  const profile = resolveActiveProfile(ctx.get('profileContext'), resolved.profile)
   // The durable enable switch: the runtime reads its live value on every
   // call, so toggling it in the Web settings takes effect immediately.
   const settings = registerSafeMarketSettings(ctx, resolved)
@@ -114,7 +117,9 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
   // domain — so the boot sweep runs even when the domain is unavailable:
   // losing the record is what strands stop rows in the user's patch file.
   const installed = createInstalledManager({
-    profile: resolved.profile,
+    profile: profile.name,
+    profileDir: profile.dir,
+    home: profile.home,
     selfName: PACKAGE_NAME,
     loader: ctx.loader,
   })
@@ -174,7 +179,7 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     readSettings,
     writeSettings,
     (agent, signal) => readSkills(ctx, agent, signal),
-    { profile: resolved.profile, version: readSelfVersion() },
+    { profile: profile.name, version: readSelfVersion() },
     installed,
   )
 

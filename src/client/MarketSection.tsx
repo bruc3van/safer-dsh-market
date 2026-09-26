@@ -1,5 +1,5 @@
 import type { DirectInstaller } from './directInstall.ts'
-import { InstallModeSelector } from './InstallModeSelector.tsx'
+import { InstallModeSelector, MarketSelector } from './InstallModeSelector.tsx'
 import { DirectInstallPanel } from './DirectInstallPanel.tsx'
 import type { SkillsSessionSource } from './skillsSubscription.ts'
 /**
@@ -39,6 +39,7 @@ import {
 import { SkillsView } from './SkillsView.tsx'
 import { MarketMoreActions } from './MarketMoreActions.tsx'
 import { BackToTop } from './BackToTop.tsx'
+import { buildReviewPrompt } from './reviewPrompt.ts'
 import { useSearchDock } from './useSearchDock.ts'
 
 /** The live snapshot the section renders from: the switch plus the deployment facts. */
@@ -505,7 +506,8 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onInstall, directInstaller }: {
+function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onInstall, directInstaller, installMode }: {
+  installMode: 'direct' | 'prompt'
   t: MarketLocale
   english: boolean
   snapshot: SafeMarketSnapshot
@@ -521,7 +523,6 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
   installBusy: boolean
   onInstall: (cardKey: string, prompt: string, viaNewWorkspace: boolean) => void
 }): ReactElement {
-  const [installMode, setInstallMode] = useState<'direct' | 'prompt'>('direct')
   const [directItem, setDirectItem] = useState<MarketPlugin | null>(null)
   const enabled = snapshot.value.enabled
   const [state, setState] = useState<CatalogState>(enabled ? { status: 'loading' } : { status: 'idle' })
@@ -688,15 +689,13 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
     // this card can know — the published catalog carries repository facts,
     // not release versions — so the prompt opens by asking it to establish
     // that and to stop if the answer is no.
-    onInstall(item.fullName, owned === undefined
-      ? t('prompt', common)
-      : t('prompt.upgrade', { ...common, installed: describeInstalled(owned) }), viaNewWorkspace)
+    onInstall(item.fullName, buildReviewPrompt(t, { ...common, ...(owned === undefined ? {} : { installed: describeInstalled(owned) }) }), viaNewWorkspace)
   }
 
   const runInstalledUpdate = (item: MarketInstalledPackage, viaNewWorkspace: boolean): void => {
     const profile = snapshot.profile
     if (profile === null || item.repository === '') return
-    onInstall(installedUpdateCardKey(item.packageName), t('prompt.upgrade', {
+    onInstall(installedUpdateCardKey(item.packageName), buildReviewPrompt(t, {
       url: `https://github.com/${item.repository}`,
       profile,
       installed: describeInstalled(item),
@@ -723,14 +722,14 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
           </button>
         </div>
       )}
-      <InstallModeSelector value={installMode} onChange={setInstallMode} t={t} />
       {directInstaller && <DirectInstallPanel item={directItem} installer={directInstaller} t={t}
         onClose={() => setDirectItem(null)} onInstalled={installed.reload} />}
-      <div className="dsh_market_bar dsh_market_dockable">
+      <div className="dsh_market_bar">
         <input
           className="dsh_market_search"
           type="search"
           spellCheck={false}
+          aria-label={t('search')}
           placeholder={t('search')}
           value={query}
           onChange={(event) => { setQuery(event.target.value) }}
@@ -750,43 +749,27 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
         </button>
       {switchError !== '' && <p className="dsh_market_status" data-error="true">{switchError}</p>}
 
-      </div>
-      <div className="dsh_market_results">
-      <div className="dsh_market_chips">
-        <button
-          type="button"
-          className="dsh_market_chip"
-          data-on={category === '' ? 'true' : 'false'}
-          onClick={() => { setCategory('') }}
-        >
-          {catalog !== null ? `${t('all')} ${String(catalog.items.length)}` : t('all')}
-        </button>
-        {/* The installed set is a filter over the same grid, not a panel of
-            its own: "the ones I already have" is just another way to narrow
-            the list. It is shown before the catalog lands, because the
-            installed list is local and must stay reachable while market.json
-            is still in flight. */}
-        <button
-          type="button"
-          className="dsh_market_chip"
-          data-on={installedSelected ? 'true' : 'false'}
-          onClick={() => { setCategory(current => (current === INSTALLED_FILTER ? '' : INSTALLED_FILTER)) }}
-        >
-          {`${t('installed.chip')} ${String(installed.count)}`}
-        </button>
-        {catalog !== null && catalog.categories.map(entry => (
-          <button
-            key={entry.key}
-            type="button"
-            className="dsh_market_chip"
-            data-on={category === entry.key ? 'true' : 'false'}
-            onClick={() => { setCategory(current => (current === entry.key ? '' : entry.key)) }}
-          >
-            {`${english ? entry.en : entry.zh} ${String(entry.count)}`}
+      <div className="dsh_market_filterBar">
+        <div className="dsh_market_scope" role="group" aria-label={t('filter.scope')}>
+          <button type="button" className="dsh_market_scopeButton" aria-pressed={!installedSelected}
+            onClick={() => setCategory('')}>
+            {t('all')} {catalog !== null && <span>{catalog.items.length}</span>}
           </button>
-        ))}
+          <button type="button" className="dsh_market_scopeButton" aria-pressed={installedSelected}
+            onClick={() => setCategory(INSTALLED_FILTER)}>
+            {t('installed.chip')} <span>{installed.count}</span>
+          </button>
+        </div>
+        {!installedSelected && catalog !== null && <MarketSelector
+          value={category} onChange={setCategory} label={t('filter.category')} className="dsh_market_category"
+          options={[{ value: '', label: t('filter.allCategories') }, ...catalog.categories.map(entry => ({
+            value: entry.key, label: english ? entry.en : entry.zh, count: entry.count,
+          }))]} />}
+
       </div>
 
+      </div>
+      <div className="dsh_market_results">
       {installedSelected
         ? (
           <InstalledCards
@@ -818,7 +801,9 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
                   ? t('refreshing')
                   : shown.length === 0
                     ? t('empty')
-                    : t('summary', { shown: String(shown.length), total: String(catalog.items.length) })}
+                    : t(query.trim() !== '' || category !== '' ? 'filter.results' : 'summary', { shown: String(shown.length), total: String(catalog.items.length) })}
+                {(query.trim() !== '' || category !== '') && <button type="button" className="dsh_market_clearFilters"
+                  onClick={() => { setQuery(''); setCategory('') }}>{t('filter.clear')}</button>}
               </p>
               )}
 
@@ -940,6 +925,7 @@ export function MarketSection({
   // prompt follow the same setting the rest of the copy does.
   const english = t('lang') === 'en'
   const [page, setPage] = useState<Page>('plugins')
+  const [installMode, setInstallMode] = useState<'direct' | 'prompt'>('direct')
   const searchDock = useSearchDock(page)
   const [cards, setCards] = useState<Readonly<Record<string, CardState>>>({})
   const tabsId = useId()
@@ -1026,7 +1012,7 @@ export function MarketSection({
   const runSelfUpgrade = (): void => {
     const profile = snapshot.profile
     if (profile === null) return
-    runInstall(SELF_CARD_KEY, t('prompt.upgrade', {
+    runInstall(SELF_CARD_KEY, buildReviewPrompt(t, {
       url: SELF_MARKET_PLUGIN.url,
       profile,
       installed: isSafeVersion(snapshot.version) ? `${PACKAGE_NAME} ${snapshot.version}` : PACKAGE_NAME,
@@ -1080,6 +1066,7 @@ export function MarketSection({
           {selfUpgrade.message}
         </p>
       )}
+      <div className="dsh_market_tabToolbar">
       <div className="dsh_market_tabs" role="tablist" aria-label={t('tabs.aria')}>
         {pages.map((entry, index) => (
           <button
@@ -1099,6 +1086,8 @@ export function MarketSection({
           </button>
         ))}
       </div>
+      {page === 'plugins' && snapshot.value.enabled && <InstallModeSelector value={installMode} onChange={setInstallMode} t={t} />}
+      </div>
       {/* The Plugins panel stays mounted across tab switches: unmounting it
           would drop the search/filter state and re-pull the catalog on every
           return. The Skills panel remounts per visit, so each visit re-reads
@@ -1111,6 +1100,7 @@ export function MarketSection({
         hidden={page !== 'plugins'}
       >
         <PluginsPage
+          installMode={installMode}
           t={t}
           english={english}
           snapshot={snapshot}

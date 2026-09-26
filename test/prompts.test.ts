@@ -43,3 +43,33 @@ test('the built market no longer presents a review mode selector', async () => {
     assert.equal(bundle.includes(removed), false, `obsolete UI in bundle: ${removed}`)
   }
 })
+
+test('all AI entry points render the shared channel policy in both languages and every profile', async () => {
+  const { buildReviewPrompt } = await import('../src/client/reviewPrompt.ts')
+  const { reviewChannelZh, reviewChannelEn } = await import('../src/client/reviewPolicy.ts')
+  const requests = [
+    { entry: 'new third-party install', url: 'https://github.com/acme/plugin' },
+    { entry: 'catalog installed-card upgrade', url: 'https://github.com/acme/plugin', installed: 'demo-plugin 1.0.0' },
+    { entry: 'installed-list upgrade', url: 'https://github.com/acme/plugin', installed: '@acme/plugin 1.0.0' },
+    { entry: 'market self-upgrade', url: 'https://github.com/bruc3van/safer-dsh-market', installed: 'safer-dsh-market 0.7.3' },
+  ]
+  for (const [dictionary, policy] of [[zh, reviewChannelZh], [en, reviewChannelEn]] as const) {
+    for (const profile of ['desktop', 'DeSkToP', 'web', 'research-team']) {
+      for (const request of requests) {
+        const prompt = buildReviewPrompt((key, params) => Object.entries(params ?? {}).reduce(
+          (text, [key, value]) => text.replaceAll(`{${key}}`, value), dictionary[key]), { ...request, profile })
+        assert.ok(prompt.includes(policy.replaceAll('{profile}', profile)), request.entry)
+        assert.ok(prompt.includes(request.url))
+        assert.ok(!/\{(?:profile|url|installed)\}/.test(prompt))
+        assert.match(prompt, /pendingBuilds/)
+        assert.match(prompt, /approvedBuilds/)
+        assert.match(prompt, /restart-required/)
+        assert.match(prompt, /overridden/)
+        if (request.installed) {
+          assert.ok(prompt.includes(request.installed))
+          assert.match(prompt, /已是最新|Already up to date/)
+        }
+      }
+    }
+  }
+})

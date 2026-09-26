@@ -18,7 +18,8 @@ test('built market boots, exposes all RPC codecs, persists its switch, and resto
   process.env.DSH_HOME = home
   const contexts = []
   try {
-    const dir = join(home, 'profiles', 'test')
+    // Application-owned directory: neither config nor DSH_HOME may redirect the manager.
+    const dir = join(home, 'application-profile', 'test')
     initProfile(dir, ['test-market-bundle'])
     const bundle = join(dir, 'node_modules', 'test-market-bundle')
     await mkdir(bundle, { recursive: true })
@@ -30,7 +31,7 @@ test('built market boots, exposes all RPC codecs, persists its switch, and resto
       { id: 'config-editor', name: 'cordis:editor' },
       { id: 'settings', name: 'cordis:settings' },
       { id: 'typert', name: 'cordis:typert' },
-      { id: 'renamed-market', name: 'cordis:market', config: { profile: 'test' } },
+      { id: 'renamed-market', name: 'cordis:market', config: { profile: 'web' } },
     ] }]))
     await writeFile(join(dir, 'cordis.yml'), '[]\n')
     const profile = {

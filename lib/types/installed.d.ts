@@ -48,8 +48,10 @@ export interface PendingUninstall {
 }
 /** The manager's construction facts. */
 export interface InstalledManagerOptions {
-    /** The profile name this Host booted (the market's `profile` config). */
+    /** The active profile name reported by the host launcher. */
     readonly profile: string;
+    /** Actual launcher-owned directory, including application-owned profiles. */
+    readonly profileDir?: string;
     /** This plugin's own package name: the one row the panel must not disable. */
     readonly selfName: string;
     /** The live Loader (the `loader` service). */

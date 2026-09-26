@@ -79,8 +79,10 @@ export interface PendingUninstall {
 
 /** The manager's construction facts. */
 export interface InstalledManagerOptions {
-  /** The profile name this Host booted (the market's `profile` config). */
+  /** The active profile name reported by the host launcher. */
   readonly profile: string
+  /** Actual launcher-owned directory, including application-owned profiles. */
+  readonly profileDir?: string
   /** This plugin's own package name: the one row the panel must not disable. */
   readonly selfName: string
   /** The live Loader (the `loader` service). */
@@ -257,7 +259,7 @@ export function spawnPnpmRemove(profileDir: string, packageName: string): Promis
  * @param options - profile identity, the live Loader, and the durable record seat.
  */
 export function createInstalledManager(options: InstalledManagerOptions): InstalledManager {
-  const profileDir = resolveProfileDir(options.profile, options.home)
+  const profileDir = options.profileDir ?? resolveProfileDir(options.profile, options.home)
   const patchPath = join(profileDir, PROFILE_PATCH_FILENAME)
   const pendingPath = options.pendingFile ?? pendingFilePath(options.profile, options.home ?? resolveDshHome())
   const readPending = (): Promise<PendingUninstall[]> => readPendingFile(pendingPath)

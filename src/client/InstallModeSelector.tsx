@@ -1,17 +1,22 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { MarketLocale } from './copy.ts'
 
-type Mode = 'direct' | 'prompt'
-const modes: Mode[] = ['direct', 'prompt']
+interface MenuOption { value: string; label: string; count?: number }
 
-/** Theme-aware menu, retaining keyboard selection and dismissal. */
-export function InstallModeSelector({ value, onChange, t }: { value: Mode; onChange: (mode: Mode) => void; t: MarketLocale }) {
+/** Shared theme-aware single-choice menu for marketplace controls. */
+export function MarketSelector({ value, onChange, label, options, className }: {
+  value: string
+  onChange: (value: string) => void
+  label: string
+  options: readonly MenuOption[]
+  className: string
+}) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const menu = useRef<HTMLDivElement>(null)
   const id = useId()
-  const label = (mode: Mode) => t(mode === 'direct' ? 'direct.simple' : 'direct.prompt')
+  const selected = options.find(option => option.value === value) ?? options[0]!
   useEffect(() => {
     if (!open) return
     menu.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus()
@@ -21,15 +26,15 @@ export function InstallModeSelector({ value, onChange, t }: { value: Mode; onCha
     document.addEventListener('pointerdown', dismiss)
     return () => document.removeEventListener('pointerdown', dismiss)
   }, [open])
-  return <div className="dsh_market_installMode" ref={root}
+  return <div className={className} ref={root}
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false) }}>
-    <span id={`${id}-label`}>{t('direct.mode')}</span>
+    <span id={`${id}-label`}>{label}</span>
     <div className="dsh_market_modeControl">
       <button ref={trigger} type="button" className="dsh_market_modeTrigger" aria-haspopup="menu" aria-expanded={open}
-        aria-controls={open ? id : undefined} aria-label={`${t('direct.mode')}：${label(value)}`}
+        aria-controls={open ? id : undefined} aria-label={`${label}：${selected.label}`}
         onClick={() => setOpen(v => !v)}
         onKeyDown={event => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true) } }}>
-        {label(value)}
+        <span className="dsh_market_selectLabel">{selected.label}</span>
         <svg className="dsh_market_modeChevron" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
           <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -44,14 +49,22 @@ export function InstallModeSelector({ value, onChange, t }: { value: Mode; onCha
           const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
           buttons[next]?.focus()
         }}>
-        {modes.map(mode => <button type="button" key={mode} role="menuitemradio" aria-checked={value === mode}
-          onClick={() => { onChange(mode); setOpen(false); trigger.current?.focus() }}>
-          <span>{label(mode)}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style={{ visibility: value === mode ? 'visible' : 'hidden' }}>
+        {options.map(option => <button type="button" key={option.value} role="menuitemradio" aria-checked={value === option.value}
+          onClick={() => { onChange(option.value); setOpen(false); trigger.current?.focus() }}>
+          <span className="dsh_market_optionLabel">{option.label}</span>
+          {option.count !== undefined && <span className="dsh_market_optionCount">{option.count}</span>}
+          <svg className="dsh_market_optionCheck" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style={{ visibility: value === option.value ? 'visible' : 'hidden' }}>
             <path d="m5 12 4 4L19 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>)}
       </div>}
     </div>
   </div>
+}
+
+type Mode = 'direct' | 'prompt'
+export function InstallModeSelector({ value, onChange, t }: { value: Mode; onChange: (mode: Mode) => void; t: MarketLocale }) {
+  return <MarketSelector value={value} onChange={mode => onChange(mode as Mode)}
+    label={t('direct.mode')} className="dsh_market_installMode"
+    options={[{ value: 'direct', label: t('direct.simple') }, { value: 'prompt', label: t('direct.prompt') }]} />
 }

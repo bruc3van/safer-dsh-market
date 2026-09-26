@@ -34,7 +34,7 @@ export function useSearchDock(page: string) {
     geometry()
     const scroll = (event: Event) => {
       const list = event.target
-      if (!(list instanceof HTMLElement) || !list.matches('.dsh_market_results')) return
+      if (!(list instanceof HTMLElement) || !list.matches('.dsh_market_results') || !bar()) return
       const delta = list.scrollTop - previous
       previous = list.scrollTop
       if (height && height !== list.clientHeight) { height = list.clientHeight; return }

@@ -24,7 +24,7 @@ const pkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8')) as
 }
 const plugin = JSON.parse(await readFile(resolve(root, 'dsh.plugin.json'), 'utf8')) as { version: string }
 
-const npmInstall = `dsh plugin --profile web add ${pkg.name}`
+const npmInstall = `dsh plugin --profile <profile> add ${pkg.name}`
 
 test('DSH dependencies keep the declared runtime and development baseline', () => {
   for (const [kind, expected] of [

@@ -53,7 +53,8 @@ export interface Config {
     marketSize: number;
     /**
      * The profile an install would change. It names the `--profile` argument in
-     * the review prompt's install command; the web GUI boots the `web` profile.
+     * the review prompt's install command. Used only when the host has no profileContext;
+     * an empty value requires automatic detection.
      */
     profile: string;
 }

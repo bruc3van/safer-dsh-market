@@ -68,7 +68,8 @@ export interface Config {
   marketSize: number
   /**
    * The profile an install would change. It names the `--profile` argument in
-   * the review prompt's install command; the web GUI boots the `web` profile.
+   * the review prompt's install command. Used only when the host has no profileContext;
+   * an empty value requires automatic detection.
    */
   profile: string
 }
@@ -83,7 +84,7 @@ export const Config = z.object({
   enabled: z.boolean().default(false).volatile(),
   catalogBase: z.string().default(DEFAULT_CATALOG_BASE),
   marketSize: z.natural().min(1).default(1000),
-  profile: z.string().default('web'),
+  profile: z.string().default(''),
 })
 
 /**
@@ -105,7 +106,7 @@ export function apply(ctx: Context, config?: Config): void {
   // keystroke from sending must not be able to carry a second word. Config is
   // not remote text, so this is defence in depth — and the market declines
   // rather than staging a command aimed at something it cannot name.
-  if (!PROFILE_NAME_PATTERN.test(resolved.profile)) {
+  if (resolved.profile !== '' && !PROFILE_NAME_PATTERN.test(resolved.profile)) {
     console.error('[safer-dsh-market] refusing to start: the configured profile name '
       + `${JSON.stringify(resolved.profile)} is not a plain profile name, and it would be interpolated `
       + 'into the install command this market stages for review')
