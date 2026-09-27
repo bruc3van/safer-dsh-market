@@ -71,7 +71,7 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled }:
         <span>{installLabel(entry.install)}</span>
       </label>)}
     </fieldset>}
-    {visibleItem && <details className="dsh_market_installDetails" key={visibleItem.fullName}>
+    {visibleItem && <details className="dsh_market_installDetails" key={visibleItem.fullName} open>
       <summary>{t('direct.more')}</summary>
       {chosen.map(target => <div key={target.install}><code>{target.install}</code>{target.note && <p>{target.note}</p>}</div>)}
       {info?.requirements.length ? <ul>{info.requirements.map((r, i) => <li key={i}>{r}</li>)}</ul> : null}
