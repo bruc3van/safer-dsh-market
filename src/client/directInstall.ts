@@ -12,7 +12,7 @@ interface InstallResult {
   packageResult?: { output?: string }
 }
 export interface InstallHost {
-  inspect(spec: string): Promise<Reply<
+  inspect(spec: string, options: { registry?: string | null }): Promise<Reply<
     { status: 'accepted'; registry: string | null } |
     { status: 'refused'; problem: string; reason: string }
   >>
@@ -66,7 +66,8 @@ export function createDirectInstaller(host: () => InstallHost | undefined) {
     set({ phase: 'checking', spec, message: '', application: undefined, pendingBuilds: [] })
     try {
       const api = manager()
-      const inspection = await api.inspect(spec)
+      // The strict Remote counts every business parameter, even optional ones.
+      const inspection = await api.inspect(spec, {})
       if (!inspection.ok) throw new Error(inspection.error.message)
       if (inspection.value.status === 'refused') throw new Error(`${inspection.value.problem}: ${inspection.value.reason}`)
       requestId = globalThis.crypto.randomUUID() as RequestId

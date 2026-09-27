@@ -1,4 +1,3 @@
-import type { MarketLocale } from './copy.ts';
 interface MenuOption {
     value: string;
     label: string;
@@ -11,11 +10,5 @@ export declare function MarketSelector({ value, onChange, label, options, classN
     label: string;
     options: readonly MenuOption[];
     className: string;
-}): import("react").JSX.Element;
-type Mode = 'direct' | 'prompt';
-export declare function InstallModeSelector({ value, onChange, t }: {
-    value: Mode;
-    onChange: (mode: Mode) => void;
-    t: MarketLocale;
 }): import("react").JSX.Element;
 export {};

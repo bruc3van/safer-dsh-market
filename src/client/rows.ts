@@ -18,19 +18,12 @@ import { PACKAGE_NAME } from '../shapes.ts'
  */
 export const INSTALLED_FILTER = 'dsh:installed'
 
-/**
- * The card-state key the header's self-upgrade runs under.
- *
- * NOT `SELF_MARKET_PLUGIN.fullName`: this market is itself a dsh plugin, so
- * the catalog may well carry a row for the same repository — and a shared key
- * would make the header button and that card report each other's progress.
- * A colon cannot appear in a catalog key (they are `owner/name` slugs).
- */
+/** Card-state key for a review launched from the shared installation result panel. */
 export const SELF_CARD_KEY = 'dsh:self'
 
-/** Card-state key for an update launched from the installed-package view. */
-export function installedUpdateCardKey(packageName: string): string {
-  return `dsh:update:${packageName}`
+/** Card-state key for a review launched from the installed-package view. */
+export function installedReviewCardKey(packageName: string): string {
+  return `dsh:review:${packageName}`
 }
 
 /**

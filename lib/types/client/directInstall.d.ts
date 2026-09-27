@@ -25,7 +25,9 @@ interface InstallResult {
     };
 }
 export interface InstallHost {
-    inspect(spec: string): Promise<Reply<{
+    inspect(spec: string, options: {
+        registry?: string | null;
+    }): Promise<Reply<{
         status: 'accepted';
         registry: string | null;
     } | {

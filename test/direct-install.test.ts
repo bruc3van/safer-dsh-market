@@ -39,6 +39,33 @@ test('refused inspection never installs; missing host is an explicit failure', a
   await missing.start('demo')
   assert.equal(missing.getSnapshot().phase, 'failed')
 })
+test('inspection supplies both Remote arguments before installing and enabling the selected target', async () => {
+  for (const spec of ['https://github.com/vlln/whale-girl#main', 'whale-girl@0.1.0']) {
+    const calls: unknown[] = []
+    const registry = 'https://registry.npmjs.org/'
+    const installer = createDirectInstaller(() => host({
+      inspect: async (...args) => {
+        // Model the strict Remote arity check, which rejects omitted options.
+        assert.equal(args.length, 2)
+        assert.deepEqual(args, [spec, {}])
+        calls.push('inspect')
+        return { ok: true, value: { status: 'accepted', registry } }
+      },
+      installBundle: async (target, options) => {
+        assert.equal(target, spec)
+        assert.equal(options?.registry, registry)
+        assert.equal(options?.enabled, true)
+        assert.ok(options?.requestId)
+        calls.push('install')
+        return { ok: true, value: { application: 'restart-required' } }
+      },
+    }))
+    await installer.start(spec)
+    assert.deepEqual(calls, ['inspect', 'install'])
+    assert.equal(installer.getSnapshot().phase, 'done')
+    assert.equal(installer.getSnapshot().application, 'restart-required')
+  }
+})
 test('install uses selected spec, host profile, and explicit script approval only', async () => {
   const calls: unknown[] = []
   const installer = createDirectInstaller(() => host({ installBundle: async (spec, options) => {

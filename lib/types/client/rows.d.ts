@@ -15,17 +15,10 @@ import type { MarketInstalledPackage, MarketPlugin, MarketSkill } from '../contr
  * carrying a colon cannot collide with one.
  */
 export declare const INSTALLED_FILTER = "dsh:installed";
-/**
- * The card-state key the header's self-upgrade runs under.
- *
- * NOT `SELF_MARKET_PLUGIN.fullName`: this market is itself a dsh plugin, so
- * the catalog may well carry a row for the same repository — and a shared key
- * would make the header button and that card report each other's progress.
- * A colon cannot appear in a catalog key (they are `owner/name` slugs).
- */
+/** Card-state key for a review launched from the shared installation result panel. */
 export declare const SELF_CARD_KEY = "dsh:self";
-/** Card-state key for an update launched from the installed-package view. */
-export declare function installedUpdateCardKey(packageName: string): string;
+/** Card-state key for a review launched from the installed-package view. */
+export declare function installedReviewCardKey(packageName: string): string;
 /**
  * The market's own fixed repository identity. Unlike catalog rows this is
  * package-owned source, not remote snapshot text; keeping the complete

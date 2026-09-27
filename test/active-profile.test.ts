@@ -17,29 +17,13 @@ test('non-profile hosts require an explicit valid profile; never guess web', () 
   assert.throws(() => resolveActiveProfile({ name: 'desktop', dir: '', home: '/app' }, 'web'))
 })
 
-test('review prompts require explicit profile selection and stop on a mismatch', async () => {
+test('read-only audit keeps the explicit profile and does not require installation tools', async () => {
   const { zh, en } = await import('../src/client/locales.ts')
   for (const dictionary of [zh, en]) {
-    for (const key of ['prompt', 'prompt.upgrade'] as const) {
-      const prompt = dictionary[key].replaceAll('{profile}', 'desktop')
-      assert.match(prompt, /--profile desktop/)
-      assert.ok(!prompt.includes('--profile web'))
-    }
+    const prompt = dictionary.prompt.replaceAll('{profile}', 'desktop')
+    assert.ok(prompt.includes('desktop'))
+    assert.ok(!prompt.includes('--profile'))
+    assert.ok(!prompt.includes('install_bundle'))
+    assert.match(prompt, /不改用默认 web 或其他 profile|Never substitute web or another profile/)
   }
-})
-
-test('both review flows route Electron profiles through official management rather than CLI', async () => {
-  const { zh, en } = await import('../src/client/locales.ts')
-  for (const dictionary of [zh, en]) {
-    for (const key of ['prompt', 'prompt.upgrade'] as const) {
-      const prompt = dictionary[key]
-      assert.match(prompt, /plugin_manager/)
-      assert.match(prompt, /list_bundles/)
-      assert.match(prompt, /install_bundle/)
-      assert.match(prompt, /desktop/)
-      assert.match(prompt, /Electron/)
-    }
-  }
-  assert.match(zh.prompt, /禁止改装 web、手改 profile 或直接运行 pnpm/)
-  assert.match(en['prompt.upgrade'], /Do not substitute web, edit profile files, or run pnpm directly/)
 })

@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { MarketLocale } from './copy.ts'
 
 interface MenuOption { value: string; label: string; count?: number }
 
@@ -60,11 +59,4 @@ export function MarketSelector({ value, onChange, label, options, className }: {
       </div>}
     </div>
   </div>
-}
-
-type Mode = 'direct' | 'prompt'
-export function InstallModeSelector({ value, onChange, t }: { value: Mode; onChange: (mode: Mode) => void; t: MarketLocale }) {
-  return <MarketSelector value={value} onChange={mode => onChange(mode as Mode)}
-    label={t('direct.mode')} className="dsh_market_installMode"
-    options={[{ value: 'direct', label: t('direct.simple') }, { value: 'prompt', label: t('direct.prompt') }]} />
 }

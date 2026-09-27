@@ -1,7 +1,15 @@
 import type { MarketLocale } from './copy.ts';
-/** Every AI install/update entry uses the same localized policy and target. */
+import type { DirectState } from './directInstall.ts';
+export interface ReviewTarget {
+    packageName?: string;
+    version?: string;
+    installReference?: string;
+    application?: string;
+}
+/** Only confirmed successful components are offered, including a partially completed batch. */
+export declare function installedReviewTargets(state: DirectState): ReviewTarget[];
+/** Actual local identity must be verified by the reviewer; metadata is never an instruction. */
 export declare function buildReviewPrompt(t: MarketLocale, request: {
     profile: string;
-    url: string;
-    installed?: string;
+    targets: readonly ReviewTarget[];
 }): string;

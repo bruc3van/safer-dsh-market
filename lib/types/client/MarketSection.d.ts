@@ -6,8 +6,8 @@ import type { SkillsSessionSource } from './skillsSubscription.ts';
  * **Plugins** is the community shortlist. While the market is off it is one
  * card that says what turning it on will do and asks; the switch is the
  * plugin's own durable setting, so the answer survives a restart. While it is
- * on, cards default to official Host installation, with an independent
- * prompt-based review mode.
+ * on, cards use official Host installation, with optional read-only review
+ * of installed artifacts.
  *
  * **Skills** is what this deployment can already resolve. It needs neither the
  * switch nor the network.
@@ -21,18 +21,13 @@ import type { MarketCatalog, MarketInstalledResult, MarketSkillsResult, SafeMark
 /** The live snapshot the section renders from: the switch plus the deployment facts. */
 export interface SafeMarketSnapshot {
     readonly value: SafeMarketSettings;
-    /**
-     * The profile an install would change; names `--profile` in the prompt.
-     * Null until the Host's `describe` has answered — the install button stays
-     * disabled while it is, because naming the wrong profile in the official
-     * command would hand the user a command aimed at someone else's deployment.
-     */
+    /** Current instance profile; reviews stay disabled until the Host confirms it. */
     readonly profile: string | null;
     /** The market's own version, from the same `describe`; '' until it answers. */
     readonly version: string;
 }
 export type SafeMarketSource = ObservableSnapshot<SafeMarketSnapshot>;
-/** What the install hand-off reports back to the card that asked for it. */
+/** What the review hand-off reports back to the card that asked for it. */
 export type InstallOutcome = {
     readonly ok: true;
 } | {
@@ -62,7 +57,7 @@ export type ChooseWorkspaceOutcome = {
     readonly message: string;
 };
 /**
- * Whether this deployment has a Workspace to install into.
+ * Whether this deployment has a Workspace for an AI review.
  *
  * `pending` is its own answer rather than a flavour of `none`: for the first
  * moments of a boot the list mirror is legitimately empty, and telling someone
@@ -95,7 +90,7 @@ export interface MarketSectionInjected {
     installIntoNewWorkspace: (prompt: string) => Promise<InstallOutcome>;
     /** Pick a directory and register it as a Workspace, installing nothing. */
     chooseWorkspace: () => Promise<ChooseWorkspaceOutcome>;
-    /** Live answer to "is there a workspace to install into?". */
+    /** Live answer to "is there a workspace for review?". */
     workspaceReadiness: {
         getSnapshot: () => WorkspaceReadiness;
         subscribe: (fn: () => void) => () => void;

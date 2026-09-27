@@ -14,10 +14,6 @@ export const STYLE_ID = 'safer-dsh-market-style'
 
 /** The market tab's injected stylesheet text. */
 export const cssText = `
-.dsh_market_installMode {
-  display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin: 0 0 5px auto;
-  color: var(--dsw-alias-label-secondary); font-size: 13px;
-}
 .dsh_market_modeControl { position: relative; display: inline-flex; max-width: 100%; }
 .dsh_market_modeTrigger {
   box-sizing: border-box; text-align: left;
@@ -70,7 +66,8 @@ export const cssText = `
 .dsh_market_buildList li { padding: 4px 8px; background: var(--dsw-alias-bg-layer-3); border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; }
 .dsh_market_installDiagnostic { margin-top: 12px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .dsh_market_installDiagnostic summary { cursor: pointer; }
-.dsh_market_installFooter { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l2); }
+.dsh_market_installFooter {
+  border: 0; padding: 0; margin: 0; min-width: 0; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l2); }
 .dsh_market_installFooter .dsh_market_primary, .dsh_market_installFooter .dsh_market_ghost { min-height: 36px; padding: 7px 16px; font-size: 13px; }
 
 .dsh_market_directClose {

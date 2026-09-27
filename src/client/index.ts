@@ -1,13 +1,13 @@
 /**
  * safer-dsh-market client plugin: the browser half of the safe plugin
  * marketplace. Mounts the saferMarket Remote namespace, contributes the
- * market pages to the left navigation and right sidebar, and owns the install
+ * market pages to the left navigation and right sidebar, and owns the review
  * hand-off — which opens a session in the current or most recent workspace and
  * stages a security-review prompt in its composer.
  *
  * Nothing is sent. The draft is written through the published conversation
  * face and left there: the person at the keyboard reads the prompt and presses
- * Enter, and the install that follows is the agent's work under their eye.
+ * Enter to begin a read-only audit of already-installed artifacts.
  */
 // Type-only: the ctx.remote merge and the forwarded Host-event face.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
@@ -159,7 +159,7 @@ export function apply(ctx: ClientContext): void {
   }
 
   /**
-   * The deployment facts the install prompt needs. Read once per mount: the
+   * The deployment facts the review prompt needs. Read once per mount: the
    * profile a Host boots does not change under a running client.
    */
   const loadEnvironment = async (): Promise<void> => {
@@ -292,7 +292,7 @@ export function apply(ctx: ClientContext): void {
   }
 
   /**
-   * The second half of every install hand-off: connect the workspace, navigate
+   * The second half of every review hand-off: connect the workspace, navigate
    * to its session, and write the draft. Every step goes through a published
    * service face; nothing here reads the DOM, and nothing here sends.
    */
@@ -333,7 +333,7 @@ export function apply(ctx: ClientContext): void {
   }
 
   /**
-   * The install hand-off: resolve the workspace, then stage the prompt in it.
+   * The review hand-off: resolve the workspace, then stage the prompt in it.
    */
   const install = async (prompt: string): Promise<InstallOutcome> => {
     // The same target rule the shell's own New Session action uses: the
@@ -351,7 +351,7 @@ export function apply(ctx: ClientContext): void {
     return await stageIn(workspaceId, prompt)
   }
 
-  /** The install hand-off for a deployment with no workspace yet. */
+  /** The review hand-off for a deployment with no workspace yet. */
   const installIntoNewWorkspace = async (prompt: string): Promise<InstallOutcome> => {
     const chosen = await chooseWorkspaceId()
     if (!chosen.ok) return chosen

@@ -1,5 +1,5 @@
 import type { DirectInstaller } from './directInstall.ts'
-import { InstallModeSelector, MarketSelector } from './InstallModeSelector.tsx'
+import { MarketSelector } from './InstallModeSelector.tsx'
 import { DirectInstallPanel } from './DirectInstallPanel.tsx'
 import type { SkillsSessionSource } from './skillsSubscription.ts'
 /**
@@ -8,8 +8,8 @@ import type { SkillsSessionSource } from './skillsSubscription.ts'
  * **Plugins** is the community shortlist. While the market is off it is one
  * card that says what turning it on will do and asks; the switch is the
  * plugin's own durable setting, so the answer survives a restart. While it is
- * on, cards default to official Host installation, with an independent
- * prompt-based review mode.
+ * on, cards use official Host installation, with optional read-only review
+ * of installed artifacts.
  *
  * **Skills** is what this deployment can already resolve. It needs neither the
  * switch nor the network.
@@ -32,32 +32,27 @@ import type {
 } from '../contract.ts'
 import { isSafeVersion, PACKAGE_NAME } from '../shapes.ts'
 import type { MarketLocale } from './copy.ts'
-import { describeInstalled, ownedBy, ownedIndexOf, shortName } from './owned.ts'
+import { ownedBy, ownedIndexOf, shortName } from './owned.ts'
 import {
-  INSTALLED_FILTER, SELF_CARD_KEY, SELF_MARKET_PLUGIN, installedUpdateCardKey, matches, starCount, stateOf,
+  INSTALLED_FILTER, SELF_CARD_KEY, SELF_MARKET_PLUGIN, installedReviewCardKey, matches, starCount, stateOf,
 } from './rows.ts'
 import { SkillsView } from './SkillsView.tsx'
 import { MarketMoreActions } from './MarketMoreActions.tsx'
 import { BackToTop } from './BackToTop.tsx'
-import { buildReviewPrompt } from './reviewPrompt.ts'
+import { buildReviewPrompt, type ReviewTarget } from './reviewPrompt.ts'
 import { useSearchDock } from './useSearchDock.ts'
 
 /** The live snapshot the section renders from: the switch plus the deployment facts. */
 export interface SafeMarketSnapshot {
   readonly value: SafeMarketSettings
-  /**
-   * The profile an install would change; names `--profile` in the prompt.
-   * Null until the Host's `describe` has answered — the install button stays
-   * disabled while it is, because naming the wrong profile in the official
-   * command would hand the user a command aimed at someone else's deployment.
-   */
+  /** Current instance profile; reviews stay disabled until the Host confirms it. */
   readonly profile: string | null
   /** The market's own version, from the same `describe`; '' until it answers. */
   readonly version: string
 }
 export type SafeMarketSource = ObservableSnapshot<SafeMarketSnapshot>
 
-/** What the install hand-off reports back to the card that asked for it. */
+/** What the review hand-off reports back to the card that asked for it. */
 export type InstallOutcome =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: 'not-ready' }
@@ -72,7 +67,7 @@ export type ChooseWorkspaceOutcome =
   | { readonly ok: false; readonly reason: 'failed'; readonly message: string }
 
 /**
- * Whether this deployment has a Workspace to install into.
+ * Whether this deployment has a Workspace for an AI review.
  *
  * `pending` is its own answer rather than a flavour of `none`: for the first
  * moments of a boot the list mirror is legitimately empty, and telling someone
@@ -100,7 +95,7 @@ export interface MarketSectionInjected {
   installIntoNewWorkspace: (prompt: string) => Promise<InstallOutcome>
   /** Pick a directory and register it as a Workspace, installing nothing. */
   chooseWorkspace: () => Promise<ChooseWorkspaceOutcome>
-  /** Live answer to "is there a workspace to install into?". */
+  /** Live answer to "is there a workspace for review?". */
   workspaceReadiness: {
     getSnapshot: () => WorkspaceReadiness
     subscribe: (fn: () => void) => () => void
@@ -129,7 +124,7 @@ type CardState =
   | { readonly status: 'busy' }
   /** The Host's directory picker is open for this card. */
   | { readonly status: 'picking' }
-  /** The install is one directory choice away; the card offers to make it. */
+  /** The review is one directory choice away; the card offers to make it. */
   | { readonly status: 'needs-workspace'; readonly message: string }
   | { readonly status: 'staged' }
   | { readonly status: 'error'; readonly message: string }
@@ -289,7 +284,7 @@ function useInstalled({ t, active, listInstalled, setInstalledEnabled, uninstall
  * stays one grid and the eye does not have to re-learn the layout when the
  * filter changes.
  */
-function InstalledCard({ t, item, installed, snapshot, card, installBusy, readiness, onUpdate }: {
+function InstalledCard({ t, item, installed, snapshot, card, installBusy, readiness, onReview }: {
   t: MarketLocale
   item: MarketInstalledPackage
   installed: ReturnType<typeof useInstalled>
@@ -297,7 +292,7 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
   card: CardState | undefined
   installBusy: boolean
   readiness: WorkspaceReadiness
-  onUpdate: (item: MarketInstalledPackage, viaNewWorkspace: boolean) => void
+  onReview: (item: MarketInstalledPackage, viaNewWorkspace: boolean) => void
 }): ReactElement {
   const { busy, confirming, setConfirming, toggle, uninstall } = installed
   const uninstalling = busy === `${item.packageName}:uninstall`
@@ -308,12 +303,10 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
     item.inBox ? t('installed.inBox') : '',
     item.unregistered ? t('installed.unregistered') : '',
   ].filter(part => part !== '')
-  const updateNeedsWorkspace = card?.status === 'needs-workspace' || (readiness === 'none' && card === undefined)
-  const updateDisabled = busy !== null || installBusy || snapshot.profile === null
-    || item.repository === '' || item.error !== ''
-  const updateTitle = item.repository === ''
-    ? t('installed.updateUnavailable')
-    : snapshot.profile === null ? t('install.profilePending') : undefined
+  const reviewNeedsWorkspace = card?.status === 'needs-workspace' || (readiness === 'none' && card === undefined)
+  const reviewDisabled = busy !== null || installBusy || snapshot.profile === null
+
+  const reviewTitle = snapshot.profile === null ? t('install.profilePending') : t('audit.hint')
   const stateLabels: Record<ReturnType<typeof stateOf>, string> = {
     running: t('installed.running'),
     disabled: t('installed.disabled'),
@@ -414,15 +407,15 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
               <button
                 type="button"
                 className="dsh_market_install"
-                disabled={updateDisabled}
-                title={updateTitle}
-                onClick={() => { onUpdate(item, updateNeedsWorkspace) }}
+                disabled={reviewDisabled}
+                title={reviewTitle}
+                onClick={() => { onReview(item, reviewNeedsWorkspace) }}
               >
                 {card?.status === 'picking'
                   ? t('install.picking')
                   : card?.status === 'busy'
                     ? t('installing')
-                    : updateNeedsWorkspace ? t('installed.pickAndUpdate') : t('installed.update')}
+                    : reviewNeedsWorkspace ? t('installed.pickAndReview') : t('installed.review')}
               </button>
               {!item.self && !item.unregistered && (
                 <button
@@ -452,19 +445,19 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
 }
 
 /** The installed set as a card grid, with its own status lines above it. */
-function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness, onUpdate }: {
+function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness, onReview }: {
   t: MarketLocale
   installed: ReturnType<typeof useInstalled>
   snapshot: SafeMarketSnapshot
   cards: Readonly<Record<string, CardState>>
   installBusy: boolean
   readiness: WorkspaceReadiness
-  onUpdate: (item: MarketInstalledPackage, viaNewWorkspace: boolean) => void
+  onReview: (item: MarketInstalledPackage, viaNewWorkspace: boolean) => void
 }): ReactElement {
   const { state, notice, actionError, reload } = installed
   return (
     <>
-      <p className="dsh_market_installedBody">{t('installed.body')}</p>
+      <p className="dsh_market_installedBody">{t('installed.body')} {t('audit.hint')}</p>
       {notice !== '' && <p className="dsh_market_installedNotice">{notice}</p>}
       {actionError !== '' && <p className="dsh_market_status" data-error="true">{actionError}</p>}
       {state.status === 'loading' && (
@@ -493,10 +486,10 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
               item={item}
               installed={installed}
               snapshot={snapshot}
-              card={cards[installedUpdateCardKey(item.packageName)]}
+              card={cards[installedReviewCardKey(item.packageName)]}
               installBusy={installBusy}
               readiness={readiness}
-              onUpdate={onUpdate}
+              onReview={onReview}
             />
           ))}
         </ul>
@@ -506,8 +499,9 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onInstall, directInstaller, installMode }: {
-  installMode: 'direct' | 'prompt'
+function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision }: {
+  setDirectItem: (item: MarketPlugin) => void
+  installedRevision: number
   t: MarketLocale
   english: boolean
   snapshot: SafeMarketSnapshot
@@ -521,9 +515,8 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
   directInstaller?: DirectInstaller
   cards: Readonly<Record<string, CardState>>
   installBusy: boolean
-  onInstall: (cardKey: string, prompt: string, viaNewWorkspace: boolean) => void
+  onReviewDraft: (cardKey: string, prompt: string, viaNewWorkspace: boolean) => void
 }): ReactElement {
-  const [directItem, setDirectItem] = useState<MarketPlugin | null>(null)
   const enabled = snapshot.value.enabled
   const [state, setState] = useState<CatalogState>(enabled ? { status: 'loading' } : { status: 'idle' })
   const [switching, setSwitching] = useState(false)
@@ -534,6 +527,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
   const [category, setCategory] = useState('')
   const [switchError, setSwitchError] = useState('')
   const installed = useInstalled({ t, active: enabled, listInstalled, setInstalledEnabled, uninstallInstalled })
+  useEffect(() => { if (installedRevision > 0) installed.reload() }, [installedRevision, installed.reload])
   const installedSelected = category === INSTALLED_FILTER
   // Rebuilt only when the installed set itself changes — every enable,
   // disable and uninstall answers with the whole list, so the catalog's
@@ -672,33 +666,11 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
     })
   }
 
-  const runInstall = (item: MarketPlugin, viaNewWorkspace: boolean): void => {
-    // The profile is what names the install command's target; until the Host
-    // confirmed it, staging a prompt would write a command aimed at the
-    // wrong deployment. The button is disabled in that state, and this
-    // guard keeps the verb honest even if the click races the describe.
+  const reviewInstalledPackage = (item: MarketInstalledPackage, viaNewWorkspace: boolean): void => {
     const profile = snapshot.profile
     if (profile === null) return
-    const owned = ownedBy(ownedIndex, item)
-    const common = {
-      url: item.url,
-      profile,
-    }
-    // Already installed: the hand-off is the same one, aimed at the newer
-    // version. Whether one EXISTS is the agent's first task, not something
-    // this card can know — the published catalog carries repository facts,
-    // not release versions — so the prompt opens by asking it to establish
-    // that and to stop if the answer is no.
-    onInstall(item.fullName, buildReviewPrompt(t, { ...common, ...(owned === undefined ? {} : { installed: describeInstalled(owned) }) }), viaNewWorkspace)
-  }
-
-  const runInstalledUpdate = (item: MarketInstalledPackage, viaNewWorkspace: boolean): void => {
-    const profile = snapshot.profile
-    if (profile === null || item.repository === '') return
-    onInstall(installedUpdateCardKey(item.packageName), buildReviewPrompt(t, {
-      url: `https://github.com/${item.repository}`,
-      profile,
-      installed: describeInstalled(item),
+    onReviewDraft(installedReviewCardKey(item.packageName), buildReviewPrompt(t, {
+      profile, targets: [{ packageName: item.packageName, version: item.version }],
     }), viaNewWorkspace)
   }
 
@@ -708,7 +680,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
       {/* Says the prerequisite out loud before a click runs into it, and
           offers the same one action the cards do. It does not block browsing:
           the shortlist is worth reading without a workspace. */}
-      {installMode === 'prompt' && readiness === 'none' && (
+      {installedSelected && readiness === 'none' && (
         <div className="dsh_market_notice">
           <p className="dsh_market_noticeBody">{t('workspace.needed')}</p>
           {chooseError !== '' && <p className="dsh_market_status" data-error="true">{chooseError}</p>}
@@ -722,8 +694,6 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
           </button>
         </div>
       )}
-      {directInstaller && <DirectInstallPanel item={directItem} installer={directInstaller} t={t}
-        onClose={() => setDirectItem(null)} onInstalled={installed.reload} />}
       <div className="dsh_market_bar">
         <input
           className="dsh_market_search"
@@ -779,7 +749,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
             cards={cards}
             installBusy={installBusy}
             readiness={readiness}
-            onUpdate={runInstalledUpdate}
+            onReview={reviewInstalledPackage}
           />
           )
         : state.status === 'error'
@@ -807,14 +777,9 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
               </p>
               )}
 
-      {installMode === 'prompt' && snapshot.profile === null && catalog !== null && !installedSelected && (
-        <p className="dsh_market_status">{t('install.profilePending')}</p>
-      )}
-
       {!installedSelected && shown.length > 0 && (
         <ul className="dsh_market_cards">
           {shown.map((item) => {
-            const card = cards[item.fullName]
             const owned = ownedBy(ownedIndex, item)
             return (
               <li key={item.fullName} className="dsh_market_card">
@@ -845,56 +810,11 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
                   ].filter(part => part !== '').join(' · ')}
                 </p>
                 {item.description !== '' && <p className="dsh_market_desc">{item.description}</p>}
-                {installMode === 'direct' ? (
-                  <div className="dsh_market_foot">
-                    <a className="dsh_market_link" href={item.url} target="_blank" rel="noreferrer">{t('repo')}</a>
-                    <button type="button" className="dsh_market_install" disabled={!directInstaller || installBusy}
-                      onClick={() => setDirectItem(item)}>{t(item.installInfo?.mode === 'command' && item.installInfo.targets.length ? 'direct.install' : 'direct.details')}</button>
-                  </div>
-                ) : card?.status === 'staged'
-                  ? (
-                    <div className="dsh_market_staged">
-                      <span className="dsh_market_stagedTitle">{t('staged')}</span>
-                      <span className="dsh_market_stagedHint">{t('staged.hint')}</span>
-                    </div>
-                    )
-                  : (
-                    <div className="dsh_market_foot">
-                      {card?.status === 'error' && <span className="dsh_market_cardError">{card.message}</span>}
-                      {card?.status === 'needs-workspace' && <span className="dsh_market_cardNotice">{card.message}</span>}
-                      {/* The href is rebuilt from owner/name on the Host, so this
-                          link cannot carry a scheme the snapshot chose. */}
-                      <a className="dsh_market_link" href={item.url} target="_blank" rel="noreferrer">{t('repo')}</a>
-                      {/* One button, two spellings: with no workspace the click
-                          picks a folder first and then goes on installing, so
-                          the user's single "install this" still lands. */}
-                      {card?.status === 'needs-workspace' || (readiness === 'none' && card === undefined)
-                        ? (
-                          <button
-                            type="button"
-                            className="dsh_market_install"
-                            disabled={installBusy || snapshot.profile === null}
-                            onClick={() => { runInstall(item, true) }}
-                          >
-                            {t('install.pickAndInstall')}
-                          </button>
-                          )
-                        : (
-                          <button
-                            type="button"
-                            className="dsh_market_install"
-                            disabled={card?.status === 'busy' || card?.status === 'picking' || installBusy || snapshot.profile === null}
-                            onClick={() => { runInstall(item, false) }}
-                          >
-                            {card?.status === 'picking'
-                              ? t('install.picking')
-                              : card?.status === 'busy'
-                                ? t('installing')
-                                : owned === undefined ? t('install') : t('upgrade')}
-                          </button>
-                          )}
-                    </div>
-                    )}
+                <div className="dsh_market_foot">
+                  <a className="dsh_market_link" href={item.url} target="_blank" rel="noreferrer">{t('repo')}</a>
+                  <button type="button" className="dsh_market_install" disabled={!directInstaller || installBusy}
+                    onClick={() => setDirectItem(item)}>{t(item.installInfo?.mode === 'command' && item.installInfo.targets.length ? 'direct.install' : 'direct.details')}</button>
+                </div>
               </li>
             )
           })}
@@ -925,7 +845,9 @@ export function MarketSection({
   // prompt follow the same setting the rest of the copy does.
   const english = t('lang') === 'en'
   const [page, setPage] = useState<Page>('plugins')
-  const [installMode, setInstallMode] = useState<'direct' | 'prompt'>('direct')
+  const [directItem, setDirectItem] = useState<MarketPlugin | null>(null)
+  const [installedRevision, setInstalledRevision] = useState(0)
+  const refreshInstalled = useCallback(() => setInstalledRevision(value => value + 1), [])
   const searchDock = useSearchDock(page)
   const [cards, setCards] = useState<Readonly<Record<string, CardState>>>({})
   const tabsId = useId()
@@ -942,7 +864,7 @@ export function MarketSection({
     mounted.current = true
     return () => { mounted.current = false }
   }, [])
-  // One install hand-off at a time: two cards clicked back to back must not
+  // One review hand-off at a time: two cards clicked back to back must not
   // open two sessions and stage two drafts.
   const installBusy = Object.values(cards).some(card => card.status === 'busy' || card.status === 'picking')
 
@@ -951,38 +873,40 @@ export function MarketSection({
     if (mounted.current) setCards(cardsRef.current)
   }
 
-  const runInstall = (cardKey: string, prompt: string, viaNewWorkspace: boolean): void => {
-    if (Object.values(cardsRef.current).some(card => card.status === 'busy' || card.status === 'picking')) return
+  const closeInstallPanel = (): void => {
+    // This review belongs to the dismissed installation, not the next panel.
+    const { [SELF_CARD_KEY]: _dismissedReview, ...remaining } = cardsRef.current
+    cardsRef.current = remaining
+    if (mounted.current) {
+      setCards(remaining)
+      setDirectItem(null)
+    }
+  }
+
+  const runReview = async (cardKey: string, prompt: string, viaNewWorkspace: boolean): Promise<boolean> => {
+    if (Object.values(cardsRef.current).some(card => card.status === 'busy' || card.status === 'picking')) return false
     report(cardKey, { status: viaNewWorkspace ? 'picking' : 'busy' })
     const handOff = viaNewWorkspace ? installIntoNewWorkspace : install
-    void handOff(prompt).then((outcome) => {
+    try {
+      const outcome = await handOff(prompt)
       if (outcome.ok) {
         report(cardKey, { status: 'staged' })
-        // The prompt is staged in a session the user cannot see from here.
-        // Closing is the second half of the hand-off, not a courtesy.
         close()
-        return
+        return true
       }
-      // Both of these leave the card one directory choice from installing, so
-      // the card keeps the offer up rather than turning into an error the
-      // user has to translate back into an action.
       if (outcome.reason === 'no-workspace' || outcome.reason === 'cancelled') {
         report(cardKey, {
           status: 'needs-workspace',
           message: outcome.reason === 'cancelled' ? t('install.cancelled') : t('install.noWorkspace'),
         })
-        return
+      } else {
+        report(cardKey, { status: 'error', message: outcome.reason === 'not-ready'
+          ? t('install.notReady') : t('install.failed', { reason: outcome.message }) })
       }
-      const message = outcome.reason === 'not-ready'
-        ? t('install.notReady')
-        : t('install.failed', { reason: outcome.message })
-      report(cardKey, { status: 'error', message })
-    }, (error: unknown) => {
-      report(cardKey, {
-        status: 'error',
-        message: t('install.failed', { reason: error instanceof Error ? error.message : String(error) }),
-      })
-    })
+    } catch (error) {
+      report(cardKey, { status: 'error', message: t('install.failed', { reason: error instanceof Error ? error.message : String(error) }) })
+    }
+    return false
   }
 
   const pages: readonly { id: Page; label: string }[] = [
@@ -1007,16 +931,18 @@ export function MarketSection({
     // Focus follows selection, as the pattern's automatic-activation form asks.
     document.getElementById(`${tabsId}-tab-${pages[next]!.id}`)?.focus()
   }
-  const selfUpgrade = cards[SELF_CARD_KEY]
-
-  const runSelfUpgrade = (): void => {
+  const reviewResult = cards[SELF_CARD_KEY]
+  const reviewInstalled = (targets: ReviewTarget[]): Promise<boolean> => {
     const profile = snapshot.profile
-    if (profile === null) return
-    runInstall(SELF_CARD_KEY, buildReviewPrompt(t, {
-      url: SELF_MARKET_PLUGIN.url,
-      profile,
-      installed: isSafeVersion(snapshot.version) ? `${PACKAGE_NAME} ${snapshot.version}` : PACKAGE_NAME,
-    }), workspaceReadiness.getSnapshot() === 'none')
+    if (profile === null) return Promise.resolve(false)
+    return runReview(SELF_CARD_KEY, buildReviewPrompt(t, { profile, targets }),
+      workspaceReadiness.getSnapshot() === 'none')
+  }
+  const runSelfUpgrade = (): void => {
+    setDirectItem({ ...SELF_MARKET_PLUGIN, installInfo: {
+      mode: 'command', targets: [{ install: PACKAGE_NAME, profile: '', note: '' }],
+      tasks: [], requirements: [], note: '', manual: '',
+    } })
   }
 
   return (
@@ -1034,17 +960,13 @@ export function MarketSection({
         <button
           type="button"
           className="dsh_market_headerAction"
-          disabled={snapshot.profile === null || installBusy}
+          disabled={!directInstaller || installBusy}
           onClick={runSelfUpgrade}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 17V3M6 9l6-6 6 6M4 17v4h16v-4" />
           </svg>
-          {selfUpgrade?.status === 'picking'
-            ? t('install.picking')
-            : selfUpgrade?.status === 'busy'
-              ? t('installing')
-              : t('self.upgrade')}
+          {t('self.upgrade')}
         </button>
         <a className="dsh_market_headerAction" href="https://github.com/bruc3van/safer-dsh-market" target="_blank" rel="noopener noreferrer">
           <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
@@ -1061,11 +983,10 @@ export function MarketSection({
         </MarketMoreActions>
       </div>
       <p className="dsh_market_subtitle">{t('intro.slogan')}</p>
-      {(selfUpgrade?.status === 'error' || selfUpgrade?.status === 'needs-workspace') && (
-        <p className="dsh_market_status" data-error={selfUpgrade.status === 'error' ? 'true' : undefined}>
-          {selfUpgrade.message}
-        </p>
-      )}
+      {directInstaller && <DirectInstallPanel item={directItem} installer={directInstaller} t={t}
+        onClose={closeInstallPanel} onInstalled={refreshInstalled}
+        onReview={reviewInstalled} reviewBusy={installBusy} reviewAvailable={snapshot.profile !== null}
+        reviewMessage={reviewResult?.status === 'error' || reviewResult?.status === 'needs-workspace' ? reviewResult.message : ''} />}
       <div className="dsh_market_tabToolbar">
       <div className="dsh_market_tabs" role="tablist" aria-label={t('tabs.aria')}>
         {pages.map((entry, index) => (
@@ -1086,7 +1007,6 @@ export function MarketSection({
           </button>
         ))}
       </div>
-      {page === 'plugins' && snapshot.value.enabled && <InstallModeSelector value={installMode} onChange={setInstallMode} t={t} />}
       </div>
       {/* The Plugins panel stays mounted across tab switches: unmounting it
           would drop the search/filter state and re-pull the catalog on every
@@ -1100,7 +1020,8 @@ export function MarketSection({
         hidden={page !== 'plugins'}
       >
         <PluginsPage
-          installMode={installMode}
+          setDirectItem={setDirectItem}
+          installedRevision={installedRevision}
           t={t}
           english={english}
           snapshot={snapshot}
@@ -1113,7 +1034,7 @@ export function MarketSection({
           workspaceReadiness={workspaceReadiness}
           cards={cards}
           installBusy={installBusy}
-          onInstall={runInstall}
+          onReviewDraft={runReview}
           directInstaller={directInstaller}
         />
       </div>
