@@ -28,7 +28,7 @@ const npmInstall = `dsh plugin --profile <profile> add ${pkg.name}`
 
 test('DSH dependencies keep the declared runtime and development baseline', () => {
   for (const [kind, expected] of [
-    ['peerDependencies', '^0.1.7-rc.2'],
+    ['peerDependencies', '>=0.1.7-rc.2 <0.3.0'],
     ['devDependencies', '0.1.7-rc.2'],
   ] as const) {
     const dependencies = Object.entries(pkg[kind]).filter(([name]) => name.startsWith('@deepseek-ai/dsh-'))
