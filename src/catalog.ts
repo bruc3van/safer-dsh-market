@@ -1,6 +1,7 @@
 /** Read the curated v2 feed; preserve v1 support for custom directory sources.
  * Remote metadata is validated before entering the client wire contract.
  */
+import { brotliDecompressSync, gunzipSync, inflateSync } from 'node:zlib'
 import { parseInstallInfo } from './installInfo.ts'
 import type { MarketCatalog, MarketCategory, MarketPlugin } from './contract.ts'
 import { isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
@@ -14,6 +15,9 @@ const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1_000
 
 /** One attempt against one base; a chain of two costs at most twice this. */
 const FETCH_TIMEOUT_MS = 20_000
+
+/** unpkg answers every `@latest` path with one 302; a few more hops is already a loop. */
+const MAX_REDIRECTS = 5
 
 /** A description longer than this is a README pasted into the field, not a summary. */
 const DESCRIPTION_LIMIT = 300
@@ -166,6 +170,69 @@ function errorText(error: unknown): string {
   return value === '' ? 'unknown error' : value
 }
 
+/**
+ * Fetch one URL, following redirects by hand. The DSH host's sandboxed fetch
+ * does not follow them itself, and unpkg answers every `@latest` path with a
+ * 302 to the pinned version. The whole chain shares one timeout; a hop that
+ * leaves the origin drops the ETag (it certifies the first server's content
+ * only), and a hop down from https to http is refused.
+ * @param url - the first URL.
+ * @param etag - the ETag to revalidate with, or '' for a plain request.
+ * @returns the first non-redirect response.
+ */
+async function fetchFollowing(url: string, etag: string): Promise<Response> {
+  const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS)
+  const origin = new URL(url).origin
+  let current = url
+  for (let hop = 0; ; hop += 1) {
+    const sameOrigin = new URL(current).origin === origin
+    const response = await fetch(current, {
+      signal,
+      // The host's fetch wrapper asks for compression by default and then
+      // hands the compressed bytes through undecoded; asking for identity
+      // makes the CDN answer in plain text. `readJson` still copes if a
+      // server compresses anyway.
+      headers: etag !== '' && sameOrigin
+        ? { 'accept-encoding': 'identity', 'if-none-match': etag }
+        : { 'accept-encoding': 'identity' },
+    })
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response
+    const location = response.headers.get('location')
+    if (location === null || location === '') throw new Error(`catalog HTTP ${String(response.status)} without a location`)
+    if (hop + 1 > MAX_REDIRECTS) throw new Error('catalog redirected too many times')
+    const next = new URL(location, current)
+    if (next.protocol !== 'https:' && !(next.protocol === 'http:' && new URL(current).protocol === 'http:')) {
+      throw new Error(`catalog redirected to an unsupported URL (${next.protocol})`)
+    }
+    // Drain the redirect body so the connection can be reused.
+    await response.body?.cancel().catch(() => undefined)
+    current = next.href
+  }
+}
+
+/**
+ * Parse a JSON body that may arrive still compressed. The feed is a JSON
+ * object, so a body that starts (after whitespace) with `{` or `[` is already
+ * plain text whatever `content-encoding` claims — a fetch that decoded it
+ * leaves the header in place. Anything else is decoded by the gzip magic
+ * number or the declared encoding before parsing.
+ * @param response - a successful response.
+ * @returns the parsed body.
+ */
+async function readJson(response: Response): Promise<unknown> {
+  let bytes: Uint8Array = new Uint8Array(await response.arrayBuffer())
+  let start = 0
+  while (start < bytes.length && (bytes[start] === 0x20 || bytes[start] === 0x09 || bytes[start] === 0x0a || bytes[start] === 0x0d)) start += 1
+  const plain = bytes[start] === 0x7b || bytes[start] === 0x5b || (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)
+  if (!plain) {
+    const encoding = (response.headers.get('content-encoding') ?? '').trim().toLowerCase()
+    if (bytes[0] === 0x1f && bytes[1] === 0x8b) bytes = gunzipSync(bytes)
+    else if (encoding === 'br') bytes = brotliDecompressSync(bytes)
+    else if (encoding === 'deflate') bytes = inflateSync(bytes)
+  }
+  return JSON.parse(new TextDecoder().decode(bytes))
+}
+
 /** The catalog reader: memory first, then the network. */
 export interface CatalogSource {
   /**
@@ -233,10 +300,7 @@ export function createCatalogSource(options: CatalogOptions): CatalogSource {
     // record) can only have been the primary.
     const conditional = catalog !== null && marketEtag !== ''
       && (activeBase === '' ? base === primary : activeBase === base)
-    const response = await fetch(marketUrl, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: conditional ? { 'if-none-match': marketEtag } : undefined,
-    })
+    const response = await fetchFollowing(marketUrl, conditional ? marketEtag : '')
     if (response.status === 304) {
       // Only asked for when a catalog exists (see `conditional`); guard for
       // the type, since TypeScript cannot read the correlation out of the
@@ -247,7 +311,7 @@ export function createCatalogSource(options: CatalogOptions): CatalogSource {
       return catalog
     }
     if (!response.ok) throw new Error(`catalog HTTP ${String(response.status)}`)
-    catalog = deriveMarket(await response.json(), options.marketSize)
+    catalog = deriveMarket(await readJson(response), options.marketSize)
     marketEtag = response.headers.get('etag') ?? ''
     activeBase = base
     options.cache?.write({ catalog, marketEtag, activeBase })

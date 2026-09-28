@@ -543,3 +543,119 @@ test('a configured base keeps its single source — no mirror failover', async (
     fetch.restore()
   }
 })
+
+// ——— host fetch quirks: undecoded compression, unfollowed redirects ———
+
+const redirect = (status: number, location: string): Response =>
+  new Response(null, { status, headers: { location } })
+
+test('every request asks the CDN for an uncompressed body', async () => {
+  const fetch = stubFetch()
+  try {
+    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const pending = source.read(false)
+    const headers = fetch.calls[0]!.init?.headers as Record<string, string> | undefined
+    assert.equal(headers?.['accept-encoding'], 'identity')
+    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
+    assert.equal((await pending).catalog?.items.length, 1)
+  } finally {
+    fetch.restore()
+  }
+})
+
+test('a gzip body the host fetch left undecoded is still parsed', async () => {
+  const { gzipSync } = await import('node:zlib')
+  const fetch = stubFetch()
+  try {
+    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const pending = source.read(false)
+    const body = gzipSync(JSON.stringify({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'gz/row' })] }))
+    fetch.parked[0]!.resolve(new Response(body, { status: 200, headers: { etag: '"gz"', 'content-encoding': 'gzip' } }))
+    const result = await pending
+    assert.equal(result.error, '')
+    assert.equal(result.catalog?.items[0]?.fullName, 'gz/row')
+  } finally {
+    fetch.restore()
+  }
+})
+
+test('an already-decoded body is not decoded twice despite its content-encoding', async () => {
+  const fetch = stubFetch()
+  try {
+    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const pending = source.read(false)
+    fetch.parked[0]!.resolve(new Response(
+      JSON.stringify({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry()] }),
+      { status: 200, headers: { 'content-encoding': 'br' } },
+    ))
+    assert.equal((await pending).catalog?.items.length, 1)
+  } finally {
+    fetch.restore()
+  }
+})
+
+test('an unpkg @latest 302 is followed to the pinned version', async () => {
+  const fetch = stubFetch()
+  try {
+    const seat = stubCache()
+    const source = createCatalogSource({ base: DEFAULT_CATALOG_BASE, marketSize: 200, cache: seat.cache })
+    const pending = source.read(false)
+    fetch.parked[0]!.reject(new Error('primary down'))
+    await tick()
+    assert.equal(fetch.calls[1]!.url, MIRROR_CATALOG_BASE)
+    fetch.parked[1]!.resolve(redirect(302, '/awesome-dsh-plugin-feed@0.20260928.1/data/market-v2.json'))
+    await tick()
+    assert.equal(fetch.calls.length, 3, 'the redirect is followed by hand')
+    assert.equal(fetch.calls[2]!.url, 'https://unpkg.com/awesome-dsh-plugin-feed@0.20260928.1/data/market-v2.json')
+    fetch.parked[2]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-09-28', entries: [entry({ full_name: 'pinned/row' })] }, '"m-pin"'))
+    const result = await pending
+    assert.equal(result.error, '')
+    assert.equal(result.catalog?.items[0]?.fullName, 'pinned/row')
+    assert.equal(seat.writes[0]?.activeBase, MIRROR_CATALOG_BASE, 'the sticky base is the configured URL, not the pinned one')
+    assert.equal(seat.writes[0]?.marketEtag, '"m-pin"')
+  } finally {
+    fetch.restore()
+  }
+})
+
+test('a revalidation carries its ETag across a same-origin redirect only', async () => {
+  const fetch = stubFetch()
+  try {
+    const seat = stubCache()
+    seat.set({ catalog: makeCatalog([plugin()], 12), marketEtag: '"m1"', activeBase: '' })
+    const source = createCatalogSource({ base: 'https://example.test/feed.json', marketSize: 200, cache: seat.cache })
+    const pending = source.read(false)
+    fetch.parked[0]!.resolve(redirect(307, 'https://example.test/v2/feed.json'))
+    await tick()
+    assert.equal((fetch.calls[1]!.init?.headers as Record<string, string>)['if-none-match'], '"m1"')
+    fetch.parked[1]!.resolve(redirect(302, 'https://other.test/feed.json'))
+    await tick()
+    assert.equal((fetch.calls[2]!.init?.headers as Record<string, string>)['if-none-match'], undefined)
+    fetch.parked[2]!.resolve(NOT_MODIFIED())
+    const result = await pending
+    assert.equal(result.stale, false)
+  } finally {
+    fetch.restore()
+  }
+})
+
+test('a redirect loop and an https → http downgrade both fail the attempt', async () => {
+  const fetch = stubFetch()
+  try {
+    const source = createCatalogSource({ base: 'https://example.test/feed.json', marketSize: 200 })
+    const pending = source.read(false)
+    for (let hop = 0; hop < 6; hop += 1) {
+      fetch.parked[hop]!.resolve(redirect(302, `https://example.test/${String(hop)}.json`))
+      await tick()
+    }
+    assert.match((await pending).error, /too many times/)
+    assert.equal(fetch.calls.length, 6)
+
+    const second = source.read(true)
+    fetch.parked[6]!.resolve(redirect(301, 'http://example.test/feed.json'))
+    assert.match((await second).error, /unsupported URL/)
+    assert.equal(fetch.calls.length, 7)
+  } finally {
+    fetch.restore()
+  }
+})
