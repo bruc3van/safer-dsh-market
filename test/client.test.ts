@@ -124,13 +124,14 @@ test('every class the stylesheet defines is namespaced to this plugin', () => {
 })
 
 test('one overlapping client module cannot remove another module copy\'s stylesheet', async () => {
-  type FakeTag = { id: string; textContent: string; remove: () => void }
+  type FakeTag = { id: string; textContent: string; setAttribute: (name: string, value: string) => void; remove: () => void }
   const tags = new Map<string, FakeTag>()
   const fakeDocument = {
     getElementById: (id: string) => tags.get(id) ?? null,
     createElement: () => ({
       id: '',
       textContent: '',
+      setAttribute() {},
       remove() { tags.delete(this.id) },
     }),
     head: {
@@ -158,6 +159,59 @@ test('one overlapping client module cannot remove another module copy\'s stylesh
     assert.ok(!tags.has(STYLE_ID))
   } finally {
     Reflect.deleteProperty(globalThis, 'document')
+  }
+})
+
+test('third-party module claiming and uninstall cannot take the market stylesheet', () => {
+  const tags = new Map<string, ReturnType<typeof createTag>>()
+  function createTag() {
+    const attributes = new Map<string, string>()
+    return {
+      id: '', textContent: '',
+      setAttribute(name: string, value: string) { attributes.set(name, value) },
+      getAttribute(name: string) { return attributes.get(name) ?? null },
+      remove() { tags.delete(this.id) },
+    }
+  }
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: {
+    getElementById: (id: string) => tags.get(id) ?? null,
+    createElement: createTag,
+    head: { appendChild(tag: ReturnType<typeof createTag>) {
+      assert.equal(tag.getAttribute('data-plugin'), 'safer-dsh-market', 'ownership must exist before insertion')
+      tags.set(tag.id, tag)
+    } },
+  } })
+  try {
+    const dispose = adoptStyles()
+    const sheet = tags.get(STYLE_ID)!
+    const thirdParty = '@morlay/session-mode-profile'
+    const foreign = createTag()
+    foreign.id = 'third-party-style'
+    tags.set(foreign.id, foreign)
+    // Mirror the host's claimStyles / removeOwnedStyles lifecycle: the next
+    // materialized module claims ALL untagged sheets, then removes its own.
+    for (const tag of tags.values()) {
+      if (tag.getAttribute('data-plugin') === null) tag.setAttribute('data-plugin', thirdParty)
+    }
+    for (const tag of tags.values()) {
+      if (tag.getAttribute('data-plugin') === thirdParty) tag.remove()
+    }
+    assert.equal(tags.has(foreign.id), false)
+    assert.equal(tags.get(STYLE_ID), sheet)
+    assert.equal(sheet.textContent, cssText)
+
+    // A module upgrade also corrects a sheet misclaimed by the old version.
+    sheet.setAttribute('data-plugin', thirdParty)
+    const disposeSecond = adoptStyles()
+    assert.equal(sheet.getAttribute('data-plugin'), 'safer-dsh-market')
+    dispose()
+    assert.equal(tags.get(STYLE_ID), sheet)
+    disposeSecond()
+    assert.equal(tags.size, 0)
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'document', previous)
+    else Reflect.deleteProperty(globalThis, 'document')
   }
 })
 

@@ -855,7 +855,14 @@ export function adoptStyles(): () => void {
     tag = document.createElement('style') as OwnedStyleElement
     tag.id = STYLE_ID
     tag.textContent = cssText
+    // The host claims every untagged stylesheet for the next materialized
+    // plugin, then deletes its claimed sheets on uninstall. Mark ownership
+    // before insertion so another plugin cannot claim the market's CSS.
+    tag.setAttribute('data-plugin', 'safer-dsh-market')
     document.head.appendChild(tag)
+  } else {
+    // Also repair an existing tag left by a previous client module version.
+    tag.setAttribute('data-plugin', 'safer-dsh-market')
   }
   tag[STYLE_OWNERS] = (tag[STYLE_OWNERS] ?? 0) + 1
   // Guard against a disposer that fires twice: it must not double-decrement
