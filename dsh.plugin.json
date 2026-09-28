@@ -1,6 +1,6 @@
 {
   "name": "safer-dsh-market",
-  "description": "A safety-first plugin marketplace for the DeepSeek Harness web GUI",
+  "description": "DeepSeek Harness 第三方插件市场，支持通过官方插件管理器安装，并可对已安装插件进行 AI 安全审查。",
   "version": "0.8.3",
   "entry": {
     "name": "safer-dsh-market",
