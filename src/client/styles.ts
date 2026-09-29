@@ -560,10 +560,9 @@ export const cssText = `
   padding: 0;
   list-style: none;
 }
-/* The market grid gives every card the tallest card's height: equal rows
-   read as one list, the verbs line up along each card's bottom edge, and a
-   short description leaves space rather than a ragged edge. The installed
-   grid keeps content height, since a card's notices can be long. */
+/* Every card grid gives each card the tallest card's height: equal rows read
+   as one list, the verbs line up along each card's bottom edge, and a short
+   description leaves space rather than a ragged edge. */
 .dsh_market_cardsUniform {
   grid-auto-rows: 1fr;
   align-items: stretch;

@@ -99,6 +99,7 @@ export declare const safeMarketDomainState: z.ZodObject<{
     }, z.core.$strip>>, z.ZodNull]>;
     marketEtag: z.ZodDefault<z.ZodString>;
     activeBase: z.ZodDefault<z.ZodString>;
+    catalogFormat: z.ZodDefault<z.ZodNumber>;
     marketSize: z.ZodNumber;
     catalogBase: z.ZodString;
     pendingUninstall: z.ZodDefault<z.ZodArray<z.ZodObject<{
@@ -208,6 +209,7 @@ export declare const safeMarketDomainSpec: {
             }, z.core.$strip>>, z.ZodNull]>;
             marketEtag: z.ZodDefault<z.ZodString>;
             activeBase: z.ZodDefault<z.ZodString>;
+            catalogFormat: z.ZodDefault<z.ZodNumber>;
             marketSize: z.ZodNumber;
             catalogBase: z.ZodString;
             pendingUninstall: z.ZodDefault<z.ZodArray<z.ZodObject<{
@@ -293,6 +295,7 @@ export declare const safeMarketDomainSpec: {
             }> | null;
             marketEtag: string;
             activeBase: string;
+            catalogFormat: number;
             marketSize: number;
             catalogBase: string;
             pendingUninstall: {

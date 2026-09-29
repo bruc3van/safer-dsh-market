@@ -478,7 +478,7 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
         <p className="dsh_market_status">{t('installed.empty')}</p>
       )}
       {state.status === 'ready' && state.result.packages.length > 0 && (
-        <ul className="dsh_market_cards">
+        <ul className="dsh_market_cards dsh_market_cardsUniform">
           {state.result.packages.map(item => (
             <InstalledCard
               key={item.packageName}

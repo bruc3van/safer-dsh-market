@@ -53,6 +53,14 @@ export const safeMarketDomainState = z.object({
    */
   activeBase: z.string().default(''),
   /**
+   * The derivation format the catalog was reduced under (`CATALOG_FORMAT` in
+   * catalog.ts). Defaulted for the same reason as the two fields above; a
+   * record written before the field existed reads as format 1, which the
+   * cache gate then refuses, so the first read after an upgrade downloads
+   * unconditionally instead of revalidating the old reduction with a 304.
+   */
+  catalogFormat: z.number().int().default(1),
+  /**
    * The market size the catalog was reduced with. A deployment that changes
    * `marketSize` must not keep serving a list cut to the old number.
    */
@@ -81,6 +89,7 @@ export const initialDomainState: SafeMarketDomainState = {
   catalog: null,
   marketEtag: '',
   activeBase: '',
+  catalogFormat: 1,
   marketSize: 1,
   catalogBase: '',
   pendingUninstall: [],
@@ -129,6 +138,7 @@ export function adoptDomainState(
     catalog: stored.catalog,
     marketEtag: stored.marketEtag,
     activeBase: stored.activeBase,
+    catalogFormat: stored.catalogFormat,
     marketSize: stored.marketSize,
     catalogBase: stored.catalogBase,
   }

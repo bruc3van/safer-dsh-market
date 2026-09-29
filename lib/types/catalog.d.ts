@@ -3,6 +3,15 @@ import type { MarketCatalog } from './contract.ts';
 export declare const DEFAULT_CATALOG_BASE = "https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json";
 export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-v2.json";
 /**
+ * The shape {@link deriveMarket} produces. A stored catalog records the
+ * format it was derived under, and the cache gate refuses any other: a
+ * revalidation only asks whether the FEED changed, so after an upgrade that
+ * changes the parse a 304 would keep serving the old build's reduction
+ * forever. Bump this whenever the derived catalog gains or changes a field.
+ * 1 — before the editorial picks; 2 — `featured`.
+ */
+export declare const CATALOG_FORMAT = 2;
+/**
  * Where a parsed catalog survives a restart. The catalog source neither opens
  * nor closes this — the plugin body owns the domain's lifecycle and hands the
  * source a narrow port, so a deployment without durable storage can still run

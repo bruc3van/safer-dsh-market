@@ -25,6 +25,16 @@ const DESCRIPTION_LIMIT = 300
 /** The legacy schema remains accepted for custom sources. */
 const SCHEMA_VERSION = 1
 
+/**
+ * The shape {@link deriveMarket} produces. A stored catalog records the
+ * format it was derived under, and the cache gate refuses any other: a
+ * revalidation only asks whether the FEED changed, so after an upgrade that
+ * changes the parse a 304 would keep serving the old build's reduction
+ * forever. Bump this whenever the derived catalog gains or changes a field.
+ * 1 — before the editorial picks; 2 — `featured`.
+ */
+export const CATALOG_FORMAT = 2
+
 /** Editorial picks are a short list; anything longer is not one. */
 const FEATURED_LIMIT = 50
 

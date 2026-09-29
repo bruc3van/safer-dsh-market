@@ -30,7 +30,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-storage-domain'
 // Type-only: brings the `ctx.loader` Context merge in.
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import { createCatalogSource, type CatalogCache } from './catalog.ts'
+import { CATALOG_FORMAT, createCatalogSource, type CatalogCache } from './catalog.ts'
 import { createInstalledManager } from './installed.ts'
 import { SafeMarketRuntime } from './runtime.ts'
 import { registerSafeMarketSettings } from './settings.ts'
@@ -89,9 +89,11 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
   let state: SafeMarketDomainState = initialDomainState
   let persist: ((next: SafeMarketDomainState) => void) | undefined
   // A stored reduction answers a different question than the current config
-  // asked, so only adopt state cut with the same market size and base.
+  // asked, so only adopt state cut with the same market size and base — and
+  // derived by a parse of the same shape as this build's.
   const usable = (candidate: SafeMarketDomainState): boolean =>
-    candidate.catalog !== null && candidate.marketSize === resolved.marketSize && candidate.catalogBase === resolved.catalogBase
+    candidate.catalog !== null && candidate.catalogFormat === CATALOG_FORMAT
+    && candidate.marketSize === resolved.marketSize && candidate.catalogBase === resolved.catalogBase
   const cache: CatalogCache = {
     read: () => (
       usable(state)
@@ -104,6 +106,7 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
         catalog: next.catalog,
         marketEtag: next.marketEtag,
         activeBase: next.activeBase,
+        catalogFormat: CATALOG_FORMAT,
         marketSize: resolved.marketSize,
         catalogBase: resolved.catalogBase,
       }

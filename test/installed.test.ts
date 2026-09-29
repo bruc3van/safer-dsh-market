@@ -741,6 +741,7 @@ function storedState(overrides: Partial<SafeMarketDomainState> = {}): SafeMarket
     },
     marketEtag: '"m1"',
     activeBase: '',
+    catalogFormat: 2,
     marketSize: 100,
     catalogBase: 'https://example.test/data',
     pendingUninstall: [],
@@ -898,6 +899,9 @@ test('a store written before 0.2.1 still parses, keeping its catalog', () => {
   // Empty means "ask unconditionally once", which is exactly right after a
   // rename: the old ETags belong to files this build no longer reads.
   assert.equal(parsed.marketEtag, '')
+  // A record from before the derivation format existed reads as format 1,
+  // which the current cache gate refuses, forcing one unconditional download.
+  assert.equal(parsed.catalogFormat, 1)
   // Same defaulting for the serving base added in 0.2.8: '' reads as "the
   // primary answered" and the record still parses.
   assert.equal(parsed.activeBase, '')
