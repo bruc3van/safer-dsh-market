@@ -81,7 +81,6 @@ export const zh = {
   'source': '数据来自 awesome-dsh-plugin 社区目录',
   'stars': 'star',
 
-  'self.upgrade': "更新市场",
   'header.more': '更多操作',
   'backToTop': '回到顶部',
   'header.repository': 'GitHub 仓库',
@@ -237,7 +236,6 @@ export const en: Record<SafeMarketLocaleKey, string> = {
   'source': 'Curated by awesome-dsh-plugin',
   'stars': 'stars',
 
-  'self.upgrade': "Update market",
   'header.more': 'More actions',
   'backToTop': 'Back to top',
   'header.repository': 'GitHub repository',

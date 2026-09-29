@@ -97,7 +97,7 @@ Both entries share the switch and all operations; Settings no longer carries a d
 
 - **Find plugins**: Featured / Installed / All switches between the editor's picks, local management, and the full catalog; the market opens on Featured, shown in the editor's order with the count the upstream catalog declares. Search by name, package, task, or category; typing in Featured switches to All and searches the full catalog. Under All, categories use a dropdown. Clear filters restores the unfiltered catalog.
 - **Refresh data**: the upper-right action fetches the latest catalog and blocks repeat clicks while it runs.
-- **More actions (⋯)**: **Update market**, [GitHub repository](https://github.com/bruc3van/safer-dsh-market), [contact the author](https://x.com/bruc3van).
+- **More actions (⋯)**: [GitHub repository](https://github.com/bruc3van/safer-dsh-market), [contact the author](https://x.com/bruc3van).
 - **Scrolling**: the plugin heading, tabs, search, and filters stay fixed while cards scroll. Categories use a theme-aware menu. The Skills page can still dock search beside the tabs in wider panels.
 - **Back to top**: after roughly half a screen (at least 240px) a button appears in the lower right; reduced-motion preferences are respected.
 
@@ -134,7 +134,7 @@ The audit verifies the current instance, profile, actual local package, exact ve
 
 ### Updates
 
-Catalog installation buttons can call the official manager again with the selected reference. **⋯ → Update market** uses the market's npm package name through the same confirmation panel. This does not promise latest-version detection or preservation of custom sources; inspect installation details first. An Installed card's **AI review** checks the current version without updating it.
+The official plugin manager has no update action yet and refuses to install a package that is already installed, so the market offers no update entry for now: a catalog card for an installed plugin shows **Manage**, which opens the Installed view. To update, reinstall with an explicit version as described in the installation section above. An Installed card's **AI review** checks the current version without updating it.
 
 ## Installed panel
 

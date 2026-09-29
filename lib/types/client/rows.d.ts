@@ -19,12 +19,6 @@ export declare const INSTALLED_FILTER = "dsh:installed";
 export declare const SELF_CARD_KEY = "dsh:self";
 /** Card-state key for a review launched from the installed-package view. */
 export declare function installedReviewCardKey(packageName: string): string;
-/**
- * The market's own fixed repository identity. Unlike catalog rows this is
- * package-owned source, not remote snapshot text; keeping the complete
- * MarketPlugin shape lets the header use the exact same hand-off as a card.
- */
-export declare const SELF_MARKET_PLUGIN: MarketPlugin;
 /** `1998` → `2.0k`: a card has room for the magnitude, not the digits. */
 export declare function starCount(stars: number): string;
 /** Whether one row survives the current query and category filter. */

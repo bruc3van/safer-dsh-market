@@ -74,7 +74,6 @@ export declare const zh: {
     readonly snapshot: "目录更新于 {date} · 已扫描 {scanned} 个仓库";
     readonly source: "数据来自 awesome-dsh-plugin 社区目录";
     readonly stars: "star";
-    readonly 'self.upgrade': "更新市场";
     readonly 'header.more': "更多操作";
     readonly backToTop: "回到顶部";
     readonly 'header.repository': "GitHub 仓库";

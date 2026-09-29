@@ -18,7 +18,6 @@ import { adoptStyles, cssText, STYLE_ID } from '../src/client/styles.ts'
 import {
   INSTALLED_FILTER,
   SELF_CARD_KEY,
-  SELF_MARKET_PLUGIN,
   featuredRows,
   installedReviewCardKey,
   marketRows,
@@ -28,8 +27,8 @@ import {
   stateOf,
 } from '../src/client/rows.ts'
 import { describeInstalled, ownedIndexOf, shortName } from '../src/client/owned.ts'
-import { marketPluginSchema, type MarketFeatured, type MarketInstalledPackage, type MarketPlugin } from '../src/contract.ts'
-import { FEATURED_CATEGORY, isSafeBranchName, isSafeVersion, REPOSITORY_SLUG_PATTERN } from '../src/shapes.ts'
+import { type MarketFeatured, type MarketInstalledPackage, type MarketPlugin } from '../src/contract.ts'
+import { FEATURED_CATEGORY, isSafeVersion, REPOSITORY_SLUG_PATTERN } from '../src/shapes.ts'
 
 // ——— the prompt interpolation invariant ———
 
@@ -357,19 +356,8 @@ test('the reserved filter keys cannot collide with a catalog key', () => {
     assert.ok(!REPOSITORY_SLUG_PATTERN.test(reserved), `${reserved} must not be a possible catalog row key`)
   }
   assert.notEqual(INSTALLED_FILTER as string, SELF_CARD_KEY as string)
-  // The header's self-upgrade must not share a card seat with the catalog row
-  // for this same repository, which the shortlist may well carry.
-  assert.notEqual(SELF_CARD_KEY as string, SELF_MARKET_PLUGIN.fullName)
   assert.ok(!REPOSITORY_SLUG_PATTERN.test(installedReviewCardKey('@scope/demo')))
   assert.notEqual(installedReviewCardKey('demo'), installedReviewCardKey('@scope/demo'))
-})
-
-test('the market own row satisfies the same wire contract a catalog row does', () => {
-  // Its `url` and `defaultBranch` are interpolated into the upgrade prompt
-  // exactly as a catalog row's are, so they answer to the same codec.
-  marketPluginSchema.parse(SELF_MARKET_PLUGIN)
-  assert.ok(isSafeBranchName(SELF_MARKET_PLUGIN.defaultBranch))
-  assert.equal(SELF_MARKET_PLUGIN.url, `https://github.com/${SELF_MARKET_PLUGIN.fullName}`)
 })
 
 // ——— the skills page's filter ———

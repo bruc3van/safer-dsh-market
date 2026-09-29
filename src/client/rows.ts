@@ -9,7 +9,6 @@
  * it lives here and the section imports it.
  */
 import type { MarketFeatured, MarketFeaturedEntry, MarketInstalledPackage, MarketPlugin, MarketSkill } from '../contract.ts'
-import { PACKAGE_NAME } from '../shapes.ts'
 
 /**
  * The category chip that selects the installed set instead of a catalog
@@ -24,27 +23,6 @@ export const SELF_CARD_KEY = 'dsh:self'
 /** Card-state key for a review launched from the installed-package view. */
 export function installedReviewCardKey(packageName: string): string {
   return `dsh:review:${packageName}`
-}
-
-/**
- * The market's own fixed repository identity. Unlike catalog rows this is
- * package-owned source, not remote snapshot text; keeping the complete
- * MarketPlugin shape lets the header use the exact same hand-off as a card.
- */
-export const SELF_MARKET_PLUGIN: MarketPlugin = {
-  fullName: 'bruc3van/safer-dsh-market',
-  owner: 'bruc3van',
-  name: PACKAGE_NAME,
-  url: 'https://github.com/bruc3van/safer-dsh-market',
-  description: '',
-  stars: 0,
-  language: 'TypeScript',
-  license: 'MIT',
-  pushedAt: '',
-  defaultBranch: 'master',
-  category: 'market',
-  categoryZh: '市场',
-  categoryEn: 'Marketplace',
 }
 
 /** `1998` → `2.0k`: a card has room for the magnitude, not the digits. */
