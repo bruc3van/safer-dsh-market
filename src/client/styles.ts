@@ -463,9 +463,29 @@ export const cssText = `
 .dsh_market_search::placeholder {
   color: var(--dsw-alias-label-tertiary);
 }
+/* The page is monochrome — black verbs, grey hairlines — so focus deepens
+   the hairline instead of switching to the brand hue with a glow. */
+.dsh_market_search:hover {
+  border-color: var(--dsw-alias-label-tertiary);
+}
 .dsh_market_search:focus-visible {
-  border-color: var(--dsw-alias-state-business-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 18%, transparent);
+  border-color: var(--dsw-alias-label-secondary);
+}
+/* The engine's own clear control is drawn in its accent blue; this redraws
+   it as a neutral cross that follows the theme. */
+.dsh_market_search::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+  cursor: pointer;
+  background-color: var(--dsw-alias-label-tertiary);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www%2Ew3%2Eorg/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 6 12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www%2Ew3%2Eorg/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 6 12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.dsh_market_search::-webkit-search-cancel-button:hover {
+  background-color: var(--dsw-alias-label-primary);
 }
 
 .dsh_market_ghost {

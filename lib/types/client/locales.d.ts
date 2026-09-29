@@ -57,7 +57,7 @@ export declare const zh: {
     readonly all: "全部";
     readonly 'featured.chip': "精选";
     readonly 'featured.summary': "{count} 个编辑精选插件";
-    readonly refresh: "刷新市场";
+    readonly refresh: "刷新数据";
     readonly refreshing: "刷新中…";
     readonly loading: "正在加载插件…";
     readonly empty: "没有符合当前筛选的插件";
