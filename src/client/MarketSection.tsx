@@ -86,6 +86,10 @@ export interface MarketSectionInjected {
   /** Read the skills this deployment resolves. */
   listSkills: () => Promise<MarketSkillsResult>
   skillsSession: SkillsSessionSource
+  /** Whether the Host can open a folder on its desktop at all. */
+  canOpenFolder: () => Promise<boolean>
+  /** Open one skill's directory in the Host's file manager. */
+  openFolder: (path: string) => Promise<void>
   /** Open a session in the current or most recent workspace and stage the given prompt. */
   install: (prompt: string) => Promise<InstallOutcome>
   /**
@@ -873,7 +877,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
 
 /** The Marketplace section. */
 export function MarketSection({
-  useScope, setEnabled, loadCatalog, listSkills, skillsSession, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
+  useScope, setEnabled, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
   listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, close, t,
 }: MarketSectionProps): ReactElement {
   const snapshot = useScope(value => value)
@@ -1082,7 +1086,8 @@ export function MarketSection({
           role="tabpanel"
           aria-labelledby={`${tabsId}-tab-skills`}
         >
-          <SkillsView t={t} listSkills={listSkills} skillsSession={skillsSession} />
+          <SkillsView t={t} listSkills={listSkills} skillsSession={skillsSession}
+            canOpenFolder={canOpenFolder} openFolder={openFolder} />
         </div>
       )}
       <BackToTop root={searchDock.root} page={page} label={t('backToTop')} />

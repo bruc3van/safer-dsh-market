@@ -27,13 +27,32 @@ type SkillsState =
   | { readonly status: 'error'; readonly message: string }
 
 /** The Skills page. */
-export function SkillsView({ t, listSkills, skillsSession }: {
+export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFolder }: {
   t: MarketLocale
   listSkills: () => Promise<MarketSkillsResult>
   skillsSession: SkillsSessionSource
+  canOpenFolder: () => Promise<boolean>
+  openFolder: (path: string) => Promise<void>
 }): ReactElement {
   const [state, setState] = useState<SkillsState>({ status: 'loading' })
   const [query, setQuery] = useState('')
+  // A deployment without a desktop (a headless or remote Host) has nowhere to
+  // open a folder, so the icon only appears once the Host says it can.
+  const [folderAvailable, setFolderAvailable] = useState(false)
+  const [folderError, setFolderError] = useState('')
+
+  useEffect(() => {
+    let live = true
+    void canOpenFolder().then(ok => { if (live) setFolderAvailable(ok) }, () => undefined)
+    return () => { live = false }
+  }, [canOpenFolder])
+
+  const open = (path: string): void => {
+    setFolderError('')
+    void openFolder(path).catch((error: unknown) => {
+      setFolderError(t('skills.openFailed', { reason: error instanceof Error ? error.message : String(error) }))
+    })
+  }
 
   useEffect(() => watchSkills(skillsSession, listSkills, {
     loading: () => setState({ status: 'loading' }),
@@ -88,6 +107,8 @@ export function SkillsView({ t, listSkills, skillsSession }: {
           </p>
           )}
 
+      {folderError !== '' && <p className="dsh_market_status" data-error="true">{folderError}</p>}
+
       {result !== null && !result.complete && result.error === '' && (
         <p className="dsh_market_status" data-error="true">{t('skills.incomplete')}</p>
       )}
@@ -103,6 +124,19 @@ export function SkillsView({ t, listSkills, skillsSession }: {
                 {skill.sourceDirectory
                   ? t('skills.provider', { provider: skill.sourceDirectory })
                   : t('skills.sourceUnavailable')}
+                {folderAvailable && skill.sourcePath !== undefined && (
+                  <button
+                    type="button"
+                    className="dsh_market_folderButton"
+                    aria-label={`${t('skills.openFolder')}: ${skill.sourcePath}`}
+                    title={`${t('skills.openFolder')}: ${skill.sourcePath}`}
+                    onClick={() => { open(skill.sourcePath!) }}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.3l2 2.2h8.7A1.5 1.5 0 0 1 21 8.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
+                    </svg>
+                  </button>
+                )}
               </p>
               {skill.description !== '' && <p className="dsh_market_desc">{skill.description}</p>}
               {skill.whenToUse !== '' && <p className="dsh_market_meta">{skill.whenToUse}</p>}

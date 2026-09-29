@@ -191,6 +191,21 @@ export const cssText = `
 .dsh_market_backToTop:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 .dsh_market_backToTop:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
 .dsh_market_skillSource { overflow-wrap: anywhere; }
+/* Sits on the path's own line, in its tone, like the repository icon beside
+   an installed version. */
+.dsh_market_folderButton {
+  display: inline-flex; margin-left: 5px; padding: 0; vertical-align: -2px;
+  border: 0; background: none; color: inherit; cursor: pointer;
+}
+.dsh_market_folderButton svg {
+  width: 14px; height: 14px;
+  fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round;
+}
+.dsh_market_folderButton:hover { color: var(--dsw-alias-label-primary); }
+.dsh_market_folderButton:focus-visible {
+  color: var(--dsw-alias-label-primary);
+  outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; border-radius: 3px;
+}
 .dsh_market_subtitle,
 .dsh_market_skillsTitle {
   margin: 0;

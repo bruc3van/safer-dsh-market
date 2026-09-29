@@ -151,6 +151,8 @@ export const zh = {
   'skills.user': "可通过 /名称 调用",
   'skills.provider': '来源 {provider}',
   'skills.sourceUnavailable': '未提供来源目录',
+  'skills.openFolder': '打开文件夹',
+  'skills.openFailed': '打开文件夹失败：{reason}',
 } as const
 
 /** English dictionary. */
@@ -304,6 +306,8 @@ export const en: Record<SafeMarketLocaleKey, string> = {
   'skills.user': "Use with /name",
   'skills.provider': 'from {provider}',
   'skills.sourceUnavailable': 'Source directory unavailable',
+  'skills.openFolder': 'Open folder',
+  'skills.openFailed': 'Could not open the folder: {reason}',
 }
 
 /** The dictionary's key set. */

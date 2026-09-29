@@ -81,6 +81,10 @@ export interface MarketSectionInjected {
     /** Read the skills this deployment resolves. */
     listSkills: () => Promise<MarketSkillsResult>;
     skillsSession: SkillsSessionSource;
+    /** Whether the Host can open a folder on its desktop at all. */
+    canOpenFolder: () => Promise<boolean>;
+    /** Open one skill's directory in the Host's file manager. */
+    openFolder: (path: string) => Promise<void>;
     /** Open a session in the current or most recent workspace and stage the given prompt. */
     install: (prompt: string) => Promise<InstallOutcome>;
     /**
@@ -107,4 +111,4 @@ export type MarketSectionProps = {
     close: () => void;
 } & InjectFace<MarketSectionInjected> & PropsLocale<'settings.saferMarket'>;
 /** The Marketplace section. */
-export declare function MarketSection({ useScope, setEnabled, loadCatalog, listSkills, skillsSession, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, close, t, }: MarketSectionProps): ReactElement;
+export declare function MarketSection({ useScope, setEnabled, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, close, t, }: MarketSectionProps): ReactElement;

@@ -17,8 +17,10 @@ export declare const NO_SESSION = "no-session";
 /** The reader's sentinel for "the session list has not landed yet". */
 export declare const SESSIONS_PENDING = "sessions-pending";
 /** The Skills page. */
-export declare function SkillsView({ t, listSkills, skillsSession }: {
+export declare function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFolder }: {
     t: MarketLocale;
     listSkills: () => Promise<MarketSkillsResult>;
     skillsSession: SkillsSessionSource;
+    canOpenFolder: () => Promise<boolean>;
+    openFolder: (path: string) => Promise<void>;
 }): ReactElement;

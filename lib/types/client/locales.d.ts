@@ -142,6 +142,8 @@ export declare const zh: {
     readonly 'skills.user': "可通过 /名称 调用";
     readonly 'skills.provider': "来源 {provider}";
     readonly 'skills.sourceUnavailable': "未提供来源目录";
+    readonly 'skills.openFolder': "打开文件夹";
+    readonly 'skills.openFailed': "打开文件夹失败：{reason}";
 };
 /** English dictionary. */
 export declare const en: Record<SafeMarketLocaleKey, string>;

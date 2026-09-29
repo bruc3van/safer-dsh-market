@@ -14,6 +14,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Context } from '@deepseek-ai/cordis'
 import { readSkills, skillDirectory, type SkillReadAgent } from '../src/skills.ts'
+import { marketSkillsResultSchema } from '../src/contract.ts'
 
 /** One registry row in the shape `snapshot` returns. */
 interface Row {
@@ -170,4 +171,23 @@ test('skill reads carry actual resource directories without guessing from provid
   assert.equal(result.skills[0]!.sourceDirectory, '.agents/skills')
   assert.equal(result.skills[1]!.sourceDirectory, undefined)
   assert.equal(result.skills[2]!.sourceDirectory, undefined)
+  // The folder action opens the skill's own directory, verbatim; a skill
+  // with no directory offers no folder to open.
+  assert.equal(result.skills[0]!.sourcePath, '/work/.agents/skills/disk')
+  assert.equal(result.skills[1]!.sourcePath, undefined)
+  assert.equal(result.skills[2]!.sourcePath, undefined)
+})
+
+test('a skill directory unfit for the folder action is labelled but not offered', async () => {
+  const result = await readSkills(ctxWith({complete: true, skills: [
+    row('spaced', {resourceBase: {kind: 'directory', path: 'C:/Program Files/My  Skills/spaced'}}),
+    row('control', {resourceBase: {kind: 'directory', path: '/work/skills/bad\nname'}}),
+    row('long', {resourceBase: {kind: 'directory', path: `/${'a'.repeat(5000)}`}}),
+  ]}), agent('/work'), new AbortController().signal)
+  const byName = new Map(result.skills.map(skill => [skill.name, skill]))
+  // Runs of spaces are real path text and must not be collapsed.
+  assert.equal(byName.get('spaced')!.sourcePath, 'C:/Program Files/My  Skills/spaced')
+  assert.equal(byName.get('control')!.sourcePath, undefined)
+  assert.equal(byName.get('long')!.sourcePath, undefined)
+  assert.doesNotThrow(() => marketSkillsResultSchema.parse(result))
 })

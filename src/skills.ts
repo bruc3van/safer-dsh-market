@@ -61,6 +61,16 @@ export function skillDirectory(directory: string, cwd?: string, home = homedir()
   return relative !== undefined ? (relative === '' ? '~' : `~/${relative}`) : directory
 }
 
+/**
+ * The directory as the folder action receives it: carried verbatim (a path
+ * may legitimately hold runs of spaces), but only in a shape the wire codec
+ * and the Host's opener can take.
+ */
+function folderPath(value: unknown): { sourcePath?: string } {
+  if (typeof value !== 'string' || value === '' || value.length > 4096) return {}
+  return /[\u0000-\u001f]/.test(value) ? {} : { sourcePath: value }
+}
+
 /** The addressed agent, structurally: its scope key and its workspace. */
 export interface SkillReadAgent {
   readonly session: { readonly header: { readonly cwd?: string } }
@@ -90,7 +100,10 @@ export async function readSkills(
       whenToUse: text(entry.whenToUse, 400),
       provider: text(entry.provider, 60),
       ...(entry.resourceBase?.kind === 'directory'
-        ? { sourceDirectory: skillDirectory(entry.resourceBase.path, agent.session.header.cwd) }
+        ? {
+            sourceDirectory: skillDirectory(entry.resourceBase.path, agent.session.header.cwd),
+            ...folderPath(entry.resourceBase.path),
+          }
         : {}),
       modelInvocable: entry.invocation.modelInvocable,
       userInvocable: entry.invocation.userInvocable,

@@ -102,6 +102,11 @@ export interface MarketSkill {
   readonly provider: string
   /** Actual resource directory, relative to the workspace or home when possible. */
   readonly sourceDirectory?: string
+  /**
+   * The same directory as an absolute Host path, for the folder action. The
+   * Host's own path opener re-verifies it before handing it to the desktop.
+   */
+  readonly sourcePath?: string
   /** Whether the model may invoke it on its own. */
   readonly modelInvocable: boolean
   /** Whether the user may invoke it with `/name`. */
@@ -311,6 +316,7 @@ export const marketSkillSchema = z.object({
   whenToUse: z.string(),
   provider: z.string(),
   sourceDirectory: z.string().optional(),
+  sourcePath: z.string().min(1).max(4096).optional(),
   modelInvocable: z.boolean(),
   userInvocable: z.boolean(),
 }).readonly()

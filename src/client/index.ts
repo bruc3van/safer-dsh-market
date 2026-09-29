@@ -110,6 +110,12 @@ interface SafeMarketFace {
   uninstallInstalled(update: { packageName: string }): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
 }
 
+/** The slice of the Host's session namespace the folder action calls. */
+interface SessionPathFace {
+  canOpenWorkspacePath(): Promise<{ ok: true; value: boolean } | { ok: false; error: { code: string; message: string } }>
+  openWorkspacePath(request: { path: string }): Promise<{ ok: true; value: { opened: true } } | { ok: false; error: { code: string; message: string } }>
+}
+
 const defaultSettings = (): SafeMarketSettings => ({ enabled: false })
 
 function wait(ms: number): Promise<void> {
@@ -387,6 +393,23 @@ export function apply(ctx: ClientContext): void {
 
   const directInstaller = createDirectInstaller(() => ctx.reflect.get('remote.pluginManager') as InstallHost | undefined)
 
+  // The Host's own path opener (the session namespace the conversation UI
+  // uses for opening files). It re-verifies the path on the Host and reports
+  // whether this deployment has a desktop to open it on at all.
+  const sessionRemote = (): SessionPathFace | undefined => ctx.reflect.get('remote.session') as SessionPathFace | undefined
+  const canOpenFolder = async (): Promise<boolean> => {
+    const remote = sessionRemote()
+    if (remote === undefined) return false
+    const result = await remote.canOpenWorkspacePath()
+    return result.ok && result.value
+  }
+  const openFolder = async (path: string): Promise<void> => {
+    const remote = sessionRemote()
+    if (remote === undefined) throw new Error('the session Remote is not mounted')
+    const result = await remote.openWorkspacePath({ path })
+    if (!result.ok) throw new Error(result.error.message)
+  }
+
   const injectMarket = (): MarketSectionInjected => ({
     hooks: { scope },
     directInstaller,
@@ -394,6 +417,8 @@ export function apply(ctx: ClientContext): void {
     loadCatalog,
     listSkills,
     skillsSession,
+    canOpenFolder,
+    openFolder,
     install,
     installIntoNewWorkspace,
     chooseWorkspace,
