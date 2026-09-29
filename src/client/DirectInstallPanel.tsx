@@ -84,7 +84,6 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
     </details>}
     {reviewTargets.length > 0 && <div className="dsh_market_installStatus">
       <strong>{t('audit.targets')}</strong>
-      <p>{t('audit.hint')}</p>
       {reviewMessage && <p role="status">{reviewMessage}</p>}
       <button type="button" className="dsh_market_ghost" disabled={reviewBusy || !reviewAvailable}
         title={!reviewAvailable ? t('install.profilePending') : undefined}

@@ -306,7 +306,7 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
   const reviewNeedsWorkspace = card?.status === 'needs-workspace' || (readiness === 'none' && card === undefined)
   const reviewDisabled = busy !== null || installBusy || snapshot.profile === null
 
-  const reviewTitle = snapshot.profile === null ? t('install.profilePending') : t('audit.hint')
+  const reviewTitle = snapshot.profile === null ? t('install.profilePending') : undefined
   const stateLabels: Record<ReturnType<typeof stateOf>, string> = {
     running: t('installed.running'),
     disabled: t('installed.disabled'),
@@ -457,7 +457,7 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
   const { state, notice, actionError, reload } = installed
   return (
     <>
-      <p className="dsh_market_installedBody">{t('installed.body')} {t('audit.hint')}</p>
+      <p className="dsh_market_installedBody">{t('installed.body')}</p>
       {notice !== '' && <p className="dsh_market_installedNotice">{notice}</p>}
       {actionError !== '' && <p className="dsh_market_status" data-error="true">{actionError}</p>}
       {state.status === 'loading' && (

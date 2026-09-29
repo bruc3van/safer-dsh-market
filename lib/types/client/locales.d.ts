@@ -1,7 +1,6 @@
 /** Localized UI copy and read-only installed-artifact review requests. */
 export declare const zh: {
     readonly 'audit.action': "AI 审查已安装版本";
-    readonly 'audit.hint': "插件可能已执行。AI 审查用于事后检查潜在风险，不是安装前的安全保障。";
     readonly 'audit.targets': "审查本次已安装的组件";
     readonly 'direct.authorization': "需要授权";
     readonly 'direct.buildHint': "以下依赖需要运行安装脚本，允许后继续安装。";

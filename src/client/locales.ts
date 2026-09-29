@@ -3,7 +3,6 @@ import { reviewChannelZh, reviewChannelEn } from './reviewPolicy.ts'
 /** Localized UI copy and read-only installed-artifact review requests. */
 export const zh = {
   'audit.action': "AI 审查已安装版本",
-  'audit.hint': "插件可能已执行。AI 审查用于事后检查潜在风险，不是安装前的安全保障。",
   'audit.targets': "审查本次已安装的组件",
   'direct.authorization': '需要授权',
   'direct.buildHint': '以下依赖需要运行安装脚本，允许后继续安装。',
@@ -157,7 +156,6 @@ export const zh = {
 /** English dictionary. */
 export const en: Record<SafeMarketLocaleKey, string> = {
   'audit.action': "AI review installed version",
-  'audit.hint': "Plugins may already have executed. AI review checks for potential risks after installation; it is not pre-install protection.",
   'audit.targets': "Review components installed in this operation",
   'direct.authorization': 'Permission needed',
   'direct.buildHint': 'These dependencies need to run installation scripts to continue.',
