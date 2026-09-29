@@ -9,8 +9,6 @@ A third-party plugin marketplace for DeepSeek Harness (DSH). It reads the commun
 > [!IMPORTANT]
 > **The package has been renamed from `dsh-desktop-safe-market` to `safer-dsh-market`**, and the GitHub repository is now [`bruc3van/safer-dsh-market`](https://github.com/bruc3van/safer-dsh-market). The old package does not upgrade to the new one automatically. To migrate: disable the old plugin → install and enable the new one → reapply your configuration as needed. Cache and pending-removal records keep their original storage paths; nothing needs migrating.
 
-> Screenshots below show an earlier version; current controls and labels are described in the text.
-
 ![Safe Market](./assets/screenshots/marketplace.png)
 
 ## Why it exists
@@ -21,10 +19,10 @@ This plugin connects curated community data to the official installation service
 
 ## Features
 
-- **Plugin market**: opens on the editor's picks; browse, search, and filter curated plugins by category, with manual refresh and an offline cache.
+- **Plugin market**: opens on the editor's picks; browse, search, and filter curated plugins by category, with manual data refresh and an offline cache.
 - **Direct installation with optional review**: install through the official `pluginManager`, then stage a read-only audit from the result or an Installed card.
 - **Installed panel**: see this profile's plugins, disable/enable them instantly, or uninstall.
-- **Skills page**: list the skills the current session can use, with their source and invocation policy.
+- **Skills page**: list the skills the current session can use, with their source and invocation policy, and open a skill's folder in one click.
 - **Catalog access is opt-in**: the community catalog is not fetched before you enable the market. This does not control networking by the host or other plugins.
 
 ## DSH version compatibility
@@ -95,10 +93,12 @@ Both entries share the switch and all operations; Settings no longer carries a d
 
 ### 3. Browse and search
 
-- **Find plugins**: Featured / Installed / All switches between the editor's picks, local management, and the full catalog; the market opens on Featured, shown in the editor's order with the count the upstream catalog declares. Search by name, package, task, or category; typing in Featured switches to All and searches the full catalog. Under All, categories use a dropdown. Clear filters restores the unfiltered catalog.
+- **Find plugins**: Featured / Installed / All switches between the editor's picks, local management, and the full catalog; the market opens on Featured. Search by name, package, task, or category; typing in Featured switches to All and searches the full catalog. Under All, categories use a dropdown. Clear filters restores the unfiltered catalog.
+- **Editor's picks**: shown in the editor's order, with the count the upstream catalog declares. Picks are not ranked by popularity, so their cards show no star count.
+- **Plugin cards**: show category, author, and last update date; cards in a list share one height with their buttons aligned along the bottom. An installed plugin is marked **Installed vX** and its button reads **Manage**, which opens the Installed view.
 - **Refresh data**: the upper-right action fetches the latest catalog and blocks repeat clicks while it runs.
 - **More actions (⋯)**: [GitHub repository](https://github.com/bruc3van/safer-dsh-market), [contact the author](https://x.com/bruc3van).
-- **Scrolling**: the plugin heading, tabs, search, and filters stay fixed while cards scroll. Categories use a theme-aware menu. The Skills page can still dock search beside the tabs in wider panels.
+- **Scrolling**: the heading, tabs, search, and filters stay fixed while cards scroll. In panels at least 440px wide, scrolling down on the Plugins or Skills page docks the search box beside the tabs; scrolling back up or reaching the top restores it.
 - **Back to top**: after roughly half a screen (at least 240px) a button appears in the lower right; reduced-motion preferences are respected.
 
 ## Installing plugins
@@ -108,6 +108,8 @@ Installation uses the current host's official manager, independently of the sess
 ### Direct install
 
 Click **Install** on a card, choose components in the dialog, and confirm. The current host's official plugin manager checks, installs, and enables it. No workspace is needed and no prompt is sent.
+
+A plugin without a usable install target (the catalog gives no install data, or only manual instructions) shows **Install instructions**. Its dialog says it is not a standard plugin and has no installation target, points to the instructions on GitHub, and includes any manual instructions from upstream plus a GitHub link.
 
 - **Before installing**: expand Installation details to see the reference, requirements, and notes. Component selection appears only for multiple targets.
 - **Multiple targets**: select multiple components to install them sequentially. Only the first is selected by default; choose what you need and avoid selecting alternative sources of the same plugin. Profiles named in the feed are only examples — the install always targets the current host profile.
@@ -127,6 +129,8 @@ Notes:
 Choose **AI review installed version** after installation, or **AI review** on an Installed card. Only applied or restart-required components are offered; successful components remain reviewable in a partially failed batch. Failed, cancelled, overridden, and unknown outcomes do not count as successful installations.
 
 The market opens a session in the current or most recent workspace and stages a draft **without sending it**. With no workspace, choose a folder first. Cancellation or navigation failure allows retry. Standard mode can use read-only file tools; neither `plugin_manager` nor Creator mode is required.
+
+![AI review draft](./assets/screenshots/marketplace-sec-check.png)
 
 The audit verifies the current instance, profile, actual local package, exact version, source, and files. A requested install reference is not the resolved version. Never substitute latest or upstream main; locate the actual monorepo subpackage. Review network access, credentials, file operations, subprocesses, scripts, dependencies, permissions, prompt injection, and host changes, reporting evidence and verification gaps.
 
@@ -178,6 +182,8 @@ Lists the skills the **current session** resolves — name, description, source 
 
 Skills are read from the current session’s agent scope and refreshed when the session changes. With no open session, the page asks you to open one; partial source failures are reported as an incomplete list. Source directories may be workspace-relative, home-relative, or absolute.
 
+The folder icon after the source directory opens that skill's own directory in the system file manager through the host's official path opener (hover to see the full path). The host first verifies the path exists on this machine; the icon is hidden when the host has no desktop, such as a headless or remote deployment.
+
 ![Skills page](./assets/screenshots/marketplace-skills.png)
 
 ## Data source
@@ -185,6 +191,8 @@ Skills are read from the current session’s agent scope and refreshed when the 
 The default is [market-v2.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json), falling back to the same npm package on unpkg. ETag caching, a local cache, and manual refresh are supported.
 
 - Schema 1 and 2 are supported. v2 adds `packages` install data, which reaches the client only after Host validation; task labels are searchable too;
+- the envelope's `featured` / `featured_count` supply the editor's picks: each pick is matched to a catalog plugin by `full_name`; a pick missing from the catalog is shown only if it carries its own `packages`, and skipped otherwise. A missing or malformed section hides the picks and affects nothing else;
+- after an upgrade, a local cache parsed by an older version is downloaded again in full on the first read, instead of reusing a result that lacks the new fields;
 - install targets are limited to supported npm specs and GitHub HTTPS URLs — no commands, environment variables, paths, or shell fragments;
 - a custom `catalogBase` is never replaced; it may be a complete JSON URL or a legacy directory (`/market.json` is appended).
 
@@ -235,6 +243,7 @@ Use the host’s supported configuration controls. A standard CLI profile uses `
 ## Known limitations
 
 - **Skills are read-only for now**: the market currently provides no skill installation action.
+- **No updates yet**: the official plugin manager has no update action, so the market offers no update entry (see Updates).
 - **Review requires readable evidence**: if the session cannot read the installed files, it must report verification gaps. AI review is not a safety guarantee.
 
 ## Development
@@ -247,8 +256,6 @@ pnpm run check      # typecheck, build, then tests; some tests read the built ar
 `devDependencies` are pinned to the published `@deepseek-ai/*` versions the runtime loads; every `peerDependency` is optional and supplied by the profile's `node_modules`.
 
 ### Releasing
-
-Remove the pending-release notice before publishing. Keep the old-screenshot notice until the screenshots have been replaced.
 
 1. Bump the version together in `package.json`, `dsh.plugin.json`, and the install commands and tarball URLs in both READMEs. The version gate in `pnpm test` (`test/version.test.ts`) checks these, and CI (`.github/workflows/check.yml`) runs the same checks on every push and PR.
 2. Push a `vX.Y.Z` tag. CI (`.github/workflows/release.yml`) creates the GitHub Release and publishes to [npm](https://www.npmjs.com/package/safer-dsh-market) via Trusted Publishing — no manual `npm publish`.
