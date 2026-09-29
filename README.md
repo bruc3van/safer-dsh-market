@@ -21,7 +21,7 @@ DeepSeek Harness（DSH）的第三方插件市场。数据来自社区推荐目�
 
 ## 功能一览
 
-- **插件市场**：浏览、搜索、按分类筛选社区推荐插件，支持手动刷新与离线缓存。
+- **插件市场**：打开即展示编辑精选；浏览、搜索、按分类筛选社区推荐插件，支持手动刷新与离线缓存。
 - **直接安装与可选审查**：安装统一调用官方 `pluginManager`；安装成功后或已安装卡片上可生成只读审查草稿，由你发送。
 - **已安装面板**：查看当前 profile 的插件，一键停用/启用（即时生效）或卸载。
 - **技能页**：列出当前会话可用的技能及其来源、调用方式。
@@ -29,11 +29,11 @@ DeepSeek Harness（DSH）的第三方插件市场。数据来自社区推荐目�
 
 ## DSH 版本兼容
 
-**0.8.3 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+**0.9.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.8.3` | `safer-dsh-market@0.8.3` |
+| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.9.0` | `safer-dsh-market@0.9.0` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -44,7 +44,7 @@ DeepSeek Harness（DSH）的第三方插件市场。数据来自社区推荐目�
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-从旧版升级到 `0.8.3` 的注意事项：
+从旧版升级到 `0.9.0` 的注意事项：
 
 - 先把 DSH 升级到 `0.1.7-rc.2` 或 `0.2.x`；
 - 市场开关现由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效、重启后保留；
@@ -55,19 +55,19 @@ dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 以下 CLI 示例仅适用于可由 CLI 管理的 profile，**不适用于 Electron 的 `desktop`**。将 `<profile>` 替换为已核实的实际名称。推荐从 [npm](https://www.npmjs.com/package/safer-dsh-market) 安装指定版本：
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.8.3
+dsh plugin --profile <profile> add safer-dsh-market@0.9.0
 ```
 
 也可以把安装交给你的 Agent，复制这段提示词发过去：
 
 ```text
-帮我安装 DSH 安全市场 0.8.3：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.8.3。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
+帮我安装 DSH 安全市场 0.9.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.9.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
 ```
 
 需要锁定到本文档对应版本时，使用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.8.3.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.9.0.tar.gz
 ```
 
 官方管理器负责安装依赖和登记插件，无需手工修改 `package.json`。按返回结果判断是否需要重启：`applied` 表示已生效，`restart-required` 表示安装完成但需重启当前实例；失败或配置覆盖不能当作已生效。
@@ -95,7 +95,7 @@ dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/
 
 ### 3. 浏览与搜索
 
-- **查找插件**：搜索框支持名称、包名、功能或分类；「全部 / 已安装」切换目录与本机管理，功能分类使用下拉菜单。筛选后可点击「清除筛选」恢复目录。
+- **查找插件**：「精选 / 已安装 / 全部」切换编辑精选、本机管理与完整目录，默认打开精选；精选按编辑顺序展示，数量取自上游目录。搜索框支持名称、包名、功能或分类，在精选中输入会自动切到「全部」搜索完整目录；「全部」下的功能分类使用下拉菜单。筛选后可点击「清除筛选」恢复目录。
 - **刷新市场**：右上角按钮读取最新目录，刷新中禁止重复点击。
 - **更多操作（⋯）**：「更新市场」、[GitHub 仓库](https://github.com/bruc3van/safer-dsh-market)、[联系作者](https://x.com/bruc3van)。
 - **滚动**：插件页的标题、页签、搜索和筛选栏固定，卡片列表独立滚动；分类使用主题一致的下拉菜单。技能页在宽度足够时仍可将搜索框收起到页签右侧。

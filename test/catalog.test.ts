@@ -13,8 +13,8 @@ import {
   MIRROR_CATALOG_BASE,
 } from '../src/catalog.ts'
 import type { MarketCatalog, MarketPlugin } from '../src/contract.ts'
-import { marketPluginSchema } from '../src/contract.ts'
-import { isSafeBranchName } from '../src/shapes.ts'
+import { marketCatalogSchema, marketPluginSchema } from '../src/contract.ts'
+import { FEATURED_CATEGORY, isSafeBranchName } from '../src/shapes.ts'
 
 /** One valid market row, already in wire shape. */
 function plugin(overrides: Partial<MarketPlugin> = {}): MarketPlugin {
@@ -178,6 +178,173 @@ test('wire codec enforces the rebuilt-url and safe-branch invariants (L4)', () =
   assert.throws(() => marketPluginSchema.parse({ ...catalog.items[0], url: 'https://evil.example/x/y' }))
   assert.throws(() => marketPluginSchema.parse({ ...catalog.items[0], fullName: 'owner' }))
   assert.throws(() => marketPluginSchema.parse({ ...catalog.items[0], defaultBranch: 'main; rm -rf /' }))
+})
+
+// ——— the editorial picks ———
+
+/** One pick's inline install block, in the feed's `packages` shape. */
+const inlinePackages = {
+  mode: 'command',
+  targets: [{
+    profile: 'web',
+    install: 'bruce-md2word@0.6.5',
+    source: 'npm:bruce-md2word@0.6.5',
+    command: 'dsh plugin --profile web add bruce-md2word@0.6.5',
+    note: 'pinned',
+  }],
+  requirements: ['Node.js >=24 <25'],
+  tasks: ['导出 Word'],
+  verification: { status: 'readme-verified', date: '2026-09-26', via: 'README@main' },
+}
+
+/** A picks section with the feed's own titles. */
+function featured(entries: unknown[], overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return { title_zh: '编辑精选', title_en: "Editor's Picks", updated_at: '2026-09-29', entries, ...overrides }
+}
+
+test('deriveMarket resolves the picks in the publisher order and leads the categories with them', () => {
+  const rows = [
+    entry({ full_name: 'a/one', category: 'dev' }),
+    entry({ full_name: 'b/two', category: 'dev' }),
+    entry({ full_name: 'c/three', category: 'ai', category_zh: '智能', category_en: 'AI' }),
+  ]
+  const catalog = market(rows, {
+    featured_count: 2,
+    featured: featured([
+      { full_name: 'c/three', reason: '  third,   first  ' },
+      { full_name: 'A/One', reason: 'matched without regard to case' },
+    ]),
+  })
+  assert.ok(catalog.featured !== undefined)
+  assert.equal(catalog.featured.titleZh, '编辑精选')
+  assert.equal(catalog.featured.titleEn, "Editor's Picks")
+  assert.equal(catalog.featured.updatedAt, '2026-09-29')
+  assert.deepEqual(catalog.featured.entries.map(pick => [pick.item.fullName, pick.reason]), [
+    ['c/three', 'third, first'],
+    ['a/one', 'matched without regard to case'],
+  ])
+  // A pick borrows its row whole; nothing about the card is re-derived.
+  assert.equal(catalog.featured.entries[0]!.item, catalog.items[2])
+  assert.deepEqual(catalog.categories, [
+    { key: FEATURED_CATEGORY, zh: '编辑精选', en: "Editor's Picks", count: 2 },
+    { key: 'dev', zh: '开发', en: 'Dev', count: 2 },
+    { key: 'ai', zh: '智能', en: 'AI', count: 1 },
+  ])
+  assert.doesNotThrow(() => marketCatalogSchema.parse(catalog))
+})
+
+test('the picks count is the publisher featured_count, else how many resolved', () => {
+  const rows = [entry({ full_name: 'a/one' })]
+  const picks = featured([{ full_name: 'a/one', reason: 'r' }])
+  const declared = market(rows, { featured_count: 20, featured: picks })
+  assert.equal(declared.featured?.count, 20)
+  assert.deepEqual(declared.categories[0], { key: FEATURED_CATEGORY, zh: '编辑精选', en: "Editor's Picks", count: 20 })
+  for (const broken of [undefined, 'twenty', -3, 0, Number.NaN]) {
+    assert.equal(market(rows, { featured_count: broken, featured: picks }).featured?.count, 1, String(broken))
+  }
+})
+
+test('the picks lead the categories even when a ranked category is larger', () => {
+  const rows = Array.from({ length: 5 }, (_, i) => entry({ full_name: `o/r${String(i)}` }))
+  const catalog = market(rows, { featured: featured([{ full_name: 'o/r4', reason: 'r' }]) })
+  assert.deepEqual(catalog.categories.map(entry => [entry.key, entry.count]), [[FEATURED_CATEGORY, 1], ['dev', 5]])
+})
+
+test('a pick past the size cut still resolves against the full file', () => {
+  const body = {
+    schema_version: 2,
+    entries: [entry({ full_name: 'a/front' }), entry({ full_name: 'z/deep' })],
+    featured: featured([{ full_name: 'z/deep', reason: 'deep pick' }]),
+  }
+  const catalog = deriveMarket(body, 1)
+  assert.deepEqual(catalog.items.map(item => item.fullName), ['a/front'])
+  assert.deepEqual(catalog.featured?.entries.map(pick => pick.item.fullName), ['z/deep'])
+  // The ranked categories still count only the rows that were kept.
+  assert.deepEqual(catalog.categories.map(entry => [entry.key, entry.count]), [[FEATURED_CATEGORY, 1], ['dev', 1]])
+})
+
+test('a feed without picks parses exactly as before (backward compatible)', () => {
+  const rows = [entry({ full_name: 'a/one' }), entry({ full_name: 'b/two', category: 'ai' })]
+  const plain = market(rows)
+  assert.equal('featured' in plain, false)
+  assert.deepEqual(plain.categories.map(entry => entry.key), ['ai', 'dev'])
+  // A catalog cached before the field existed still satisfies the wire codec.
+  assert.doesNotThrow(() => marketCatalogSchema.parse(plain))
+  // A malformed section degrades to "no picks" instead of failing the market.
+  for (const broken of [null, 'picks', 42, [], {}, { entries: 'x' }, { entries: [null, 7, 'a/one', { reason: 'no name' }] }]) {
+    const catalog = market(rows, { featured: broken, featured_count: 'many' })
+    assert.equal('featured' in catalog, false, `${JSON.stringify(broken)} must not produce picks`)
+    assert.deepEqual(catalog.categories, plain.categories)
+    assert.deepEqual(catalog.items, plain.items)
+  }
+})
+
+test('a pick the shortlist lacks becomes a card from its own packages block', () => {
+  const catalog = market([entry({ full_name: 'a/one' })], {
+    featured: featured([
+      { full_name: 'a/one', reason: 'in the list' },
+      { full_name: 'bruc3van/bruce-md2word', reason: 'Markdown 转 Word', packages: inlinePackages },
+    ]),
+  })
+  const pick = catalog.featured?.entries[1]
+  assert.ok(pick !== undefined)
+  assert.equal(pick.reason, 'Markdown 转 Word')
+  assert.equal(pick.item.fullName, 'bruc3van/bruce-md2word')
+  assert.equal(pick.item.owner, 'bruc3van')
+  assert.equal(pick.item.name, 'bruce-md2word')
+  assert.equal(pick.item.url, 'https://github.com/bruc3van/bruce-md2word')
+  // Cards show a row's own description; a synthesized card has only its reason.
+  assert.equal(pick.item.description, 'Markdown 转 Word')
+  assert.equal(pick.item.category, FEATURED_CATEGORY)
+  assert.equal(pick.item.categoryZh, '编辑精选')
+  // The same install block parse a catalog row gets, so the install flow is shared.
+  assert.deepEqual(pick.item.installInfo, {
+    mode: 'command',
+    targets: [{ install: 'bruce-md2word@0.6.5', profile: 'web', note: 'pinned' }],
+    tasks: ['导出 Word'],
+    requirements: ['Node.js >=24 <25'],
+    note: '',
+    manual: '',
+  })
+  // The synthesized card is not a shortlist row.
+  assert.deepEqual(catalog.items.map(item => item.fullName), ['a/one'])
+  assert.doesNotThrow(() => marketPluginSchema.parse(pick.item))
+  assert.doesNotThrow(() => marketCatalogSchema.parse(catalog))
+})
+
+test('a pick found in the list uses its row even when it also carries packages', () => {
+  const catalog = market([entry({ full_name: 'a/one', packages: { mode: 'manual', manual_instructions: 'row' } })], {
+    featured: featured([{ full_name: 'a/one', reason: 'r', packages: inlinePackages }]),
+  })
+  assert.equal(catalog.featured?.entries[0]!.item.installInfo?.mode, 'manual')
+  assert.equal(catalog.featured?.entries[0]!.item.category, 'dev')
+})
+
+test('dangling, unsafe, duplicate, and uninstallable picks are skipped silently', () => {
+  const catalog = market([entry({ full_name: 'a/one' })], {
+    featured: featured([
+      { full_name: 'ghost/missing', reason: 'no row, no packages' },
+      { full_name: 'ghost/broken', reason: 'packages that do not parse', packages: { mode: 'shell' } },
+      { full_name: 'javascript:alert(1)/x', reason: 'unsafe', packages: inlinePackages },
+      { full_name: 'a/one', reason: 'kept' },
+      { full_name: 'A/ONE', reason: 'duplicate' },
+    ]),
+  })
+  assert.deepEqual(catalog.featured?.entries.map(pick => [pick.item.fullName, pick.reason]), [['a/one', 'kept']])
+  assert.deepEqual(catalog.categories[0], { key: FEATURED_CATEGORY, zh: '编辑精选', en: "Editor's Picks", count: 1 })
+  // When every pick is dropped there is no picks category at all.
+  const none = market([entry({ full_name: 'a/one' })], { featured: featured([{ full_name: 'ghost/missing', reason: 'x' }]) })
+  assert.equal('featured' in none, false)
+  assert.deepEqual(none.categories.map(entry => entry.key), ['dev'])
+})
+
+test('pick titles and reasons are cleaned and bounded like every other feed text', () => {
+  const catalog = market([entry({ full_name: 'a/one' })], {
+    featured: featured([{ full_name: 'a/one', reason: 'x'.repeat(500) }], { title_zh: 7, title_en: '  Picks\n' }),
+  })
+  assert.equal(catalog.featured?.titleZh, '编辑精选')
+  assert.equal(catalog.featured?.titleEn, 'Picks')
+  assert.equal([...catalog.featured!.entries[0]!.reason].length, 200)
 })
 
 // ——— the reader (createCatalogSource) ———

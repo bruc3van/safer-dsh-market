@@ -314,7 +314,12 @@ export const cssText = `
   display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%;
   font-size: 12px; color: var(--dsw-alias-label-secondary);
 }
-.dsh_market_category > span { flex: none; }
+/* The menu's current value already says what it filters, so the label is
+   kept for screen readers only (the menu is labelled by it). */
+.dsh_market_category > span {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
 .dsh_market_category .dsh_market_modeControl { min-width: 0; }
 .dsh_market_category .dsh_market_modeTrigger { height: 34px; width: 200px; }
 .dsh_market_selectLabel { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -555,6 +560,14 @@ export const cssText = `
   padding: 0;
   list-style: none;
 }
+/* The market grid gives every card the tallest card's height: equal rows
+   read as one list, the verbs line up along each card's bottom edge, and a
+   short description leaves space rather than a ragged edge. The installed
+   grid keeps content height, since a card's notices can be long. */
+.dsh_market_cardsUniform {
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+}
 .dsh_market_card {
   display: flex;
   flex-direction: column;
@@ -600,9 +613,9 @@ export const cssText = `
   font-variant-numeric: tabular-nums;
   color: var(--dsw-alias-state-business-primary);
 }
-/* Two cards to a row leaves about 250px of text width, which is not enough
-   for category, owner, language, licence and date on one line — so this line
-   wraps rather than ending in an ellipsis that hides the licence. */
+/* Two cards to a row leaves about 250px of text width, which a long category
+   and owner can still outgrow — so this line wraps rather than ending in an
+   ellipsis that hides the date. */
 .dsh_market_meta {
   margin: 0;
   font-size: 12px;

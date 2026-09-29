@@ -88,3 +88,11 @@ export function isSafeBranchName(value: string): boolean {
   if (value.includes('..') || value.includes('//') || value.endsWith('/') || value.endsWith('.')) return false
   return !value.split('/').some(segment => segment === '.' || segment.endsWith('.lock'))
 }
+
+/**
+ * The category key of the feed's editorial picks. The Host places it first in
+ * the category list and the browser renders it from the catalog's `featured`
+ * section rather than by filtering rows on their own `category`. The key is
+ * fixed by the feed contract, not chosen here.
+ */
+export const FEATURED_CATEGORY = 'featured'

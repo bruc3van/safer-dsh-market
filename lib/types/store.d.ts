@@ -54,6 +54,45 @@ export declare const safeMarketDomainState: z.ZodObject<{
             en: z.ZodString;
             count: z.ZodNumber;
         }, z.core.$strip>>>>;
+        featured: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+            titleZh: z.ZodString;
+            titleEn: z.ZodString;
+            updatedAt: z.ZodString;
+            count: z.ZodNumber;
+            entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                item: z.ZodReadonly<z.ZodObject<{
+                    installInfo: z.ZodOptional<z.ZodObject<{
+                        mode: z.ZodEnum<{
+                            command: "command";
+                            manual: "manual";
+                        }>;
+                        targets: z.ZodArray<z.ZodObject<{
+                            install: z.ZodString;
+                            profile: z.ZodString;
+                            note: z.ZodString;
+                        }, z.core.$strip>>;
+                        tasks: z.ZodArray<z.ZodString>;
+                        requirements: z.ZodArray<z.ZodString>;
+                        note: z.ZodString;
+                        manual: z.ZodString;
+                    }, z.core.$strip>>;
+                    fullName: z.ZodString;
+                    owner: z.ZodString;
+                    name: z.ZodString;
+                    url: z.ZodString;
+                    description: z.ZodString;
+                    stars: z.ZodNumber;
+                    language: z.ZodString;
+                    license: z.ZodString;
+                    pushedAt: z.ZodString;
+                    defaultBranch: z.ZodString;
+                    category: z.ZodString;
+                    categoryZh: z.ZodString;
+                    categoryEn: z.ZodString;
+                }, z.core.$strip>>;
+                reason: z.ZodString;
+            }, z.core.$strip>>>>;
+        }, z.core.$strip>>>;
         fetchedAt: z.ZodString;
         refreshedAt: z.ZodString;
         scanned: z.ZodNumber;
@@ -124,6 +163,45 @@ export declare const safeMarketDomainSpec: {
                     en: z.ZodString;
                     count: z.ZodNumber;
                 }, z.core.$strip>>>>;
+                featured: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+                    titleZh: z.ZodString;
+                    titleEn: z.ZodString;
+                    updatedAt: z.ZodString;
+                    count: z.ZodNumber;
+                    entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                        item: z.ZodReadonly<z.ZodObject<{
+                            installInfo: z.ZodOptional<z.ZodObject<{
+                                mode: z.ZodEnum<{
+                                    command: "command";
+                                    manual: "manual";
+                                }>;
+                                targets: z.ZodArray<z.ZodObject<{
+                                    install: z.ZodString;
+                                    profile: z.ZodString;
+                                    note: z.ZodString;
+                                }, z.core.$strip>>;
+                                tasks: z.ZodArray<z.ZodString>;
+                                requirements: z.ZodArray<z.ZodString>;
+                                note: z.ZodString;
+                                manual: z.ZodString;
+                            }, z.core.$strip>>;
+                            fullName: z.ZodString;
+                            owner: z.ZodString;
+                            name: z.ZodString;
+                            url: z.ZodString;
+                            description: z.ZodString;
+                            stars: z.ZodNumber;
+                            language: z.ZodString;
+                            license: z.ZodString;
+                            pushedAt: z.ZodString;
+                            defaultBranch: z.ZodString;
+                            category: z.ZodString;
+                            categoryZh: z.ZodString;
+                            categoryEn: z.ZodString;
+                        }, z.core.$strip>>;
+                        reason: z.ZodString;
+                    }, z.core.$strip>>>>;
+                }, z.core.$strip>>>;
                 fetchedAt: z.ZodString;
                 refreshedAt: z.ZodString;
                 scanned: z.ZodNumber;
@@ -176,6 +254,42 @@ export declare const safeMarketDomainSpec: {
                 fetchedAt: string;
                 refreshedAt: string;
                 scanned: number;
+                featured?: Readonly<{
+                    titleZh: string;
+                    titleEn: string;
+                    updatedAt: string;
+                    count: number;
+                    entries: readonly Readonly<{
+                        item: Readonly<{
+                            fullName: string;
+                            owner: string;
+                            name: string;
+                            url: string;
+                            description: string;
+                            stars: number;
+                            language: string;
+                            license: string;
+                            pushedAt: string;
+                            defaultBranch: string;
+                            category: string;
+                            categoryZh: string;
+                            categoryEn: string;
+                            installInfo?: {
+                                mode: "command" | "manual";
+                                targets: {
+                                    install: string;
+                                    profile: string;
+                                    note: string;
+                                }[];
+                                tasks: string[];
+                                requirements: string[];
+                                note: string;
+                                manual: string;
+                            } | undefined;
+                        }>;
+                        reason: string;
+                    }>[];
+                }> | undefined;
             }> | null;
             marketEtag: string;
             activeBase: string;

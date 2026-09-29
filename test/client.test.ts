@@ -19,15 +19,17 @@ import {
   INSTALLED_FILTER,
   SELF_CARD_KEY,
   SELF_MARKET_PLUGIN,
+  featuredRows,
   installedReviewCardKey,
+  marketRows,
   matches,
   matchesSkill,
   starCount,
   stateOf,
 } from '../src/client/rows.ts'
 import { describeInstalled, ownedIndexOf, shortName } from '../src/client/owned.ts'
-import { marketPluginSchema, type MarketInstalledPackage, type MarketPlugin } from '../src/contract.ts'
-import { isSafeBranchName, isSafeVersion, REPOSITORY_SLUG_PATTERN } from '../src/shapes.ts'
+import { marketPluginSchema, type MarketFeatured, type MarketInstalledPackage, type MarketPlugin } from '../src/contract.ts'
+import { FEATURED_CATEGORY, isSafeBranchName, isSafeVersion, REPOSITORY_SLUG_PATTERN } from '../src/shapes.ts'
 
 // ——— the prompt interpolation invariant ———
 
@@ -273,6 +275,39 @@ test('a category chip narrows before the query is considered', () => {
   assert.ok(!matches(item, '', 'other', true))
   // An empty query inside the right category keeps the row.
   assert.ok(matches(item, '', '', true))
+})
+
+test('the picks view keeps the publisher order and searches each reason', () => {
+  const picks: MarketFeatured = {
+    titleZh: '编辑精选',
+    titleEn: "Editor's Picks",
+    updatedAt: '2026-09-29',
+    count: 2,
+    entries: [
+      { item: plugin({ fullName: 'z/last-alphabetically', name: 'last-alphabetically', stars: 1 }), reason: '对话内直接生图' },
+      { item: plugin({ fullName: 'a/first', name: 'first', stars: 999, category: FEATURED_CATEGORY }), reason: 'Markdown 转 Word' },
+    ],
+  }
+  // No star ranking and no category filter: the order is the editor's.
+  assert.deepEqual(featuredRows(picks, '', false).map(entry => entry.item.fullName), ['z/last-alphabetically', 'a/first'])
+  assert.deepEqual(featuredRows(picks, 'word', false).map(entry => entry.item.fullName), ['a/first'])
+  assert.deepEqual(featuredRows(picks, '生图', false).map(entry => entry.item.fullName), ['z/last-alphabetically'])
+  assert.deepEqual(featuredRows(picks, 'nonesuch', false), [])
+  // A catalog without picks has nothing to show in this view.
+  assert.deepEqual(featuredRows(undefined, '', false), [])
+})
+
+test('a search in All also reaches picks the shortlist does not carry', () => {
+  const listed = plugin({ fullName: 'a/listed', name: 'listed' })
+  const offList = plugin({ fullName: 'b/md2word', name: 'md2word', category: FEATURED_CATEGORY })
+  const picks: MarketFeatured = {
+    titleZh: '编辑精选', titleEn: "Editor's Picks", updatedAt: '', count: 2,
+    entries: [{ item: listed, reason: '' }, { item: offList, reason: '' }],
+  }
+  // Without a query the view is exactly the shortlist its count names.
+  assert.deepEqual(marketRows([listed], picks, ''), [listed])
+  assert.deepEqual(marketRows([listed], picks, 'md2word'), [listed, offList])
+  assert.deepEqual(marketRows([listed], undefined, 'md2word'), [listed])
 })
 
 /** One installed package, with the fields the status label reads. */

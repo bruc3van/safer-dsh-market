@@ -21,7 +21,7 @@ This plugin connects curated community data to the official installation service
 
 ## Features
 
-- **Plugin market**: browse, search, and filter curated plugins by category, with manual refresh and an offline cache.
+- **Plugin market**: opens on the editor's picks; browse, search, and filter curated plugins by category, with manual refresh and an offline cache.
 - **Direct installation with optional review**: install through the official `pluginManager`, then stage a read-only audit from the result or an Installed card.
 - **Installed panel**: see this profile's plugins, disable/enable them instantly, or uninstall.
 - **Skills page**: list the skills the current session can use, with their source and invocation policy.
@@ -29,11 +29,11 @@ This plugin connects curated community data to the official installation service
 
 ## DSH version compatibility
 
-**0.8.3 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
+**0.9.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
 
 | DSH host version | Plugin version | npm install target |
 | --- | --- | --- |
-| `0.2.x`, `0.1.7-rc.2` (currently supported) | `0.8.3` | `safer-dsh-market@0.8.3` |
+| `0.2.x`, `0.1.7-rc.2` (currently supported) | `0.9.0` | `safer-dsh-market@0.9.0` |
 | `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -44,7 +44,7 @@ This plugin connects curated community data to the official installation service
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-When upgrading to `0.8.3` from an older release:
+When upgrading to `0.9.0` from an older release:
 
 - upgrade DSH to `0.1.7-rc.2` or `0.2.x` first;
 - the market switch is now saved by the host in the active profile's `cordis.patch.yml`, applied live, and kept across restarts;
@@ -55,19 +55,19 @@ When upgrading to `0.8.3` from an older release:
 The CLI examples below target DSH `0.1.7-rc.2` and **do not apply to Electron’s `desktop` profile**. Replace `<profile>` with a verified CLI-managed profile. For desktop, use the current session’s official `plugin_manager` or Electron’s official plugin management UI. Use the pinned [npm](https://www.npmjs.com/package/safer-dsh-market) version:
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.8.3
+dsh plugin --profile <profile> add safer-dsh-market@0.9.0
 ```
 
 Or hand the install to your agent — copy this prompt:
 
 ```text
-Install DSH Safe Market 0.8.3: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target safer-dsh-market@0.8.3. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
+Install DSH Safe Market 0.9.0: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target safer-dsh-market@0.9.0. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
 ```
 
 To lock to the exact version this document describes, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.8.3.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.9.0.tar.gz
 ```
 
 The official manager installs the dependency and registers the bundle; do not edit package.json yourself. Follow the returned outcome: applied means active, while restart-required means installed pending a restart of the current instance. Failure or overridden configuration must not be reported as active.
@@ -95,7 +95,7 @@ Both entries share the switch and all operations; Settings no longer carries a d
 
 ### 3. Browse and search
 
-- **Find plugins**: search the catalog by name, package, task, or category. All / Installed switches between the catalog and local management; categories use a dropdown. Clear filters restores the unfiltered catalog.
+- **Find plugins**: Featured / Installed / All switches between the editor's picks, local management, and the full catalog; the market opens on Featured, shown in the editor's order with the count the upstream catalog declares. Search by name, package, task, or category; typing in Featured switches to All and searches the full catalog. Under All, categories use a dropdown. Clear filters restores the unfiltered catalog.
 - **Refresh market**: the upper-right action fetches the latest catalog and blocks repeat clicks while it runs.
 - **More actions (⋯)**: **Update market**, [GitHub repository](https://github.com/bruc3van/safer-dsh-market), [contact the author](https://x.com/bruc3van).
 - **Scrolling**: the plugin heading, tabs, search, and filters stay fixed while cards scroll. Categories use a theme-aware menu. The Skills page can still dock search beside the tabs in wider panels.

@@ -19,13 +19,12 @@ export declare const zh: {
     readonly 'direct.install': "安装";
     readonly 'direct.title': "安装插件";
     readonly 'direct.close': "关闭";
-    readonly 'direct.explain': "安装到当前客户端并启用。";
     readonly 'direct.progress': "安装进度";
     readonly 'direct.notStarted': "尚未安装";
     readonly 'direct.batchDone': "本次安装已结束，请查看各组件结果";
     readonly 'direct.multiHint': "按顺序安装所选组件；遇到问题会暂停。已装好的组件会保留。";
     readonly 'direct.target': "选择要安装的组件（可多选）";
-    readonly 'direct.noTarget': "暂无可用安装目标，请查看安装说明。";
+    readonly 'direct.noTarget': "非标准插件，暂无可用安装目标，请前往 GitHub 查看安装说明。";
     readonly 'direct.confirm': "安装";
     readonly 'direct.idle': "待安装";
     readonly 'direct.checking': "正在检查安装要求…";
@@ -57,6 +56,8 @@ export declare const zh: {
     readonly 'intro.disableFailed': "停用失败：{reason}";
     readonly search: "搜索插件名称、包名、功能或分类";
     readonly all: "全部";
+    readonly 'featured.chip': "精选";
+    readonly 'featured.summary': "{count} 个编辑精选插件";
     readonly refresh: "刷新市场";
     readonly refreshing: "刷新中…";
     readonly loading: "正在加载插件…";
@@ -64,7 +65,7 @@ export declare const zh: {
     readonly failed: "读取插件目录失败：{reason}";
     readonly retry: "重试";
     readonly stale: "刷新失败，暂时显示上次加载的插件目录。";
-    readonly summary: "{total} 个插件";
+    readonly summary: "{total} 个插件，按照 {categories} 大分类，分别精选社区热门插件";
     readonly 'filter.scope': "插件范围";
     readonly 'filter.category': "分类";
     readonly 'filter.allCategories': "全部分类";

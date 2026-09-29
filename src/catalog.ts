@@ -3,8 +3,8 @@
  */
 import { brotliDecompressSync, gunzipSync, inflateSync } from 'node:zlib'
 import { parseInstallInfo } from './installInfo.ts'
-import type { MarketCatalog, MarketCategory, MarketPlugin } from './contract.ts'
-import { isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
+import type { MarketCatalog, MarketCategory, MarketFeatured, MarketFeaturedEntry, MarketPlugin } from './contract.ts'
+import { FEATURED_CATEGORY, isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
 
 /** Default feed and CDN fallback serve the same npm package dataset. */
 export const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json'
@@ -25,6 +25,12 @@ const DESCRIPTION_LIMIT = 300
 /** The legacy schema remains accepted for custom sources. */
 const SCHEMA_VERSION = 1
 
+/** Editorial picks are a short list; anything longer is not one. */
+const FEATURED_LIMIT = 50
+
+/** A pick's reason is one sentence, not a second description. */
+const REASON_LIMIT = 200
+
 /** One published entry, before the wire pass. Every field may be anything. */
 interface RawEntry {
   packages?: unknown
@@ -38,6 +44,21 @@ interface RawEntry {
   category?: unknown
   category_zh?: unknown
   category_en?: unknown
+}
+
+/** The envelope's editorial section, before the wire pass. */
+interface RawFeatured {
+  title_zh?: unknown
+  title_en?: unknown
+  updated_at?: unknown
+  entries?: unknown
+}
+
+/** One editorial pick. `packages` is present only for a pick the shortlist lacks. */
+interface RawFeaturedEntry {
+  full_name?: unknown
+  reason?: unknown
+  packages?: unknown
 }
 
 /**
@@ -99,6 +120,71 @@ function branchName(value: unknown): string {
 }
 
 /**
+ * Resolve the envelope's editorial picks against the parsed rows. A pick that
+ * names a row borrows that row whole — looked up before the size cut, so a
+ * pick deep in the file still resolves; a pick the shortlist lacks becomes a
+ * card built from its own `packages` block; a pick that is neither is dropped.
+ * Nothing here can fail the market: an absent or malformed section, or one
+ * whose every pick was dropped, reads as "no picks".
+ * @param value - the envelope's `featured` field, whatever it is.
+ * @param declared - the envelope's `featured_count`; the resolved length stands in when it is not a count.
+ * @param rows - every parsed row, keyed by lower-cased `owner/name`.
+ * @returns the resolved picks, or undefined when there are none.
+ */
+function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<string, MarketPlugin>): MarketFeatured | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const raw = value as RawFeatured
+  if (!Array.isArray(raw.entries)) return undefined
+  const titleZh = text(raw.title_zh, 60) || '编辑精选'
+  const titleEn = text(raw.title_en, 60) || "Editor's Picks"
+  const entries: MarketFeaturedEntry[] = []
+  const seen = new Set<string>()
+  for (const candidate of raw.entries.slice(0, FEATURED_LIMIT) as unknown[]) {
+    if (candidate === null || typeof candidate !== 'object') continue
+    const pick = candidate as RawFeaturedEntry
+    const fullName = repositorySlug(pick.full_name)
+    if (fullName === null) continue
+    const key = fullName.toLowerCase()
+    if (seen.has(key)) continue
+    const reason = text(pick.reason, REASON_LIMIT)
+    const known = rows.get(key)
+    if (known !== undefined) {
+      seen.add(key)
+      entries.push({ item: known, reason })
+      continue
+    }
+    // A dangling reference with no install block of its own has nothing to
+    // show; one whose block does not parse has nothing to install. The pick
+    // has no repository description of its own, so its reason stands in.
+    const installInfo = pick.packages === undefined ? undefined : parseInstallInfo(pick.packages)
+    if (installInfo === undefined) continue
+    seen.add(key)
+    const slash = fullName.indexOf('/')
+    entries.push({
+      item: {
+        installInfo,
+        fullName,
+        owner: fullName.slice(0, slash),
+        name: fullName.slice(slash + 1),
+        url: `https://github.com/${fullName}`,
+        description: reason,
+        stars: 0,
+        language: '',
+        license: '',
+        pushedAt: '',
+        defaultBranch: 'main',
+        category: FEATURED_CATEGORY,
+        categoryZh: titleZh,
+        categoryEn: titleEn,
+      },
+      reason,
+    })
+  }
+  if (entries.length === 0) return undefined
+  return { titleZh, titleEn, updatedAt: text(raw.updated_at, 30), count: count(declared) || entries.length, entries }
+}
+
+/**
  * Parse the published market into the catalog the browser renders. The
  * publisher's order IS the balance — every category places its best entry
  * before any places its second — so rows are kept in file order and truncated
@@ -109,7 +195,9 @@ function branchName(value: unknown): string {
  * @throws when the body is not a market this plugin understands.
  */
 export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
-  const envelope = body as { schema_version?: unknown; entries?: unknown; source_fetched_at?: unknown; source_repo_count?: unknown }
+  const envelope = body as {
+    schema_version?: unknown; entries?: unknown; source_fetched_at?: unknown; source_repo_count?: unknown; featured?: unknown; featured_count?: unknown
+  }
   if (envelope.schema_version !== SCHEMA_VERSION && envelope.schema_version !== 2) {
     const version = envelope.schema_version === undefined ? 'absent' : String(envelope.schema_version)
     throw new Error(`unsupported market.json schema version ${version}`)
@@ -155,9 +243,19 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
   }
   categories.sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
 
+  // The picks lead the list whatever their count; the ranked categories
+  // after them are exactly what a feed without picks produces.
+  const byName = new Map<string, MarketPlugin>()
+  for (const item of items) if (!byName.has(item.fullName.toLowerCase())) byName.set(item.fullName.toLowerCase(), item)
+  const featured = deriveFeatured(envelope.featured, envelope.featured_count, byName)
+  if (featured !== undefined) {
+    categories.unshift({ key: FEATURED_CATEGORY, zh: featured.titleZh, en: featured.titleEn, count: featured.count })
+  }
+
   return {
     items: cut,
     categories,
+    ...(featured === undefined ? {} : { featured }),
     fetchedAt: text(envelope.source_fetched_at, 40),
     refreshedAt: new Date().toISOString(),
     scanned: count(envelope.source_repo_count) || rows.length,

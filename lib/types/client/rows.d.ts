@@ -8,7 +8,7 @@
  * beside the markup is logic that can only be checked through a React tree, so
  * it lives here and the section imports it.
  */
-import type { MarketInstalledPackage, MarketPlugin, MarketSkill } from '../contract.ts';
+import type { MarketFeatured, MarketFeaturedEntry, MarketInstalledPackage, MarketPlugin, MarketSkill } from '../contract.ts';
 /**
  * The category chip that selects the installed set instead of a catalog
  * category. The catalog's own keys are slugs from the shortlist, so a value
@@ -29,6 +29,18 @@ export declare const SELF_MARKET_PLUGIN: MarketPlugin;
 export declare function starCount(stars: number): string;
 /** Whether one row survives the current query and category filter. */
 export declare function matches(item: MarketPlugin, query: string, category: string, english: boolean): boolean;
+/**
+ * The editorial picks that survive the current query, in the publisher's
+ * order. The reason is searched alongside the row's own fields; the pick's
+ * category is the picks themselves, so no category filter applies.
+ */
+export declare function featuredRows(featured: MarketFeatured | undefined, query: string, english: boolean): readonly MarketFeaturedEntry[];
+/**
+ * The rows the All view filters. A pick the shortlist does not carry is still
+ * something the market can install, so a search reaches it too; without a
+ * query the view stays the shortlist its count names.
+ */
+export declare function marketRows(items: readonly MarketPlugin[], featured: MarketFeatured | undefined, query: string): readonly MarketPlugin[];
 /** Whether one skill survives the current query. */
 export declare function matchesSkill(skill: MarketSkill, query: string): boolean;
 /** The status a package row shows, from its own live facts. */

@@ -30,11 +30,11 @@ import type {
   MarketSkillsResult,
   SafeMarketSettings,
 } from '../contract.ts'
-import { isSafeVersion, PACKAGE_NAME } from '../shapes.ts'
+import { FEATURED_CATEGORY, isSafeVersion, PACKAGE_NAME } from '../shapes.ts'
 import type { MarketLocale } from './copy.ts'
 import { ownedBy, ownedIndexOf, shortName } from './owned.ts'
 import {
-  INSTALLED_FILTER, SELF_CARD_KEY, SELF_MARKET_PLUGIN, installedReviewCardKey, matches, starCount, stateOf,
+  INSTALLED_FILTER, SELF_CARD_KEY, SELF_MARKET_PLUGIN, featuredRows, installedReviewCardKey, marketRows, matches, starCount, stateOf,
 } from './rows.ts'
 import { SkillsView } from './SkillsView.tsx'
 import { MarketMoreActions } from './MarketMoreActions.tsx'
@@ -524,7 +524,9 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
   // answer is a separate flag rather than the `loading` status.
   const [refreshing, setRefreshing] = useState(false)
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('')
+  // The editor's picks are the first view; a catalog without them falls back
+  // to All (see `scope` below), so no feed can open on an empty page.
+  const [category, setCategory] = useState(FEATURED_CATEGORY)
   const [switchError, setSwitchError] = useState('')
   const installed = useInstalled({ t, active: enabled, listInstalled, setInstalledEnabled, uninstallInstalled })
   useEffect(() => { if (installedRevision > 0) installed.reload() }, [installedRevision, installed.reload])
@@ -638,15 +640,27 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
   // Normalised once, not once per row: this runs on every keystroke over the
   // whole catalog.
   const needle = query.trim().toLocaleLowerCase()
-  const shown = catalog === null
+  const featuredSelected = category === FEATURED_CATEGORY && catalog?.featured !== undefined
+  // Asking for the picks of a catalog that has none (an older feed, a
+  // custom source) reads as All. While the first read is in flight nothing is
+  // known yet, so neither chip claims the page.
+  const scope = category === FEATURED_CATEGORY && !featuredSelected ? '' : category
+  const allSelected = !installedSelected && !featuredSelected && !(catalog === null && category === FEATURED_CATEGORY)
+  // The picks are not a filter over the rows: they carry their own order and
+  // cards the shortlist does not have. A card shows its row's own description;
+  // `reason` only marks the row as a pick.
+  const shown: readonly { item: MarketPlugin; reason?: string }[] = catalog === null
     ? []
-    : catalog.items
-      .filter(item => matches(item, needle, category, english))
-      // The All view answers "what the community uses", so it ranks by stars;
-      // a category chip keeps the publisher's order, whose front rows are its
-      // own picks. `filter` copies, so the sort cannot reorder the catalog
-      // the other views read.
-      .sort((a, b) => (category === '' ? b.stars - a.stars : 0))
+    : featuredSelected
+      ? featuredRows(catalog.featured, needle, english)
+      : marketRows(catalog.items, catalog.featured, needle)
+        .filter(item => matches(item, needle, scope, english))
+        // The All view answers "what the community uses", so it ranks by stars;
+        // a category chip keeps the publisher's order, whose front rows are its
+        // own picks. `filter` copies, so the sort cannot reorder the catalog
+        // the other views read.
+        .sort((a, b) => (scope === '' ? b.stars - a.stars : 0))
+        .map(item => ({ item }))
 
   const pickWorkspace = (): void => {
     setChoosing(true)
@@ -702,7 +716,11 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
           aria-label={t('search')}
           placeholder={t('search')}
           value={query}
-          onChange={(event) => { setQuery(event.target.value) }}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            // A search is a question about the whole market, not the picks.
+            if (featuredSelected && event.target.value.trim() !== '') setCategory('')
+          }}
         />
       </div>
         <button
@@ -721,20 +739,28 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
 
       <div className="dsh_market_filterBar">
         <div className="dsh_market_scope" role="group" aria-label={t('filter.scope')}>
-          <button type="button" className="dsh_market_scopeButton" aria-pressed={!installedSelected}
-            onClick={() => setCategory('')}>
-            {t('all')} {catalog !== null && <span>{catalog.items.length}</span>}
-          </button>
+          {catalog?.featured !== undefined && (
+            <button type="button" className="dsh_market_scopeButton" aria-pressed={featuredSelected}
+              onClick={() => { setQuery(''); setCategory(FEATURED_CATEGORY) }}>
+              {t('featured.chip')} <span>{catalog.featured.count}</span>
+            </button>
+          )}
           <button type="button" className="dsh_market_scopeButton" aria-pressed={installedSelected}
             onClick={() => setCategory(INSTALLED_FILTER)}>
             {t('installed.chip')} <span>{installed.count}</span>
           </button>
+          <button type="button" className="dsh_market_scopeButton" aria-pressed={allSelected}
+            onClick={() => setCategory('')}>
+            {t('all')} {catalog !== null && <span>{catalog.items.length}</span>}
+          </button>
         </div>
-        {!installedSelected && catalog !== null && <MarketSelector
-          value={category} onChange={setCategory} label={t('filter.category')} className="dsh_market_category"
-          options={[{ value: '', label: t('filter.allCategories') }, ...catalog.categories.map(entry => ({
-            value: entry.key, label: english ? entry.en : entry.zh, count: entry.count,
-          }))]} />}
+        {/* Categories narrow All; the picks have their own chip, so they are
+            not offered here a second time. */}
+        {allSelected && catalog !== null && <MarketSelector
+          value={scope} onChange={setCategory} label={t('filter.category')} className="dsh_market_category"
+          options={[{ value: '', label: t('filter.allCategories') }, ...catalog.categories
+            .filter(entry => entry.key !== FEATURED_CATEGORY)
+            .map(entry => ({ value: entry.key, label: english ? entry.en : entry.zh, count: entry.count }))]} />}
 
       </div>
 
@@ -771,15 +797,22 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
                   ? t('refreshing')
                   : shown.length === 0
                     ? t('empty')
-                    : t(query.trim() !== '' || category !== '' ? 'filter.results' : 'summary', { shown: String(shown.length), total: String(catalog.items.length) })}
-                {(query.trim() !== '' || category !== '') && <button type="button" className="dsh_market_clearFilters"
+                    : featuredSelected && catalog.featured !== undefined
+                      ? t('featured.summary', { count: String(catalog.featured.count) })
+                      : query.trim() !== '' || scope !== ''
+                        ? t('filter.results', { shown: String(shown.length) })
+                        : t('summary', {
+                          total: String(catalog.items.length),
+                          categories: String(catalog.categories.filter(entry => entry.key !== FEATURED_CATEGORY).length),
+                        })}
+                {(query.trim() !== '' || (scope !== '' && !featuredSelected)) && <button type="button" className="dsh_market_clearFilters"
                   onClick={() => { setQuery(''); setCategory('') }}>{t('filter.clear')}</button>}
               </p>
               )}
 
       {!installedSelected && shown.length > 0 && (
-        <ul className="dsh_market_cards">
-          {shown.map((item) => {
+        <ul className="dsh_market_cards dsh_market_cardsUniform">
+          {shown.map(({ item, reason }) => {
             const owned = ownedBy(ownedIndex, item)
             return (
               <li key={item.fullName} className="dsh_market_card">
@@ -796,16 +829,20 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
                         : t('installedHereUnknown')}
                     </span>
                   )}
-                  <span className="dsh_market_stars" title={`${String(item.stars)} ${t('stars')}`}>
-                    {`★ ${starCount(item.stars)}`}
-                  </span>
+                  {/* The picks are ordered by the editor, not by stars, so
+                      their cards do not show a count that suggests a ranking;
+                      a card built from a pick's install block (found by a
+                      search in All) has no count to show at all. */}
+                  {reason === undefined && item.category !== FEATURED_CATEGORY && (
+                    <span className="dsh_market_stars" title={`${String(item.stars)} ${t('stars')}`}>
+                      {`★ ${starCount(item.stars)}`}
+                    </span>
+                  )}
                 </div>
                 <p className="dsh_market_meta">
                   {[
                     english ? item.categoryEn : item.categoryZh,
                     item.owner,
-                    item.language,
-                    item.license,
                     item.pushedAt.slice(0, 10),
                   ].filter(part => part !== '').join(' · ')}
                 </p>

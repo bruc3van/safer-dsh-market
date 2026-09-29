@@ -66,7 +66,8 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
         {entry.message && entry.spec !== state.spec && <details><summary>{t('direct.diagnostic')}</summary><pre className="dsh_market_directMessage">{entry.message}</pre></details>}
       </li>)}
     </ul>}
-    {visibleItem && !available && <p className="dsh_market_installUnavailable">{info?.manual || t('direct.noTarget')}</p>}
+    {visibleItem && !available && <p className="dsh_market_installUnavailable">{t('direct.noTarget')}</p>}
+    {visibleItem && !available && info?.manual && <p className="dsh_market_installUnavailable">{info.manual}</p>}
     {visibleItem && available && !showResult && targets.length > 1 && <fieldset className="dsh_market_installChoices" disabled={busy || showResult}>
       <legend>{t('direct.target')}</legend><p>{t('direct.multiHint')}</p>
       {targets.map((entry, i) => <label key={entry.install} className="dsh_market_installChoice">
@@ -80,7 +81,6 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
       {chosen.map(target => <div key={target.install}><code>{target.install}</code>{target.note && <p>{target.note}</p>}</div>)}
       {info?.requirements.length ? <ul>{info.requirements.map((r, i) => <li key={i}>{r}</li>)}</ul> : null}
       {info?.note && <p>{info.note}</p>}
-      <p>{t('direct.explain')}</p>
     </details>}
     {reviewTargets.length > 0 && <div className="dsh_market_installStatus">
       <strong>{t('audit.targets')}</strong>
@@ -100,7 +100,10 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
         : state.phase === 'unknown' ? <button type="button" className="dsh_market_primary" onClick={() => { void installer.recover() }}>{t('direct.recover')}</button>
         : busy ? <button type="button" className="dsh_market_ghost" disabled={state.phase !== 'installing'} onClick={() => { void installer.cancel() }}>{t('direct.cancel')}</button>
         : (available || (showResult && state.phase === 'failed')) ? <button type="button" className="dsh_market_primary" disabled={!chosen.length && !showResult} onClick={showResult && state.phase === 'failed' ? () => { void installer.retry() } : start}>{showResult && state.phase === 'failed' ? t('direct.retry') : `${t('direct.confirm')}${chosen.length > 1 ? ` (${chosen.length})` : ''}`}</button>
-        : <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t('direct.close')}</button>}
+        : <>
+          {visibleItem && <a className="dsh_market_link" href={visibleItem.url} target="_blank" rel="noreferrer">{t('repo')}</a>}
+          <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t('direct.close')}</button>
+        </>}
     </fieldset>
   </dialog>
 }

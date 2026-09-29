@@ -41,10 +41,33 @@ export interface MarketCategory {
     readonly en: string;
     readonly count: number;
 }
+/** One editorial pick: a complete card plus the editor's one-line reason. */
+export interface MarketFeaturedEntry {
+    /**
+     * The catalog row the pick names, or — for a pick the shortlist does not
+     * carry — a card the Host synthesized from the pick's own `packages` block.
+     */
+    readonly item: MarketPlugin;
+    readonly reason: string;
+}
+/** The feed's editorial picks, resolved on the Host in the publisher's order. */
+export interface MarketFeatured {
+    readonly titleZh: string;
+    readonly titleEn: string;
+    readonly updatedAt: string;
+    /** The publisher's own count (`featured_count`), else how many picks resolved. */
+    readonly count: number;
+    readonly entries: readonly MarketFeaturedEntry[];
+}
 /** The reduced catalog the browser renders. */
 export interface MarketCatalog {
     readonly items: readonly MarketPlugin[];
     readonly categories: readonly MarketCategory[];
+    /**
+     * Absent when the feed carries no picks (or none survived the wire pass),
+     * and in every catalog cached before the feed had them.
+     */
+    readonly featured?: MarketFeatured;
     /** When the upstream crawl ran (the snapshot's own timestamp). */
     readonly fetchedAt: string;
     /** When this Host last read the snapshot. */
@@ -239,6 +262,46 @@ export declare const marketCategorySchema: z.ZodReadonly<z.ZodObject<{
     en: z.ZodString;
     count: z.ZodNumber;
 }, z.core.$strip>>;
+/** Strict wire codec for the editorial picks. */
+export declare const marketFeaturedSchema: z.ZodReadonly<z.ZodObject<{
+    titleZh: z.ZodString;
+    titleEn: z.ZodString;
+    updatedAt: z.ZodString;
+    count: z.ZodNumber;
+    entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+        item: z.ZodReadonly<z.ZodObject<{
+            installInfo: z.ZodOptional<z.ZodObject<{
+                mode: z.ZodEnum<{
+                    command: "command";
+                    manual: "manual";
+                }>;
+                targets: z.ZodArray<z.ZodObject<{
+                    install: z.ZodString;
+                    profile: z.ZodString;
+                    note: z.ZodString;
+                }, z.core.$strip>>;
+                tasks: z.ZodArray<z.ZodString>;
+                requirements: z.ZodArray<z.ZodString>;
+                note: z.ZodString;
+                manual: z.ZodString;
+            }, z.core.$strip>>;
+            fullName: z.ZodString;
+            owner: z.ZodString;
+            name: z.ZodString;
+            url: z.ZodString;
+            description: z.ZodString;
+            stars: z.ZodNumber;
+            language: z.ZodString;
+            license: z.ZodString;
+            pushedAt: z.ZodString;
+            defaultBranch: z.ZodString;
+            category: z.ZodString;
+            categoryZh: z.ZodString;
+            categoryEn: z.ZodString;
+        }, z.core.$strip>>;
+        reason: z.ZodString;
+    }, z.core.$strip>>>>;
+}, z.core.$strip>>;
 /** Strict wire codec for the reduced catalog. */
 export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
     items: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
@@ -277,6 +340,45 @@ export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
         en: z.ZodString;
         count: z.ZodNumber;
     }, z.core.$strip>>>>;
+    featured: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+        titleZh: z.ZodString;
+        titleEn: z.ZodString;
+        updatedAt: z.ZodString;
+        count: z.ZodNumber;
+        entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+            item: z.ZodReadonly<z.ZodObject<{
+                installInfo: z.ZodOptional<z.ZodObject<{
+                    mode: z.ZodEnum<{
+                        command: "command";
+                        manual: "manual";
+                    }>;
+                    targets: z.ZodArray<z.ZodObject<{
+                        install: z.ZodString;
+                        profile: z.ZodString;
+                        note: z.ZodString;
+                    }, z.core.$strip>>;
+                    tasks: z.ZodArray<z.ZodString>;
+                    requirements: z.ZodArray<z.ZodString>;
+                    note: z.ZodString;
+                    manual: z.ZodString;
+                }, z.core.$strip>>;
+                fullName: z.ZodString;
+                owner: z.ZodString;
+                name: z.ZodString;
+                url: z.ZodString;
+                description: z.ZodString;
+                stars: z.ZodNumber;
+                language: z.ZodString;
+                license: z.ZodString;
+                pushedAt: z.ZodString;
+                defaultBranch: z.ZodString;
+                category: z.ZodString;
+                categoryZh: z.ZodString;
+                categoryEn: z.ZodString;
+            }, z.core.$strip>>;
+            reason: z.ZodString;
+        }, z.core.$strip>>>>;
+    }, z.core.$strip>>>;
     fetchedAt: z.ZodString;
     refreshedAt: z.ZodString;
     scanned: z.ZodNumber;
@@ -320,6 +422,45 @@ export declare const marketCatalogResultSchema: z.ZodReadonly<z.ZodObject<{
             en: z.ZodString;
             count: z.ZodNumber;
         }, z.core.$strip>>>>;
+        featured: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+            titleZh: z.ZodString;
+            titleEn: z.ZodString;
+            updatedAt: z.ZodString;
+            count: z.ZodNumber;
+            entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                item: z.ZodReadonly<z.ZodObject<{
+                    installInfo: z.ZodOptional<z.ZodObject<{
+                        mode: z.ZodEnum<{
+                            command: "command";
+                            manual: "manual";
+                        }>;
+                        targets: z.ZodArray<z.ZodObject<{
+                            install: z.ZodString;
+                            profile: z.ZodString;
+                            note: z.ZodString;
+                        }, z.core.$strip>>;
+                        tasks: z.ZodArray<z.ZodString>;
+                        requirements: z.ZodArray<z.ZodString>;
+                        note: z.ZodString;
+                        manual: z.ZodString;
+                    }, z.core.$strip>>;
+                    fullName: z.ZodString;
+                    owner: z.ZodString;
+                    name: z.ZodString;
+                    url: z.ZodString;
+                    description: z.ZodString;
+                    stars: z.ZodNumber;
+                    language: z.ZodString;
+                    license: z.ZodString;
+                    pushedAt: z.ZodString;
+                    defaultBranch: z.ZodString;
+                    category: z.ZodString;
+                    categoryZh: z.ZodString;
+                    categoryEn: z.ZodString;
+                }, z.core.$strip>>;
+                reason: z.ZodString;
+            }, z.core.$strip>>>>;
+        }, z.core.$strip>>>;
         fetchedAt: z.ZodString;
         refreshedAt: z.ZodString;
         scanned: z.ZodNumber;

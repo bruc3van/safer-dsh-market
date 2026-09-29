@@ -8,7 +8,7 @@
  * beside the markup is logic that can only be checked through a React tree, so
  * it lives here and the section imports it.
  */
-import type { MarketInstalledPackage, MarketPlugin, MarketSkill } from '../contract.ts'
+import type { MarketFeatured, MarketFeaturedEntry, MarketInstalledPackage, MarketPlugin, MarketSkill } from '../contract.ts'
 import { PACKAGE_NAME } from '../shapes.ts'
 
 /**
@@ -60,6 +60,28 @@ export function matches(item: MarketPlugin, query: string, category: string, eng
   const haystack = `${item.fullName} ${item.installInfo?.targets.map(t => t.install).join(" ") ?? ""} ${item.installInfo?.tasks.join(" ") ?? ""} ${item.description} ${english ? item.categoryEn : item.categoryZh} ${item.language}`
     .toLocaleLowerCase()
   return query.split(/\s+/).every(word => haystack.includes(word))
+}
+
+/**
+ * The editorial picks that survive the current query, in the publisher's
+ * order. The reason is searched alongside the row's own fields; the pick's
+ * category is the picks themselves, so no category filter applies.
+ */
+export function featuredRows(featured: MarketFeatured | undefined, query: string, english: boolean): readonly MarketFeaturedEntry[] {
+  if (featured === undefined) return []
+  return featured.entries.filter(entry =>
+    matches({ ...entry.item, description: `${entry.item.description} ${entry.reason}` }, query, '', english))
+}
+
+/**
+ * The rows the All view filters. A pick the shortlist does not carry is still
+ * something the market can install, so a search reaches it too; without a
+ * query the view stays the shortlist its count names.
+ */
+export function marketRows(items: readonly MarketPlugin[], featured: MarketFeatured | undefined, query: string): readonly MarketPlugin[] {
+  if (query === '' || featured === undefined) return items
+  const listed = new Set(items.map(item => item.fullName.toLowerCase()))
+  return [...items, ...featured.entries.map(entry => entry.item).filter(item => !listed.has(item.fullName.toLowerCase()))]
 }
 
 /** Whether one skill survives the current query. */

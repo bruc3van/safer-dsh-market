@@ -74,3 +74,10 @@ export declare const PROFILE_NAME_PATTERN: RegExp;
 export declare function isSafeVersion(value: string): boolean;
 /** Whether a trimmed branch name is safe to interpolate into the prompt. */
 export declare function isSafeBranchName(value: string): boolean;
+/**
+ * The category key of the feed's editorial picks. The Host places it first in
+ * the category list and the browser renders it from the catalog's `featured`
+ * section rather than by filtering rows on their own `category`. The key is
+ * fixed by the feed contract, not chosen here.
+ */
+export declare const FEATURED_CATEGORY = "featured";

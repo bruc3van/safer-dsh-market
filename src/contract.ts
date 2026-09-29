@@ -47,10 +47,35 @@ export interface MarketCategory {
   readonly count: number
 }
 
+/** One editorial pick: a complete card plus the editor's one-line reason. */
+export interface MarketFeaturedEntry {
+  /**
+   * The catalog row the pick names, or — for a pick the shortlist does not
+   * carry — a card the Host synthesized from the pick's own `packages` block.
+   */
+  readonly item: MarketPlugin
+  readonly reason: string
+}
+
+/** The feed's editorial picks, resolved on the Host in the publisher's order. */
+export interface MarketFeatured {
+  readonly titleZh: string
+  readonly titleEn: string
+  readonly updatedAt: string
+  /** The publisher's own count (`featured_count`), else how many picks resolved. */
+  readonly count: number
+  readonly entries: readonly MarketFeaturedEntry[]
+}
+
 /** The reduced catalog the browser renders. */
 export interface MarketCatalog {
   readonly items: readonly MarketPlugin[]
   readonly categories: readonly MarketCategory[]
+  /**
+   * Absent when the feed carries no picks (or none survived the wire pass),
+   * and in every catalog cached before the feed had them.
+   */
+  readonly featured?: MarketFeatured
   /** When the upstream crawl ran (the snapshot's own timestamp). */
   readonly fetchedAt: string
   /** When this Host last read the snapshot. */
@@ -253,10 +278,20 @@ export const marketCategorySchema = z.object({
   count: z.number().int().min(0),
 }).readonly()
 
+/** Strict wire codec for the editorial picks. */
+export const marketFeaturedSchema = z.object({
+  titleZh: z.string(),
+  titleEn: z.string(),
+  updatedAt: z.string(),
+  count: z.number().int().min(0),
+  entries: z.array(z.object({ item: marketPluginSchema, reason: z.string() }).readonly()).readonly(),
+}).readonly()
+
 /** Strict wire codec for the reduced catalog. */
 export const marketCatalogSchema = z.object({
   items: z.array(marketPluginSchema).readonly(),
   categories: z.array(marketCategorySchema).readonly(),
+  featured: marketFeaturedSchema.optional(),
   fetchedAt: z.string(),
   refreshedAt: z.string(),
   scanned: z.number().int().min(0),
