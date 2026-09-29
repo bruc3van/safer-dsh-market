@@ -712,7 +712,9 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
           </button>
         </div>
       )}
-      <div className="dsh_market_bar">
+      {/* Docks beside the tabs while the list scrolls down, as on the Skills
+          page (see useSearchDock). */}
+      <div className="dsh_market_bar dsh_market_dockable">
         <input
           className="dsh_market_search"
           type="search"
