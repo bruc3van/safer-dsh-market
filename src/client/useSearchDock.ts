@@ -1,5 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
+/**
+ * The docked search box's height; styles.ts sets the same value on the docked
+ * input. Shorter than the 40px resting box so it sits inside the tab row
+ * instead of running over the row's bottom rule.
+ */
+const DOCKED_HEIGHT = 30
+
 /** Move the existing search controls, retaining their value and keyboard focus. */
 export function useSearchDock(page: string) {
   const root = useRef<HTMLDivElement>(null)
@@ -14,17 +21,28 @@ export function useSearchDock(page: string) {
     let height = 0
     let distance = 0
     let current = false
+    // Centre the docked box on the tab labels. Measured for the bar being
+    // docked, at the moment it docks: a page's bar can mount long after the
+    // last resize (the Skills search waits for its list), and a position
+    // computed only on resize would leave that bar where it stood.
+    const place = () => {
+      const control = bar()
+      const tab = element.querySelector<HTMLElement>('.dsh_market_tab')
+      if (!control || !tab) return
+      const style = getComputedStyle(tab)
+      const labelCentre = tab.getBoundingClientRect().top - element.getBoundingClientRect().top
+        + parseFloat(style.paddingTop) + parseFloat(style.lineHeight) / 2
+      control.style.top = `${Math.round(labelCentre - DOCKED_HEIGHT / 2)}px`
+    }
     const change = (next: boolean) => {
       if (next === current || bar()?.contains(document.activeElement)) return
       before.current = bar()?.getBoundingClientRect() ?? null
+      if (next) place()
       current = next
       setCompact(next)
     }
     const geometry = () => {
-      const tabs = element.querySelector<HTMLElement>('.dsh_market_tabs')
-      if (tabs) element.querySelectorAll<HTMLElement>('.dsh_market_dockable').forEach(control => {
-        control.style.top = `${tabs.offsetTop}px`
-      })
+      if (current) place()
       if (element.clientWidth < 440) change(false)
     }
     const observer = new ResizeObserver(geometry)

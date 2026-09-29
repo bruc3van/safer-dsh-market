@@ -162,6 +162,11 @@ export const cssText = `
   right: 0;
   width: min(360px, 60%);
 }
+/* Docked, the box shrinks to sit inside the tab row (the search-dock hook's
+   DOCKED_HEIGHT, which centres it on the tab labels). */
+.dsh_market_section[data-search-compact="true"] [role="tabpanel"]:not([hidden]) .dsh_market_dockable .dsh_market_search {
+  height: 30px;
+}
 .dsh_market_results {
   flex: 1;
   min-height: 0;
