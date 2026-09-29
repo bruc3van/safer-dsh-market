@@ -16,6 +16,7 @@ export declare const zh: {
     readonly 'direct.overridden': "安装已处理，但被其他配置覆盖，请在官方插件页检查";
     readonly 'direct.cancelled': "安装已取消";
     readonly 'direct.install': "安装";
+    readonly 'direct.manage': "管理";
     readonly 'direct.title': "安装插件";
     readonly 'direct.close': "关闭";
     readonly 'direct.progress': "安装进度";

@@ -855,8 +855,21 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
                 {item.description !== '' && <p className="dsh_market_desc">{item.description}</p>}
                 <div className="dsh_market_foot">
                   <a className="dsh_market_link" href={item.url} target="_blank" rel="noreferrer">{t('repo')}</a>
-                  <button type="button" className="dsh_market_install" disabled={!directInstaller || installBusy}
-                    onClick={() => setDirectItem(item)}>{t(item.installInfo?.mode === 'command' && item.installInfo.targets.length ? 'direct.install' : 'direct.details')}</button>
+                  {/* The host has no update verb, and its installer refuses a
+                      package that is already there — so an installed row
+                      offers the Installed view instead of an install. */}
+                  {owned !== undefined
+                    ? (
+                      <button type="button" className="dsh_market_install"
+                        onClick={(event) => {
+                          event.currentTarget.closest('.dsh_market_results')?.scrollTo({ top: 0 })
+                          setCategory(INSTALLED_FILTER)
+                        }}>{t('direct.manage')}</button>
+                      )
+                    : (
+                      <button type="button" className="dsh_market_install" disabled={!directInstaller || installBusy}
+                        onClick={() => setDirectItem(item)}>{t(item.installInfo?.mode === 'command' && item.installInfo.targets.length ? 'direct.install' : 'direct.details')}</button>
+                      )}
                 </div>
               </li>
             )
