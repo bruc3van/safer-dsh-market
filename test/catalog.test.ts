@@ -283,18 +283,17 @@ test('a pick the shortlist lacks becomes a card from its own packages block', ()
   const catalog = market([entry({ full_name: 'a/one' })], {
     featured: featured([
       { full_name: 'a/one', reason: 'in the list' },
-      { full_name: 'bruc3van/bruce-md2word', reason: 'Markdown 转 Word', packages: inlinePackages },
+      { full_name: 'bruc3van/bruce-md2word', description: ' 支持中文排版、Mermaid 图表\n和可编辑数学公式。 ', reason: '', packages: inlinePackages },
     ]),
   })
   const pick = catalog.featured?.entries[1]
   assert.ok(pick !== undefined)
-  assert.equal(pick.reason, 'Markdown 转 Word')
+  assert.equal(pick.reason, '')
   assert.equal(pick.item.fullName, 'bruc3van/bruce-md2word')
   assert.equal(pick.item.owner, 'bruc3van')
   assert.equal(pick.item.name, 'bruce-md2word')
   assert.equal(pick.item.url, 'https://github.com/bruc3van/bruce-md2word')
-  // Cards show a row's own description; a synthesized card has only its reason.
-  assert.equal(pick.item.description, 'Markdown 转 Word')
+  assert.equal(pick.item.description, '支持中文排版、Mermaid 图表 和可编辑数学公式。')
   assert.equal(pick.item.category, FEATURED_CATEGORY)
   assert.equal(pick.item.categoryZh, '编辑精选')
   // The same install block parse a catalog row gets, so the install flow is shared.
@@ -312,12 +311,25 @@ test('a pick the shortlist lacks becomes a card from its own packages block', ()
   assert.doesNotThrow(() => marketCatalogSchema.parse(catalog))
 })
 
-test('a pick found in the list uses its row even when it also carries packages', () => {
+test('inline pick descriptions are bounded and missing descriptions fall back to the reason', () => {
+  for (const description of [undefined, null, 7, {}, '', ' \n\t ', '😀'.repeat(301)]) {
+    const catalog = market([entry()], {
+      featured: featured([{ full_name: 'bruc3van/bruce-md2word', description, reason: 'Markdown 转 Word', packages: inlinePackages }]),
+    })
+    const actual = catalog.featured!.entries[0]!.item.description
+    assert.equal(actual, typeof description === 'string' && description.startsWith('😀')
+      ? `${'😀'.repeat(299)}…` : 'Markdown 转 Word')
+    assert.doesNotThrow(() => marketCatalogSchema.parse(catalog))
+  }
+})
+
+test('a pick found in the list uses its row even when it also carries packages and a description', () => {
   const catalog = market([entry({ full_name: 'a/one', packages: { mode: 'manual', manual_instructions: 'row' } })], {
-    featured: featured([{ full_name: 'a/one', reason: 'r', packages: inlinePackages }]),
+    featured: featured([{ full_name: 'a/one', description: 'inline description', reason: 'r', packages: inlinePackages }]),
   })
   assert.equal(catalog.featured?.entries[0]!.item.installInfo?.mode, 'manual')
   assert.equal(catalog.featured?.entries[0]!.item.category, 'dev')
+  assert.equal(catalog.featured?.entries[0]!.item.description, 'a plugin')
 })
 
 test('dangling, unsafe, duplicate, and uninstallable picks are skipped silently', () => {

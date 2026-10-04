@@ -15,9 +15,9 @@ v2 信封还可带可选的编辑精选：
 
 - `featured_count`: 精选条数，用于界面展示；缺失或不是非负整数时，以实际解析出的条数为准。
 - `featured`: `title_zh` / `title_en`（≤60 字符，缺失时用「编辑精选」/ "Editor's Picks"）、`updated_at`、`entries[]`。
-- `featured.entries[]`: `full_name`（同条目的 slug 规则）与 `reason`（≤200 字符；卡片展示条目自身的描述，只有目录外合成的卡片以它作为描述），可选 `packages`（与条目级 `packages` 结构相同）。
+- `featured.entries[]`: `full_name`（同条目的 slug 规则）与 `reason`（≤200 字符），可选 `description`（≤300 字符）与 `packages`（与条目级 `packages` 结构相同）。
 
-每条精选先按 `full_name`（不区分大小写）匹配 `entries[]` 中的条目，匹配时直接使用该条目（在按 `marketSize` 截断前匹配）；不在 `entries[]` 中的精选必须自带可解析的 `packages` 才会合成一张卡片，否则跳过。重复、slug 非法的精选同样跳过，最多保留 50 条，保持发布顺序。字段缺失或格式异常只会让精选不显示，不影响目录本身。
+每条精选先按 `full_name`（不区分大小写）匹配 `entries[]` 中的条目，匹配时直接使用该条目（在按 `marketSize` 截断前匹配）；不在 `entries[]` 中的精选必须自带可解析的 `packages` 才会合成一张卡片，否则跳过。合成卡片优先使用精选自带的 `description`；缺失、空白或类型无效时回退到 `reason`，两者均经过文本规范化与长度限制。已匹配主列表的卡片仍使用主列表条目的描述。重复、slug 非法的精选同样跳过，最多保留 50 条，保持发布顺序。字段缺失或格式异常只会让精选不显示，不影响目录本身。
 
 消费端缓存记录了解析格式；解析逻辑变化（如新增精选）后，旧格式的缓存不再使用，首次读取会不带 ETag 完整下载一次。
 

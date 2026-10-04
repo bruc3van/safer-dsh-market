@@ -31,9 +31,9 @@ const SCHEMA_VERSION = 1
  * revalidation only asks whether the FEED changed, so after an upgrade that
  * changes the parse a 304 would keep serving the old build's reduction
  * forever. Bump this whenever the derived catalog gains or changes a field.
- * 1 — before the editorial picks; 2 — `featured`.
+ * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions.
  */
-export const CATALOG_FORMAT = 2
+export const CATALOG_FORMAT = 3
 
 /** Editorial picks are a short list; anything longer is not one. */
 const FEATURED_LIMIT = 50
@@ -67,6 +67,7 @@ interface RawFeatured {
 /** One editorial pick. `packages` is present only for a pick the shortlist lacks. */
 interface RawFeaturedEntry {
   full_name?: unknown
+  description?: unknown
   reason?: unknown
   packages?: unknown
 }
@@ -164,8 +165,8 @@ function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<str
       continue
     }
     // A dangling reference with no install block of its own has nothing to
-    // show; one whose block does not parse has nothing to install. The pick
-    // has no repository description of its own, so its reason stands in.
+    // show; one whose block does not parse has nothing to install. Older
+    // feeds without an inline description still fall back to the reason.
     const installInfo = pick.packages === undefined ? undefined : parseInstallInfo(pick.packages)
     if (installInfo === undefined) continue
     seen.add(key)
@@ -177,7 +178,7 @@ function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<str
         owner: fullName.slice(0, slash),
         name: fullName.slice(slash + 1),
         url: `https://github.com/${fullName}`,
-        description: reason,
+        description: text(pick.description, DESCRIPTION_LIMIT) || reason,
         stars: 0,
         language: '',
         license: '',
