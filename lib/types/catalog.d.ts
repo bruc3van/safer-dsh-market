@@ -8,9 +8,9 @@ export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin
  * revalidation only asks whether the FEED changed, so after an upgrade that
  * changes the parse a 304 would keep serving the old build's reduction
  * forever. Bump this whenever the derived catalog gains or changes a field.
- * 1 — before the editorial picks; 2 — `featured`.
+ * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions.
  */
-export declare const CATALOG_FORMAT = 2;
+export declare const CATALOG_FORMAT = 3;
 /**
  * Where a parsed catalog survives a restart. The catalog source neither opens
  * nor closes this — the plugin body owns the domain's lifecycle and hands the
