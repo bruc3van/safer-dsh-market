@@ -16,9 +16,9 @@ https://bruc3van.com/markets/dsh/index.json
 
 With the third-party market feature enabled in DSH `0.2.1-alpha.5`, open **Plugins → Discover → Manage index sources → Add index source**, paste the URL, and save. You can then browse and install indexed plugins. Subscribing in Discover does not require `safer-dsh-market`; install the market plugin separately for its standalone interface, multiple-target installation, and optional post-install AI review.
 
-[awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) generates the index automatically; `bruc3van.com` serves JSON through Cloudflare without redirects. Only npm targets with verifiable versions, bundle declarations, publish dates, and explicit host compatibility ranges are included. This is a subset of the repository catalog, and inclusion is not a security audit or proof of runtime compatibility.
+[awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) generates the index automatically; `bruc3van.com` serves JSON through Cloudflare without redirects. The index verifies npm metadata and Git bundles pinned to full commits, including bundle declarations, timestamps, and explicit host compatibility ranges. This is a subset of the repository catalog, and inclusion is not a security audit or proof of runtime compatibility.
 
-[Generation audit report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/safer-dsh-market)
+[Index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/safer-dsh-market)
 
 > [!IMPORTANT]
 > **The package has been renamed from `dsh-desktop-safe-market` to `safer-dsh-market`**, and the GitHub repository is now [`bruc3van/safer-dsh-market`](https://github.com/bruc3van/safer-dsh-market). The old package does not upgrade to the new one automatically. To migrate: disable the old plugin → install and enable the new one → reapply your configuration as needed. Cache and pending-removal records keep their original storage paths; nothing needs migrating.
