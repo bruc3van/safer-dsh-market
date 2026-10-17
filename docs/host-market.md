@@ -17,7 +17,7 @@
 
 站点只转发已生成的 JSON，不重定向；后续数据源更新无需重新构建站点。使用方法和收录边界见数据源仓库的 `scripts/host-market/README.md`。
 
-宿主「发现」页和 `plugin_market` 工具消费 format-1 索引；现有社区 `market-v2.json` 继续供本插件使用。市场插件自身已声明 `engines.dsh`，以便正式发布版本被索引生成器识别。
+宿主「发现」页和 `plugin_market` 工具消费 format-1 索引；现有社区 `market-v2.json` 继续供本插件使用。兼容范围遵循官方 `dshRange`：显式 `engines.dsh` 优先，否则使用 DSH peerDependencies 的范围交集；无约束时省略 engines。无效范围或空交集仍排除。收录不等于实机兼容或安全验证。
 
 ## 验证边界
 
