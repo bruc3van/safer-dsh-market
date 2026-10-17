@@ -13,6 +13,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { evaluatePluginCompatibility } from '@deepseek-ai/dsh-app-boot'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -26,10 +27,19 @@ const plugin = JSON.parse(await readFile(resolve(root, 'dsh.plugin.json'), 'utf8
 
 const npmInstall = `dsh plugin --profile <profile> add ${pkg.name}`
 
+test('the real alpha.5 host accepts our declared baseline without compatibility exemptions', () => {
+  for (const version of ['0.1.7-rc.2', '0.2.0', '0.2.1-alpha.5']) {
+    assert.equal(evaluatePluginCompatibility(pkg, {}, version), undefined)
+  }
+  for (const version of ['0.1.5', '0.3.0']) {
+    assert.ok(evaluatePluginCompatibility(pkg, {}, version))
+  }
+})
+
 test('DSH dependencies keep the declared runtime and development baseline', () => {
   for (const [kind, expected] of [
-    ['peerDependencies', '>=0.1.7-rc.2 <0.3.0'],
-    ['devDependencies', '0.1.7-rc.2'],
+    ['peerDependencies', '>=0.1.7-rc.2 <0.3.0 || 0.2.1-alpha.5'],
+    ['devDependencies', '0.2.1-alpha.5'],
   ] as const) {
     const dependencies = Object.entries(pkg[kind]).filter(([name]) => name.startsWith('@deepseek-ai/dsh-'))
     assert.ok(dependencies.length > 0, `${kind} must declare DSH dependencies`)

@@ -1,4 +1,4 @@
-/** Exercise the built plugin against the published 0.1.7-rc.2 Loader and Settings. */
+/** Exercise the built plugin against the published 0.2.1-alpha.5 Loader and Settings. */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, realpath, writeFile, readFile, rm } from 'node:fs/promises'

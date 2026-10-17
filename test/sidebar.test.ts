@@ -11,9 +11,51 @@ const result = await build({
   entryPoints: [fileURLToPath(new URL('../src/client/sidebar.tsx', import.meta.url))],
   bundle: true, write: false, platform: 'node', format: 'esm',
 })
-const { registerMarketNavigation, MarketMain, registerMarketSidebar, MarketSidebar, MARKET_TAB_ID } = await import(
+const { registerMarketNavigation, MarketMain, registerMarketSidebar, MarketSidebar, registerMarketPluginTab, MarketPluginTab, MARKET_TAB_ID } = await import(
   `data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`
 )
+
+test('official Plugins tab waits for declaration and keeps review separate from owner installation', async () => {
+  const ctx = new Context()
+  let register: (() => () => void) | undefined
+  let entry: any
+  let selected: string | null = 'plugins'
+  const review = async () => ({ ok: true })
+  const face = { install: review, directInstaller: { shared: true } }
+  ctx.provide('locale', { bind: () => (key: keyof typeof zh) => zh[key] })
+  ctx.provide('layout', { selectPanel: (id: string | null) => { selected = id } })
+  ctx.provide('slots', {
+    inject: (name: string, callback: () => () => void) => {
+      assert.equal(name, 'plugins.tab')
+      register = callback
+      let dispose: (() => void) | undefined
+      register = () => { dispose = callback(); return dispose }
+      return () => { dispose?.(); register = undefined }
+    },
+    register: (options: any, component: unknown) => {
+      entry = { options, component }
+      return () => { entry = undefined }
+    },
+  })
+  const feature = ctx.plugin((scope: Context) => registerMarketPluginTab(scope, () => face))
+  await feature.await()
+  await setImmediate()
+  assert.equal(entry, undefined, 'old hosts without plugins.tab keep running')
+  register!()
+  assert.equal(entry.options.id, MARKET_TAB_ID)
+  assert.equal(entry.options.label(), '安全市场')
+  assert.equal(entry.component, MarketPluginTab)
+  const injected = entry.options.inject()
+  assert.equal(injected.install, undefined, 'do not collide with the owner install prop')
+  const page = MarketPluginTab({ ...injected, install: () => { throw new Error('not a review') }, openPackage: () => {} })
+  assert.equal(page.props.children.props.install, review)
+  assert.equal(page.props.children.props.directInstaller, face.directInstaller)
+  page.props.children.props.close()
+  assert.equal(selected, null)
+  await feature.dispose()
+  assert.equal(entry, undefined)
+  assert.equal(register, undefined)
+})
 
 test('left navigation pairs its destination, returns to conversation, and cleans up on service loss', async () => {
   const ctx = new Context()

@@ -11,6 +11,14 @@ type MarketMainProps = PropsRuntime<'main'> & InjectFace<MarketSectionInjected &
 }> & PropsLocale<typeof NS>;
 /** The global page shares the shared install hand-off. */
 export declare function MarketMain(props: MarketMainProps): import("react").JSX.Element;
+type PluginTabInjected = Omit<MarketSectionInjected, 'install'> & {
+    stageReview: MarketSectionInjected['install'];
+    close: () => void;
+};
+/** The owner's install verb is distinct from the market's review-draft verb. */
+export declare function MarketPluginTab({ install: _install, openPackage: _openPackage, stageReview, ...props }: PropsRuntime<'plugins.tab'> & InjectFace<PluginTabInjected> & PropsLocale<typeof NS>): import("react").JSX.Element;
+/** Optional on older hosts: wait for the actual Plugins page slot declaration. */
+export declare function registerMarketPluginTab(ctx: Context, injectMarket: () => MarketSectionInjected): void;
 /** Publish the navigation row only while its destination slot is available. */
 export declare function registerMarketNavigation(ctx: Context, injectMarket: () => MarketSectionInjected): void;
 /** An optional child fiber keeps left navigation available without the right Sidebar. */

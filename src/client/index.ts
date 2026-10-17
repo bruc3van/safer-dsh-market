@@ -38,7 +38,7 @@ import {
 import { NO_SESSION, SESSIONS_PENDING } from './SkillsView.tsx'
 import { en, zh, type SafeMarketLocaleKey } from './locales.ts'
 import { adoptStyles } from './styles.ts'
-import { registerMarketNavigation, registerMarketSidebar } from './sidebar.tsx'
+import { registerMarketNavigation, registerMarketSidebar, registerMarketPluginTab } from './sidebar.tsx'
 import {
   type MarketUiWorkspace,
   type MarketWorkspaces,
@@ -430,5 +430,6 @@ export function apply(ctx: ClientContext): void {
 
   registerMarketSidebar(ctx, injectMarket)
   registerMarketNavigation(ctx, injectMarket)
+  registerMarketPluginTab(ctx, injectMarket)
 
 }

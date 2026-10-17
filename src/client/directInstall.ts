@@ -8,7 +8,12 @@ interface InstallResult {
   application: 'applied' | 'restart-required' | 'overridden' | 'failed' | 'cancelled'
   pendingBuilds?: string[]
   warnings?: string[]
-  error?: { code: string; diagnostic?: string; incompatible?: { name: string; version: string; peers: Record<string, string> }[] }
+  error?: { code: string; diagnostic?: string; incompatible?: {
+    name: string; version: string
+    requirements?: Record<string, string>
+    /** Before DSH 0.2.1-alpha.4. */
+    peers?: Record<string, string>
+  }[] }
   packageResult?: { output?: string }
 }
 export interface InstallHost {
@@ -50,7 +55,7 @@ export function createDirectInstaller(host: () => InstallHost | undefined) {
     set({ phase: value.application === 'failed' ? 'failed' : 'done', application: value.application,
       pendingBuilds: value.pendingBuilds ?? [],
       message: [value.error?.code, value.error?.diagnostic, ...(value.warnings ?? []),
-        ...(value.error?.incompatible ?? []).map(p => `${p.name}@${p.version}: ${JSON.stringify(p.peers)}`),
+        ...(value.error?.incompatible ?? []).map(p => `${p.name}@${p.version}: ${JSON.stringify(p.requirements ?? p.peers ?? {})}`),
         value.application === 'failed' ? value.packageResult?.output : undefined,
       ].filter(Boolean).join('\n').slice(-8000) })
     if (!stopped && (value.application === 'applied' || value.application === 'restart-required')) {

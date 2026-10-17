@@ -27,11 +27,20 @@ DeepSeek Harness（DSH）的第三方插件市场。数据来自社区推荐目�
 
 ## DSH 版本兼容
 
-**0.9.1 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+### DSH 0.2.1-alpha.5 与官方市场接入
+
+本版本以宿主 `dsh-v0.2.1-alpha.5` / `release-dsh-0.2.1-alpha.5` 为适配目标，开发依赖已固定到 `0.2.1-alpha.5`。下表安装命令指向本版本 `0.10.0`。
+
+- 增加官方「插件」页的「安全市场」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
+- 接受新版安装拒绝信息的 `requirements`，并保留旧版 `peers`；技能列表使用宿主当前工作目录。
+- 显式声明 `engines.dsh`，移除已退役 `dsh-invariants` 的开发依赖；仅为旧 profile 保留可选 companion 导出。
+- 官方「发现」页 format-1 索引由数据源仓库 `awesome-dsh-plugin` 生成和审计，通过 `bruc3van.com` 分发。使用说明见 [官方市场接入](docs/host-market.md)。它不会自动添加索引源或发布文件。
+
+**0.10.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.9.1` | `safer-dsh-market@0.9.1` |
+| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.10.0` | `safer-dsh-market@0.10.0` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -42,7 +51,7 @@ DeepSeek Harness（DSH）的第三方插件市场。数据来自社区推荐目�
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-从旧版升级到 `0.9.1` 的注意事项：
+从旧版升级到 `0.10.0` 的注意事项：
 
 - 先把 DSH 升级到 `0.1.7-rc.2` 或 `0.2.x`；
 - 市场开关现由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效、重启后保留；
@@ -53,19 +62,19 @@ dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 以下 CLI 示例仅适用于可由 CLI 管理的 profile，**不适用于 Electron 的 `desktop`**。将 `<profile>` 替换为已核实的实际名称。推荐从 [npm](https://www.npmjs.com/package/safer-dsh-market) 安装指定版本：
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.9.1
+dsh plugin --profile <profile> add safer-dsh-market@0.10.0
 ```
 
 也可以把安装交给你的 Agent，复制这段提示词发过去：
 
 ```text
-帮我安装 DSH 安全市场 0.9.1：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.9.1。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
+帮我安装 DSH 安全市场 0.10.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.10.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
 ```
 
 需要锁定到本文档对应版本时，使用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.9.1.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.10.0.tar.gz
 ```
 
 官方管理器负责安装依赖和登记插件，无需手工修改 `package.json`。按返回结果判断是否需要重启：`applied` 表示已生效，`restart-required` 表示安装完成但需重启当前实例；失败或配置覆盖不能当作已生效。

@@ -17,7 +17,9 @@ interface InstallResult {
         incompatible?: {
             name: string;
             version: string;
-            peers: Record<string, string>;
+            requirements?: Record<string, string>;
+            /** Before DSH 0.2.1-alpha.4. */
+            peers?: Record<string, string>;
         }[];
     };
     packageResult?: {

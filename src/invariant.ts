@@ -4,7 +4,12 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
+
+// Legacy companion only: alpha.5 removed dsh-invariants. Keep this optional
+// export loadable for older profiles without importing the retired package.
+interface LegacyInvariants {
+  register(name: string, install: () => void): () => void
+}
 
 const PACKAGE_NAME = 'safer-dsh-market'
 
@@ -21,7 +26,7 @@ export const inject = ['invariants']
  * conversation face. None is a cross-plugin mutable relationship an
  * event-stream invariant could hold.
  */
-const install: InvariantInstaller = () => {}
+const install = () => {}
 
 /**
  * Register this package's invariant companion.
@@ -29,4 +34,4 @@ const install: InvariantInstaller = () => {}
  * @returns the installed registration's disposer after setup succeeds.
  */
 export const apply = (ctx: Context): Promise<() => void> =>
-  Promise.resolve(ctx.invariants.register(PACKAGE_NAME, install))
+  Promise.resolve((ctx.reflect.get('invariants') as LegacyInvariants).register(PACKAGE_NAME, install))

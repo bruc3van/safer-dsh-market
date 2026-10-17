@@ -4,6 +4,7 @@ import type { SidebarRightTabDefinition } from '@deepseek-ai/dsh-client-ui-sideb
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import { MarketSection, type MarketSectionInjected } from './MarketSection.tsx'
 
 export const MARKET_TAB_ID = 'safer-dsh-market'
@@ -26,6 +27,31 @@ type MarketMainProps = PropsRuntime<'main'>
 /** The global page shares the shared install hand-off. */
 export function MarketMain(props: MarketMainProps) {
   return <div className="dsh_market_main"><MarketSection {...props} /></div>
+}
+
+type PluginTabInjected = Omit<MarketSectionInjected, 'install'> & {
+  stageReview: MarketSectionInjected['install']
+  close: () => void
+}
+
+/** The owner's install verb is distinct from the market's review-draft verb. */
+export function MarketPluginTab({ install: _install, openPackage: _openPackage, stageReview, ...props }:
+  PropsRuntime<'plugins.tab'> & InjectFace<PluginTabInjected> & PropsLocale<typeof NS>) {
+  return <div className="dsh_market_main"><MarketSection {...props} install={stageReview} /></div>
+}
+
+/** Optional on older hosts: wait for the actual Plugins page slot declaration. */
+export function registerMarketPluginTab(ctx: Context, injectMarket: () => MarketSectionInjected): void {
+  ctx.inject(['layout'], panelCtx => {
+    const t = panelCtx.locale.bind(NS)
+    panelCtx.effect(() => panelCtx.slots.inject('plugins.tab', () => panelCtx.slots.register({
+      name: 'plugins.tab', id: MARKET_TAB_ID, order: 60, label: () => t('nav'), locale: NS,
+      inject: () => {
+        const { install, ...market } = injectMarket()
+        return { ...market, stageReview: install, close: () => panelCtx.layout.selectPanel(null) }
+      },
+    }, MarketPluginTab)), 'safe-market: plugins tab')
+  })
 }
 
 /** Publish the navigation row only while its destination slot is available. */

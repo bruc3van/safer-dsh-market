@@ -50,6 +50,20 @@ function ctxWith(
 
 const agent = (cwd?: string): SkillReadAgent => ({ session: { header: { cwd } } })
 
+test('new hosts discover and label skills in the committed working directory', async () => {
+  const seen: { options?: unknown } = {}
+  const ctx = ctxWith({ skills: [row('local', { resourceBase: { kind: 'directory', path: '/new/.agents/skills/local' } })], complete: true }, seen)
+  const addressed = agent('/original')
+  Object.assign(ctx, { reflect: { get: (name: string) => {
+    assert.equal(name, 'workingDirectory')
+    return { get: (session: unknown) => { assert.equal(session, addressed.session); return '/new' } }
+  } } })
+  const signal = new AbortController().signal
+  const result = await readSkills(ctx, addressed, signal)
+  assert.deepEqual(seen.options, { cwd: '/new', signal, scope: addressed })
+  assert.equal(result.skills[0]?.sourceDirectory, '.agents/skills')
+})
+
 test('a deployment with no skill registry says so instead of reporting an empty list', async () => {
   const result = await readSkills({} as Context, agent('/w'), AbortSignal.abort())
   assert.deepEqual(result, { skills: [], complete: false, error: 'the skill registry is not mounted' })

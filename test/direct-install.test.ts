@@ -15,6 +15,22 @@ function host(overrides: Partial<InstallHost> = {}): InstallHost {
   } as InstallHost
 }
 
+test('compatibility refusals show new engines requirements and legacy peer ranges', async () => {
+  for (const incompatible of [
+    { name: 'demo', version: '1.0.0', requirements: { 'engines.dsh': '>=0.3.0' } },
+    { name: 'demo', version: '1.0.0', peers: { '@deepseek-ai/dsh-settings': '>=0.3.0' } },
+  ]) {
+    const installer = createDirectInstaller(() => host({ installBundle: async () => ({
+      ok: true, value: { application: 'failed', error: { code: 'incompatible-version', incompatible: [incompatible] } },
+    }) }))
+    await installer.start('demo@1.0.0')
+    assert.equal(installer.getSnapshot().phase, 'failed')
+    assert.match(installer.getSnapshot().message, /demo@1.0.0/)
+    assert.match(installer.getSnapshot().message, />=0.3.0/)
+    assert.doesNotMatch(installer.getSnapshot().message, /undefined/)
+  }
+})
+
 test('v2 feed preserves targets and tasks on the wire without executable commands', () => {
   const catalog = deriveMarket({ schema_version: 2, entries: [{ full_name: 'owner/demo', category: 'tools', packages: {
     mode: 'command', targets: [{ install: '@owner/demo@1.2.3', profile: 'web', command: 'rm -rf /', note: 'Account required' }], tasks: ['Word'], requirements: ['Node 24'],

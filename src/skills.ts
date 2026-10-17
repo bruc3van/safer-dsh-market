@@ -93,7 +93,11 @@ export async function readSkills(
     return { skills: [], complete: false, error: 'the skill registry is not mounted' }
   }
   try {
-    const observation = await registry.snapshot({ cwd: agent.session.header.cwd, signal, scope: agent })
+    // New hosts separate the execution directory from the original project.
+    // Reading the committed value keeps this listing read-only.
+    const directory = ctx.reflect?.get('workingDirectory') as { get(session: SkillReadAgent['session']): string } | undefined
+    const cwd = directory ? directory.get(agent.session) : agent.session.header.cwd
+    const observation = await registry.snapshot({ cwd, signal, scope: agent })
     const skills: MarketSkill[] = observation.skills.map(entry => ({
       name: text(entry.name, 120),
       description: text(entry.description, 400),
@@ -101,7 +105,7 @@ export async function readSkills(
       provider: text(entry.provider, 60),
       ...(entry.resourceBase?.kind === 'directory'
         ? {
-            sourceDirectory: skillDirectory(entry.resourceBase.path, agent.session.header.cwd),
+            sourceDirectory: skillDirectory(entry.resourceBase.path, cwd),
             ...folderPath(entry.resourceBase.path),
           }
         : {}),
