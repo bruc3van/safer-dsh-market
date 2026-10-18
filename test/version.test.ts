@@ -120,8 +120,8 @@ test('workflows use the Node 24-compatible pnpm setup action', async () => {
     const yaml = await readFile(resolve(root, '.github/workflows', name), 'utf8')
     assert.match(
       yaml,
-      /uses:\s*pnpm\/action-setup@v6/,
-      `${name} must use pnpm/action-setup@v6 so GitHub Actions does not run the deprecated Node 20 action runtime`,
+      /uses:\s*pnpm\/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996(?:\s|$)/,
+      `${name} must pin the verified Node 24-compatible pnpm/action-setup v6 commit`,
     )
     assert.doesNotMatch(
       yaml,
