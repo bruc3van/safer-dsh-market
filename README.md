@@ -8,17 +8,29 @@ DeepSeek Harness（DSH）的第三方插件市场。数据来自社区推荐目�
 
 ## 订阅到 DSH 官方「发现」页
 
+**适用版本：DSH 正式版 V0.2.1 及以上。** 这里的版本要求针对官方「发现」页的第三方订阅功能；各插件仍需满足详情中声明的宿主版本要求。
+
+先在网页里找插件：[DSH 插件导航](https://bruc3van.com/dsh-plugins/)。在 DSH 中配置时，请使用下面的 **JSON 订阅地址**，不要填写导航网页地址。
+
 **订阅链接：[https://bruc3van.com/markets/dsh/index.json](https://bruc3van.com/markets/dsh/index.json)**
 
 ```text
 https://bruc3van.com/markets/dsh/index.json
 ```
 
-在 DSH `0.2.1-alpha.5` 中启用第三方市场功能后，打开 **插件 → 发现 → 管理索引源 → 添加索引源**，粘贴上面的地址并保存，即可浏览和安装索引中的插件。仅订阅官方「发现」页无需安装 `safer-dsh-market`；如需独立市场界面、多选安装和安装后 AI 审查，可另行安装市场插件。
+1. **确认版本**：将 DSH 升级到正式版 **V0.2.1 或更高版本**。
+2. **开启自定义市场**：打开左侧 **插件**，点击 **实验性插件** 旁的 **更多**，找到 **自定义插件市场** 并开启。启用后，插件页会显示 **已安装 / 发现** 两个标签页。
+3. **打开索引源配置**：进入 **发现**。首次使用时点击 **添加索引源**；已有市场时，展开左上角的市场名称下拉菜单，选择 **管理索引源…**。
+4. **添加订阅**：在 **索引 URL** 中粘贴上面的 `index.json` 地址，点击 **添加**。确认地址出现在已添加的索引源列表后，关闭弹窗；配置保存在当前 profile 中。
+5. **浏览和安装**：在市场下拉菜单中选择 **DSH 社区市场**；如需重新读取数据，点击 **刷新**。按分类、关键词或 npm/Git 标签查找插件，查看版本要求后再安装。
+
+如果没有看到「发现」，请先检查 DSH 是否为 V0.2.1 及以上正式版，以及「自定义插件市场」是否已开启。只开启功能还不会自动添加本订阅源，仍需完成上面的添加步骤。
+
+仅订阅官方「发现」页**无需安装 `safer-dsh-market`**；如需独立市场界面、多选安装和安装后 AI 审查，可另行安装市场插件。开启「自定义插件市场」与本插件自己的「启用安全市场」开关是两个不同入口。
 
 索引由 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) 自动生成，通过 Cloudflare 上的 `bruc3van.com` 提供无重定向 JSON。收录经过核实的 npm 目标及固定完整提交的 Git 组合包，核实 bundle 声明、时间及官方宿主兼容范围规则，因此不是完整仓库目录；收录不代表安全审查或实机兼容保证。
 
-[查看索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json) · [最新版市场插件](https://www.npmjs.com/package/safer-dsh-market)
+[DSH 插件导航与订阅指南](https://bruc3van.com/dsh-plugins/#subscribe) · [查看索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json) · [最新版市场插件](https://www.npmjs.com/package/safer-dsh-market)
 
 > [!IMPORTANT]
 > **包名已从 `dsh-desktop-safe-market` 更名为 `safer-dsh-market`**，GitHub 仓库同步更名为 [`bruc3van/safer-dsh-market`](https://github.com/bruc3van/safer-dsh-market)。旧包不会自动升级为新包。迁移步骤：停用旧插件 → 安装并启用新插件 → 按需重新设置原来的配置。缓存和待卸载记录沿用原存储路径，无需迁移。
@@ -41,9 +53,9 @@ https://bruc3van.com/markets/dsh/index.json
 
 ## DSH 版本兼容
 
-### DSH 0.2.1-alpha.5 与官方市场接入
+### 官方插件页接入与开发基线
 
-本版本以宿主 `dsh-v0.2.1-alpha.5` / `release-dsh-0.2.1-alpha.5` 为适配目标，开发依赖已固定到 `0.2.1-alpha.5`。下表安装命令指向本版本 `0.10.1`。
+上面的订阅配置指引面向 **DSH 正式版 V0.2.1 及以上**。本插件 `0.10.1` 的开发适配基线仍为 `dsh-v0.2.1-alpha.5` / `release-dsh-0.2.1-alpha.5`，开发依赖固定到 `0.2.1-alpha.5`；这是维护者的构建基线，不是要求用户安装 alpha 版。下表安装命令指向本插件版本 `0.10.1`，具体兼容范围见下表。
 
 - 增加官方「插件」页的「安全市场」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
 - 接受新版安装拒绝信息的 `requirements`，并保留旧版 `peers`；技能列表使用宿主当前工作目录。

@@ -8,17 +8,29 @@ A third-party plugin marketplace for DeepSeek Harness (DSH). It reads the commun
 
 ## Subscribe in DSH Discover
 
+**Required version: the stable DSH V0.2.1 release or later.** This requirement is for third-party subscriptions in the official Discover tab; individual plugins still have their own host compatibility requirements.
+
+Browse first in the [DSH Plugin Directory](https://bruc3van.com/dsh-plugins/). When configuring DSH, use the **JSON subscription URL** below, not the directory webpage URL.
+
 **Subscription URL: [https://bruc3van.com/markets/dsh/index.json](https://bruc3van.com/markets/dsh/index.json)**
 
 ```text
 https://bruc3van.com/markets/dsh/index.json
 ```
 
-With the third-party market feature enabled in DSH `0.2.1-alpha.5`, open **Plugins → Discover → Manage index sources → Add index source**, paste the URL, and save. You can then browse and install indexed plugins. Subscribing in Discover does not require `safer-dsh-market`; install the market plugin separately for its standalone interface, multiple-target installation, and optional post-install AI review.
+1. **Check the version:** upgrade DSH to the stable **V0.2.1 release or later**.
+2. **Enable custom markets:** open **Plugins** in the left sidebar, click **More** beside **Experimental plugins**, and switch on **Custom plugin markets**. The Plugins page then shows the **Installed / Discover** tabs.
+3. **Open source settings:** select **Discover**. For the first source, click **Add index source**. If a market is already configured, open the market-name dropdown at the top left and select **Manage index sources…**.
+4. **Add the subscription:** paste the `index.json` URL above into **Index URL** and click **Add**. Confirm that it appears in the added sources list, then close the dialog. Sources are saved in the active profile.
+5. **Browse and install:** select **DSH Community Market** in the market dropdown. Use **Refresh** to reload its data when needed. Search by category, keyword, or npm/Git label, and check each plugin's version requirements before installing.
+
+If Discover is missing, check that you are running stable DSH V0.2.1 or later and that Custom plugin markets is enabled. Enabling the feature does not add this subscription automatically; you still need to add its URL.
+
+Subscribing in the official Discover tab **does not require `safer-dsh-market`**. Install this plugin separately for its standalone interface, multiple-target installation, and optional post-install AI review. Custom plugin markets and this plugin's Enable Safe Market switch are separate controls.
 
 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) generates the index automatically; `bruc3van.com` serves JSON through Cloudflare without redirects. The index verifies npm metadata and Git bundles pinned to full commits, including bundle declarations, timestamps, and explicit host compatibility ranges. This is a subset of the repository catalog, and inclusion is not a security audit or proof of runtime compatibility.
 
-[Index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/safer-dsh-market)
+[DSH Plugin Directory and subscription guide](https://bruc3van.com/dsh-plugins/#subscribe) · [Index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/safer-dsh-market)
 
 > [!IMPORTANT]
 > **The package has been renamed from `dsh-desktop-safe-market` to `safer-dsh-market`**, and the GitHub repository is now [`bruc3van/safer-dsh-market`](https://github.com/bruc3van/safer-dsh-market). The old package does not upgrade to the new one automatically. To migrate: disable the old plugin → install and enable the new one → reapply your configuration as needed. Cache and pending-removal records keep their original storage paths; nothing needs migrating.
@@ -41,9 +53,9 @@ This plugin connects curated community data to the official installation service
 
 ## DSH version compatibility
 
-### DSH 0.2.1-alpha.5 and official market integration
+### Official Plugins page integration and development baseline
 
-This release targets host `dsh-v0.2.1-alpha.5` / `release-dsh-0.2.1-alpha.5`, with development dependencies pinned to `0.2.1-alpha.5`. The npm commands below install this release, `0.10.1`.
+The subscription instructions above target **stable DSH V0.2.1 or later**. This plugin's `0.10.1` release still uses `dsh-v0.2.1-alpha.5` / `release-dsh-0.2.1-alpha.5` as its development baseline, with development dependencies pinned to `0.2.1-alpha.5`. That is a maintainer build baseline, not a requirement for users to install an alpha release. The commands below install plugin version `0.10.1`; its declared compatibility range is listed separately below.
 
 - Adds a Safe Market tab to the official Plugins page, preserving standalone navigation and the right sidebar. Older hosts without `plugins.tab` do not register the tab.
 - Reads new installation rejection `requirements` and legacy `peers`; skill discovery follows the host's committed working directory.
