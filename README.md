@@ -12,17 +12,19 @@ DeepSeek Harness（DSH）的第三方插件市场。数据来自社区推荐目�
 
 先在网页里找插件：[DSH 插件导航](https://bruc3van.com/dsh-plugins/)。在 DSH 中配置时，请使用下面的 **JSON 订阅地址**，不要填写导航网页地址。
 
-**订阅链接：[https://bruc3van.com/markets/dsh/index.json](https://bruc3van.com/markets/dsh/index.json)**
+**订阅链接：[https://bruc3van.com/dsh-plugins/index.json](https://bruc3van.com/dsh-plugins/index.json)**
 
 ```text
-https://bruc3van.com/markets/dsh/index.json
+https://bruc3van.com/dsh-plugins/index.json
 ```
+
+旧地址 `https://bruc3van.com/markets/dsh/index.json` 继续兼容，已有订阅无需更换；新旧地址提供同一份「Bruce 的精选插件」，请勿同时添加。
 
 1. **确认版本**：将 DSH 升级到 **V0.2.1-rc.2 或更高版本**。
 2. **开启自定义市场**：打开左侧 **插件**，点击 **实验性插件** 旁的 **更多**，找到 **自定义插件市场** 并开启。启用后，插件页会显示 **已安装 / 发现** 两个标签页。
 3. **打开索引源配置**：进入 **发现**。首次使用时点击 **添加索引源**；已有市场时，展开左上角的市场名称下拉菜单，选择 **管理索引源…**。
 4. **添加订阅**：在 **索引 URL** 中粘贴上面的 `index.json` 地址，点击 **添加**。确认地址出现在已添加的索引源列表后，关闭弹窗；配置保存在当前 profile 中。
-5. **浏览和安装**：在市场下拉菜单中选择 **DSH 社区市场**；如需重新读取数据，点击 **刷新**。按分类、关键词或 npm/Git 标签查找插件，查看版本要求后再安装。
+5. **浏览和安装**：在市场下拉菜单中选择 **Bruce 的精选插件**；如需重新读取数据，点击 **刷新**。按分类、关键词或 npm/Git 标签查找插件，查看版本要求后再安装。
 
 如果没有看到「发现」，请先检查 DSH 是否为 V0.2.1-rc.2 及以上版本，以及「自定义插件市场」是否已开启。只开启功能还不会自动添加本订阅源，仍需完成上面的添加步骤。
 

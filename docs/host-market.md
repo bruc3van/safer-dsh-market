@@ -14,7 +14,7 @@
 
 生成器、回归测试、定时更新工作流、索引与审计报告已迁到数据源仓库 `awesome-dsh-plugin` 的 `scripts/host-market/` 和 `data/`。市场插件不再生成或发布第二套索引。
 
-- 订阅地址：`https://bruc3van.com/markets/dsh/index.json`
+- 订阅地址：`https://bruc3van.com/dsh-plugins/index.json`（Bruce 的精选插件）；旧地址 `https://bruc3van.com/markets/dsh/index.json` 继续兼容，已有订阅无需更换，不要重复添加。
 - 审计地址：`https://bruc3van.com/markets/dsh/audit.json`
 
 站点只转发已生成的 JSON，不重定向；后续数据源更新无需重新构建站点。使用方法和收录边界见数据源仓库的 `scripts/host-market/README.md`。

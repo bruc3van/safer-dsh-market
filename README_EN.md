@@ -12,17 +12,19 @@ A third-party plugin marketplace for DeepSeek Harness (DSH). It reads the commun
 
 Browse first in the [DSH Plugin Directory](https://bruc3van.com/dsh-plugins/). When configuring DSH, use the **JSON subscription URL** below, not the directory webpage URL.
 
-**Subscription URL: [https://bruc3van.com/markets/dsh/index.json](https://bruc3van.com/markets/dsh/index.json)**
+**Subscription URL: [https://bruc3van.com/dsh-plugins/index.json](https://bruc3van.com/dsh-plugins/index.json)**
 
 ```text
-https://bruc3van.com/markets/dsh/index.json
+https://bruc3van.com/dsh-plugins/index.json
 ```
+
+The previous URL, `https://bruc3van.com/markets/dsh/index.json`, remains supported. Existing subscriptions need no changes; both URLs provide the same Bruce's Plugin Picks feed, so add only one.
 
 1. **Check the version:** upgrade DSH to **V0.2.1-rc.2 or later**.
 2. **Enable custom markets:** open **Plugins** in the left sidebar, click **More** beside **Experimental plugins**, and switch on **Custom plugin markets**. The Plugins page then shows the **Installed / Discover** tabs.
 3. **Open source settings:** select **Discover**. For the first source, click **Add index source**. If a market is already configured, open the market-name dropdown at the top left and select **Manage index sources…**.
 4. **Add the subscription:** paste the `index.json` URL above into **Index URL** and click **Add**. Confirm that it appears in the added sources list, then close the dialog. Sources are saved in the active profile.
-5. **Browse and install:** select **DSH Community Market** in the market dropdown. Use **Refresh** to reload its data when needed. Search by category, keyword, or npm/Git label, and check each plugin's version requirements before installing.
+5. **Browse and install:** select **Bruce's Plugin Picks** in the market dropdown. Use **Refresh** to reload its data when needed. Search by category, keyword, or npm/Git label, and check each plugin's version requirements before installing.
 
 If Discover is missing, check that you are running DSH V0.2.1-rc.2 or later and that Custom plugin markets is enabled. Enabling the feature does not add this subscription automatically; you still need to add its URL.
 
