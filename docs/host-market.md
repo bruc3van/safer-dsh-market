@@ -2,7 +2,9 @@
 
 用户订阅配置适用于 **DSH V0.2.1-rc.2 及以上**：左侧 **插件 → 实验性插件旁的「更多」→ 自定义插件市场**，开启后在 **发现** 中添加 JSON 索引源。完整开启、配置和检索步骤见[README](../README.md#订阅到-dsh-官方发现页)；也可以先访问 [DSH 插件导航](https://bruc3van.com/dsh-plugins/) 浏览目录。
 
-以下技术适配最初依据本地 `deepseek-harness` 的 `dsh-v0.2.1-alpha.5` tag 和同版本 npm 包，随 `safer-dsh-market@0.10.0` 发布。这是开发基线记录，不是要求用户使用 alpha 版。
+`safer-dsh-market@0.10.2` 的适配依据本地 `deepseek-harness` 的 `0.2.2-rc.1` 源码和同版本官方 npm 包；开发依赖固定到 `0.2.2-rc.1`，Cordis / Loader / Schemastery 分别升级到宿主使用的 `4.1.0` / `1.1.0` / `3.19.0`。DSH peer 范围显式接纳 `0.2.2-rc.1`，保留原有版本范围。宿主的兼容检查使用 `includePrerelease: true`，现有 `engines.dsh` 已覆盖目标 RC，无需修改。
+
+本次核对了新版 Loader 的 `commit(change)` / Include journal 持久化变化、Settings、Typert、工作区导航和插件管理 Remote。现有业务接口仍适用，因此适配集中在依赖、兼容声明和回归验证。本次适配随 `safer-dsh-market@0.10.2` 发布。
 
 ## 官方插件页
 
@@ -23,7 +25,7 @@
 
 ## 验证边界
 
-自动化覆盖新版 Loader/Settings 启动、RPC 注册、设置重启持久化、标签生命周期及审查回调隔离、安装失败信息、新旧技能目录路径。仍需真实 Desktop 验收插件页排版、安装交互和发现源订阅。
+自动化覆盖新版 Loader/Settings 启动、RPC 注册、设置重启持久化、真实用户 bundle 的禁用/启用及跨重启恢复、标签生命周期及审查回调隔离、安装失败信息、新旧技能目录路径。仍需真实 Desktop 验收插件页排版、安装交互和发现源订阅。
 
 ## 分类、筛选与排序
 
