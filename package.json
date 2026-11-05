@@ -1,8 +1,9 @@
 {
   "name": "safer-dsh-market",
   "description": "DeepSeek Harness 第三方插件市场，支持通过官方插件管理器安装，并可对已安装插件进行 AI 安全审查。",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "license": "MIT",
+  "icon": "./assets/logo.svg",
   "type": "module",
   "main": "lib/index.js",
   "homepage": "https://github.com/bruc3van/safer-dsh-market#readme",
@@ -36,7 +37,8 @@
       "types": "./lib/types/invariant.d.ts",
       "default": "./lib/invariant.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./icon": "./assets/logo.svg"
   },
   "dsh": {
     "bundle": {
@@ -61,6 +63,8 @@
     }
   },
   "files": [
+    "assets/logo.svg",
+    "assets/logo.png",
     "lib",
     "!lib/**/*.map",
     "cordis.patch.yml",
