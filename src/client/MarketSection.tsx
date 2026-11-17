@@ -861,11 +861,18 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
       )}
       </div>
       {!installedSelected && shown.length > 0 && <nav className="dsh_market_pagination" aria-label={t('pagination.label')}>
-        <button type="button" className="dsh_market_ghost" disabled={paged.current === 0}
-          onClick={() => { setPage(paged.current - 1); resultsRef.current?.scrollTo({ top: 0 }) }}>{t('pagination.previous')}</button>
-        <span aria-live="polite">{t('pagination.summary', { page: String(paged.current + 1), pages: String(paged.pages), start: String(paged.start), end: String(paged.end), total: String(paged.total) })}</span>
-        <button type="button" className="dsh_market_ghost" disabled={paged.current + 1 === paged.pages}
-          onClick={() => { setPage(paged.current + 1); resultsRef.current?.scrollTo({ top: 0 }) }}>{t('pagination.next')}</button>
+        <span className="dsh_market_pageRange">{t('pagination.range', { start: String(paged.start), end: String(paged.end), total: String(paged.total) })}</span>
+        <div className="dsh_market_pager">
+          <button type="button" className="dsh_market_pageButton" disabled={paged.current === 0} aria-label={t('pagination.previous')} title={t('pagination.previous')}
+            onClick={() => { setPage(paged.current - 1); resultsRef.current?.scrollTo({ top: 0 }) }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+          </button>
+          <span className="dsh_market_pageNumber" aria-live="polite">{t('pagination.page', { page: String(paged.current + 1), pages: String(paged.pages) })}</span>
+          <button type="button" className="dsh_market_pageButton" disabled={paged.current + 1 === paged.pages} aria-label={t('pagination.next')} title={t('pagination.next')}
+            onClick={() => { setPage(paged.current + 1); resultsRef.current?.scrollTo({ top: 0 }) }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+          </button>
+        </div>
       </nav>}
     </div>
   )

@@ -49,64 +49,135 @@ export const cssText = `
   background: var(--dsw-alias-interactive-bg-hover); outline: none;
 }
 
+/* The install and update dialogs: the official Plugins dialog's shape — a
+   16px-radius sheet, a head row of icon, title and close, a body of quiet
+   grey panels, and a footer of right-aligned pill verbs. */
 .dsh_market_directPanel {
   color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-3);
-  border: 1px solid var(--dsw-alias-border-l2); border-radius: 20px; padding: 24px;
-  box-sizing: border-box; width: min(480px, calc(100vw - 32px)); max-height: 80vh; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere;
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: 16px; padding: 24px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .18);
+  box-sizing: border-box; width: min(520px, calc(100vw - 32px)); max-height: 82vh;
+  overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere;
+  font-size: 13px; line-height: 20px;
 }
-.dsh_market_directPanel::backdrop { background: rgba(0, 0, 0, .3); }
-.dsh_market_directHead { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
-.dsh_market_updateActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-.dsh_market_installHeading { min-width: 0; }
-.dsh_market_installHeading > span { font-size: 12px; color: var(--dsw-alias-label-tertiary); }
-.dsh_market_installHeading h3 { margin: 6px 0 0; font-size: 18px; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }
-.dsh_market_installStatus { margin-top: 22px; padding: 16px; border-radius: 12px; background: var(--dsw-alias-interactive-bg-hover); }
-.dsh_market_installStatus > strong { font-size: 14px; font-weight: 500; }
-.dsh_market_directPanel .dsh_market_installStatus p { margin: 8px 0 12px; color: var(--dsw-alias-label-secondary); }
-.dsh_market_buildList { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.dsh_market_buildList li { padding: 4px 8px; background: var(--dsw-alias-bg-layer-3); border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; }
-.dsh_market_installDiagnostic { margin-top: 12px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
-.dsh_market_installDiagnostic summary { cursor: pointer; }
-.dsh_market_installFooter {
-  border: 0; padding: 0; margin: 0; min-width: 0; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 18px; border-top: 1px solid var(--dsw-alias-border-l2); }
-.dsh_market_installFooter .dsh_market_primary, .dsh_market_installFooter .dsh_market_ghost { min-height: 36px; padding: 7px 16px; font-size: 13px; }
-
+.dsh_market_directPanel::backdrop { background: rgba(0, 0, 0, .32); }
+.dsh_market_directPanel p { margin: 12px 0; font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.dsh_market_directHead { display: flex; gap: 14px; align-items: flex-start; }
+.dsh_market_directHead > .dsh_market_logo { width: 48px; height: 48px; border-radius: 12px; }
+.dsh_market_installHeading { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dsh_market_installHeading > span { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.dsh_market_installHeading h3 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; overflow-wrap: anywhere; }
+.dsh_market_installHeading small {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary);
+}
 .dsh_market_directClose {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
-  width: 32px; height: 32px; border: 0; border-radius: 8px; background: none;
+  width: 32px; height: 32px; margin: -4px -6px 0 0; border: 0; border-radius: 8px; background: none;
   color: var(--dsw-alias-label-tertiary); cursor: pointer;
 }
-.dsh_market_directClose:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.dsh_market_directClose:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 .dsh_market_directClose:focus-visible, .dsh_market_installDetails summary:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px;
 }
-.dsh_market_installChoices { min-width: 0; margin: 20px 0 0; padding: 0; border: 0; }
-.dsh_market_installChoices legend { margin-bottom: 10px; padding: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
-.dsh_market_directPanel .dsh_market_installChoice { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; margin: 6px 0; border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; font-size: 13px; cursor: pointer; }
+.dsh_market_directPanel .dsh_market_installSummary {
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+  margin: 16px 0 0;
+}
+
+/* Grey panels: the state of an install, or why there is nothing to install. */
+.dsh_market_installStatus, .dsh_market_installUnavailable {
+  margin-top: 18px; padding: 14px 16px; border-radius: 12px;
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.dsh_market_installStatus > strong { display: block; font-size: 14px; line-height: 20px; font-weight: 600; }
+.dsh_market_directPanel .dsh_market_installStatus p { margin: 6px 0 10px; }
+.dsh_market_installStatus > .dsh_market_ghost { margin-top: 4px; }
+.dsh_market_directPanel .dsh_market_installUnavailable p { margin: 0; }
+.dsh_market_directPanel .dsh_market_installUnavailable p + p { margin-top: 8px; }
+.dsh_market_buildList { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.dsh_market_buildList li {
+  padding: 2px 8px; background: var(--dsw-alias-bg-layer-3); border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px; font-size: 12px; line-height: 18px; overflow-wrap: anywhere;
+}
+.dsh_market_installDiagnostic { margin-top: 10px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.dsh_market_installDiagnostic summary { cursor: pointer; width: fit-content; }
+.dsh_market_directMessage {
+  margin: 8px 0 0; padding: 10px 12px; max-height: 200px; overflow: auto; white-space: pre-wrap;
+  border-radius: 8px; background: var(--dsw-alias-bg-layer-1);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 17px;
+}
+
+/* Batch progress: one row per component, its state in the tertiary voice. */
+.dsh_market_installQueue {
+  list-style: none; padding: 0 14px; margin: 14px 0 0;
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px;
+}
+.dsh_market_installQueue li { padding: 10px 0; overflow-wrap: anywhere; }
+.dsh_market_installQueue li + li { border-top: 1px solid var(--dsw-alias-border-l2); }
+.dsh_market_installQueue small { display: block; margin-top: 2px; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+
+/* Component and version pickers: bordered rows, the checked one filled. */
+.dsh_market_installChoices { min-width: 0; margin: 18px 0 0; padding: 0; border: 0; }
+.dsh_market_installChoices legend { margin-bottom: 4px; padding: 0; font-size: 13px; font-weight: 500; color: var(--dsw-alias-label-primary); }
+.dsh_market_directPanel .dsh_market_installChoices p { margin: 0 0 10px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.dsh_market_directPanel .dsh_market_installChoice {
+  display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; margin: 6px 0 0;
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; font-size: 13px; cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.dsh_market_directPanel .dsh_market_installChoice:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .dsh_market_installChoice:has(input:checked) { background: var(--dsw-alias-interactive-bg-hover); border-color: var(--dsw-alias-label-secondary); }
 .dsh_market_installChoice input { flex: none; margin: 0; accent-color: var(--dsw-alias-label-primary); }
-.dsh_market_installQueue { list-style: none; padding: 0; margin: 16px 0; }
-.dsh_market_installQueue li { padding: 10px 0; border-bottom: 1px solid var(--dsw-alias-border-l2); overflow-wrap: anywhere; }
-.dsh_market_installQueue small { display: block; margin-top: 4px; color: var(--dsw-alias-label-secondary); }
-.dsh_market_installChoices p { font-size: 12px; color: var(--dsw-alias-label-secondary); }
-.dsh_market_installChoice span { min-width: 0; overflow-wrap: anywhere; }
-.dsh_market_installDetails { margin: 20px 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
-.dsh_market_installDetails summary { cursor: pointer; width: fit-content; }
-.dsh_market_installDetails[open] summary { margin-bottom: 14px; }
+.dsh_market_installChoice span { min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.dsh_market_directPanel .dsh_market_installChoice span p { margin: 2px 0 0; font-family: inherit; }
 
+/* "Installation details": a disclosure with a rotating chevron over the
+   exact command, in a monospace well. */
+.dsh_market_installDetails { margin: 18px 0 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.dsh_market_installDetails summary {
+  display: inline-flex; align-items: center; gap: 4px; width: fit-content;
+  list-style: none; cursor: pointer; font-weight: 500; color: var(--dsw-alias-label-primary); border-radius: 4px;
+}
+.dsh_market_installDetails summary::-webkit-details-marker { display: none; }
+.dsh_market_installDetails summary svg {
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  color: var(--dsw-alias-label-tertiary); transition: transform .15s ease;
+}
+.dsh_market_installDetails[open] summary svg { transform: rotate(90deg); }
+.dsh_market_installDetailsBody { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.dsh_market_installTarget p, .dsh_market_installDetailsBody > p { margin: 6px 0 0; font-size: 12px; line-height: 18px; }
+.dsh_market_directPanel code {
+  display: block; min-width: 0; max-width: 100%; box-sizing: border-box; margin: 0; padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 18px;
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+}
+.dsh_market_installRequirements { margin: 0; padding-left: 18px; font-size: 12px; line-height: 18px; }
+.dsh_market_installRequirements li + li { margin-top: 4px; }
 
-.dsh_market_directPanel p { margin: 12px 0; font-size: 13px; line-height: 1.6; }
-.dsh_market_directPanel label { display: grid; gap: 8px; }
-.dsh_market_directPanel code { display: block; min-width: 0; max-width: 100%; margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
-.dsh_market_directMessage { white-space: pre-wrap; max-height: 200px; overflow: auto; font-size: 12px; }
+/* Footer verbs, right-aligned: the dismiss verb first, the primary last. */
+.dsh_market_installFooter, .dsh_market_updateActions {
+  min-width: 0; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 22px 0 0; padding: 0; border: 0;
+}
+.dsh_market_installFooter .dsh_market_primary, .dsh_market_installFooter .dsh_market_ghost, .dsh_market_installFooter .dsh_market_link,
+.dsh_market_updateActions .dsh_market_primary, .dsh_market_updateActions .dsh_market_ghost {
+  min-height: 34px; padding: 6px 18px; font-size: 13px; line-height: 20px; box-sizing: border-box;
+}
+.dsh_market_installFooter .dsh_market_link { display: inline-flex; align-items: center; }
 
 .dsh_market_main {
   height: 100%;
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
-  padding: 24px;
+  /* The official Plugins page's insets: 28px above the head row, and an
+     inline inset that grows with the window up to 48px. */
+  padding: 28px clamp(24px, 4vw, 48px) 16px;
 }
+@media (max-width: 767px) { .dsh_market_main { padding-inline: 20px; } }
 .dsh_market_main > .dsh_market_section { margin: 0 auto; }
 .dsh_market_sidebar {
   height: 100%;
@@ -123,7 +194,9 @@ export const cssText = `
   height: 100%;
   min-height: 0;
   gap: 12px;
-  max-width: 760px;
+  /* Matches the official Plugins page column, so switching tabs keeps the
+     content edge in place. */
+  max-width: 960px;
   color: var(--dsw-alias-label-primary);
 }
 .dsh_market_section > :not(.dsh_market_scroll) { flex-shrink: 0; }
@@ -354,12 +427,29 @@ export const cssText = `
   border: 0; background: none; padding: 2px 0; font: inherit;
   color: var(--dsw-alias-label-secondary); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
 }
+/* A quiet footer under the list: the range on the left, a compact pager on
+   the right — the same hairline-and-tertiary voice as the tab strip. */
 .dsh_market_pagination {
-  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
-  gap: 10px; padding: 16px 0; font-size: 12px;
-  color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 8px 16px; margin-right: 12px; padding: 10px 0 0;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+  font-size: 12px; line-height: 18px;
+  color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums;
 }
-.dsh_market_pagination button { flex: none; }
+.dsh_market_pager { display: inline-flex; align-items: center; gap: 4px; }
+.dsh_market_pageNumber { min-width: 56px; text-align: center; color: var(--dsw-alias-label-secondary); }
+.dsh_market_pageButton {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 28px; height: 28px; padding: 0; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-secondary); cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.dsh_market_pageButton svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dsh_market_pageButton:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.dsh_market_pageButton:disabled { cursor: default; opacity: .4; }
+.dsh_market_pageButton:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
+/* The back-to-top control floats above the pager rather than over it. */
+.dsh_market_section:has([role="tabpanel"]:not([hidden]) .dsh_market_pagination) .dsh_market_backToTop { bottom: 56px; }
 .dsh_market_scopeButton:focus-visible, .dsh_market_clearFilters:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px;
 }

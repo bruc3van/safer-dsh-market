@@ -52,6 +52,7 @@ export declare const zh: {
     readonly 'direct.manage': "管理";
     readonly 'direct.title': "安装插件";
     readonly 'direct.close': "关闭";
+    readonly 'direct.dismiss': "取消";
     readonly 'direct.progress': "安装进度";
     readonly 'direct.notStarted': "尚未安装";
     readonly 'direct.batchDone': "本次安装已结束，请查看各组件结果";
@@ -102,7 +103,8 @@ export declare const zh: {
     readonly 'pagination.label': "插件列表分页";
     readonly 'pagination.previous': "上一页";
     readonly 'pagination.next': "下一页";
-    readonly 'pagination.summary': "第 {page} / {pages} 页 · {start}–{end} / {total}";
+    readonly 'pagination.range': "第 {start}–{end} 个，共 {total} 个";
+    readonly 'pagination.page': "{page} / {pages}";
     readonly 'repository.archived': "已归档";
     readonly 'repository.disabled': "仓库已禁用";
     readonly 'package.page': "npm 主页";

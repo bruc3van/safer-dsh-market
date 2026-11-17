@@ -21,7 +21,9 @@ export function PluginUpdatePanel({ open, state, updater, t, onClose }: {
     onCancel={event => { event.preventDefault(); close() }}>
     <div className="dsh_market_directHead">
       <div className="dsh_market_installHeading"><span>{t('update.title')}</span><h3 id={id}>{state.packageName}</h3></div>
-      <button type="button" className="dsh_market_directClose" disabled={updating} aria-label={t('direct.close')} onClick={close}>×</button>
+      <button type="button" className="dsh_market_directClose" disabled={updating} aria-label={t('direct.close')} onClick={close}>
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+      </button>
     </div>
     {result ? <p>{t('update.transition', { from: result.from, to: result.to })}</p>
       : state.installed && <p>{t('update.installed', { version: state.installed })}</p>}
