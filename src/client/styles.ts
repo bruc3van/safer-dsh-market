@@ -354,6 +354,12 @@ export const cssText = `
   border: 0; background: none; padding: 2px 0; font: inherit;
   color: var(--dsw-alias-label-secondary); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
 }
+.dsh_market_pagination {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 10px; padding: 16px 0; font-size: 12px;
+  color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums;
+}
+.dsh_market_pagination button { flex: none; }
 .dsh_market_scopeButton:focus-visible, .dsh_market_clearFilters:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px;
 }
@@ -623,6 +629,30 @@ export const cssText = `
   align-items: baseline;
   gap: 8px;
   min-width: 0;
+}
+.dsh_market_logo {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 40px; height: 40px; overflow: hidden; border-radius: 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary);
+}
+.dsh_market_logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.dsh_market_logoPlaceholder { font-size: 18px; line-height: 1; font-weight: 600; }
+.dsh_market_identity { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dsh_market_catalogCard { gap: 12px; padding: 16px; border-radius: 12px; }
+.dsh_market_catalogCard .dsh_market_head { align-items: center; gap: 10px; }
+.dsh_market_catalogCard .dsh_market_name {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  white-space: normal; overflow-wrap: anywhere; font-size: 14px; line-height: 20px;
+}
+.dsh_market_packageName {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 16px;
+}
+.dsh_market_catalogCard .dsh_market_meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.dsh_market_categoryTag {
+  display: inline-block; padding: 1px 6px; border-radius: 4px;
+  background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary);
 }
 .dsh_market_name {
   flex: 1;

@@ -15,12 +15,21 @@ import { type InstallInfo } from './installInfo.ts';
 import type { InvocationDescriptor } from '@deepseek-ai/dsh-typert-protocol';
 /** One row of the market: a community plugin the catalog kept. */
 export interface MarketPlugin {
+    readonly icon?: string;
+    /** Present for subscription packages; repository cards retain fullName as their identity. */
+    readonly packageName?: string;
+    readonly titleZh?: string;
+    readonly titleEn?: string;
+    readonly descriptionEn?: string;
+    readonly keywords?: readonly string[];
+    readonly archived?: boolean;
+    readonly disabled?: boolean;
     readonly installInfo?: InstallInfo;
-    /** `owner/name`, the catalog's identity for the entry. */
+    /** Repository slug; empty for a subscription package without a repository. */
     readonly fullName: string;
     readonly owner: string;
     readonly name: string;
-    /** Rebuilt from fullName on the Host — never the snapshot's own href. */
+    /** Host-validated GitHub/Gitee repository or npm package page. */
     readonly url: string;
     readonly description: string;
     readonly stars: number;
@@ -52,6 +61,7 @@ export interface MarketFeaturedEntry {
 }
 /** The feed's editorial picks, resolved on the Host in the publisher's order. */
 export interface MarketFeatured {
+    readonly categories?: readonly MarketCategory[];
     readonly titleZh: string;
     readonly titleEn: string;
     readonly updatedAt: string;
@@ -231,6 +241,14 @@ export interface UninstallInstalledUpdate {
 }
 /** Strict wire codec for one market row. */
 export declare const marketPluginSchema: z.ZodReadonly<z.ZodObject<{
+    icon: z.ZodOptional<z.ZodString>;
+    packageName: z.ZodOptional<z.ZodString>;
+    titleZh: z.ZodOptional<z.ZodString>;
+    titleEn: z.ZodOptional<z.ZodString>;
+    descriptionEn: z.ZodOptional<z.ZodString>;
+    keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+    archived: z.ZodOptional<z.ZodBoolean>;
+    disabled: z.ZodOptional<z.ZodBoolean>;
     installInfo: z.ZodOptional<z.ZodObject<{
         mode: z.ZodEnum<{
             command: "command";
@@ -246,7 +264,7 @@ export declare const marketPluginSchema: z.ZodReadonly<z.ZodObject<{
         note: z.ZodString;
         manual: z.ZodString;
     }, z.core.$strip>>;
-    fullName: z.ZodString;
+    fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
     owner: z.ZodString;
     name: z.ZodString;
     url: z.ZodString;
@@ -269,12 +287,26 @@ export declare const marketCategorySchema: z.ZodReadonly<z.ZodObject<{
 }, z.core.$strip>>;
 /** Strict wire codec for the editorial picks. */
 export declare const marketFeaturedSchema: z.ZodReadonly<z.ZodObject<{
+    categories: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+        key: z.ZodString;
+        zh: z.ZodString;
+        en: z.ZodString;
+        count: z.ZodNumber;
+    }, z.core.$strip>>>>>;
     titleZh: z.ZodString;
     titleEn: z.ZodString;
     updatedAt: z.ZodString;
     count: z.ZodNumber;
     entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
         item: z.ZodReadonly<z.ZodObject<{
+            icon: z.ZodOptional<z.ZodString>;
+            packageName: z.ZodOptional<z.ZodString>;
+            titleZh: z.ZodOptional<z.ZodString>;
+            titleEn: z.ZodOptional<z.ZodString>;
+            descriptionEn: z.ZodOptional<z.ZodString>;
+            keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+            archived: z.ZodOptional<z.ZodBoolean>;
+            disabled: z.ZodOptional<z.ZodBoolean>;
             installInfo: z.ZodOptional<z.ZodObject<{
                 mode: z.ZodEnum<{
                     command: "command";
@@ -290,7 +322,7 @@ export declare const marketFeaturedSchema: z.ZodReadonly<z.ZodObject<{
                 note: z.ZodString;
                 manual: z.ZodString;
             }, z.core.$strip>>;
-            fullName: z.ZodString;
+            fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
             owner: z.ZodString;
             name: z.ZodString;
             url: z.ZodString;
@@ -310,6 +342,14 @@ export declare const marketFeaturedSchema: z.ZodReadonly<z.ZodObject<{
 /** Strict wire codec for the reduced catalog. */
 export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
     items: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+        icon: z.ZodOptional<z.ZodString>;
+        packageName: z.ZodOptional<z.ZodString>;
+        titleZh: z.ZodOptional<z.ZodString>;
+        titleEn: z.ZodOptional<z.ZodString>;
+        descriptionEn: z.ZodOptional<z.ZodString>;
+        keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+        archived: z.ZodOptional<z.ZodBoolean>;
+        disabled: z.ZodOptional<z.ZodBoolean>;
         installInfo: z.ZodOptional<z.ZodObject<{
             mode: z.ZodEnum<{
                 command: "command";
@@ -325,7 +365,7 @@ export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
             note: z.ZodString;
             manual: z.ZodString;
         }, z.core.$strip>>;
-        fullName: z.ZodString;
+        fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
         owner: z.ZodString;
         name: z.ZodString;
         url: z.ZodString;
@@ -346,12 +386,26 @@ export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
         count: z.ZodNumber;
     }, z.core.$strip>>>>;
     featured: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+        categories: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+            key: z.ZodString;
+            zh: z.ZodString;
+            en: z.ZodString;
+            count: z.ZodNumber;
+        }, z.core.$strip>>>>>;
         titleZh: z.ZodString;
         titleEn: z.ZodString;
         updatedAt: z.ZodString;
         count: z.ZodNumber;
         entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
             item: z.ZodReadonly<z.ZodObject<{
+                icon: z.ZodOptional<z.ZodString>;
+                packageName: z.ZodOptional<z.ZodString>;
+                titleZh: z.ZodOptional<z.ZodString>;
+                titleEn: z.ZodOptional<z.ZodString>;
+                descriptionEn: z.ZodOptional<z.ZodString>;
+                keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+                archived: z.ZodOptional<z.ZodBoolean>;
+                disabled: z.ZodOptional<z.ZodBoolean>;
                 installInfo: z.ZodOptional<z.ZodObject<{
                     mode: z.ZodEnum<{
                         command: "command";
@@ -367,7 +421,7 @@ export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
                     note: z.ZodString;
                     manual: z.ZodString;
                 }, z.core.$strip>>;
-                fullName: z.ZodString;
+                fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
                 owner: z.ZodString;
                 name: z.ZodString;
                 url: z.ZodString;
@@ -392,6 +446,14 @@ export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
 export declare const marketCatalogResultSchema: z.ZodReadonly<z.ZodObject<{
     catalog: z.ZodUnion<readonly [z.ZodReadonly<z.ZodObject<{
         items: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+            icon: z.ZodOptional<z.ZodString>;
+            packageName: z.ZodOptional<z.ZodString>;
+            titleZh: z.ZodOptional<z.ZodString>;
+            titleEn: z.ZodOptional<z.ZodString>;
+            descriptionEn: z.ZodOptional<z.ZodString>;
+            keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+            archived: z.ZodOptional<z.ZodBoolean>;
+            disabled: z.ZodOptional<z.ZodBoolean>;
             installInfo: z.ZodOptional<z.ZodObject<{
                 mode: z.ZodEnum<{
                     command: "command";
@@ -407,7 +469,7 @@ export declare const marketCatalogResultSchema: z.ZodReadonly<z.ZodObject<{
                 note: z.ZodString;
                 manual: z.ZodString;
             }, z.core.$strip>>;
-            fullName: z.ZodString;
+            fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
             owner: z.ZodString;
             name: z.ZodString;
             url: z.ZodString;
@@ -428,12 +490,26 @@ export declare const marketCatalogResultSchema: z.ZodReadonly<z.ZodObject<{
             count: z.ZodNumber;
         }, z.core.$strip>>>>;
         featured: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+            categories: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                key: z.ZodString;
+                zh: z.ZodString;
+                en: z.ZodString;
+                count: z.ZodNumber;
+            }, z.core.$strip>>>>>;
             titleZh: z.ZodString;
             titleEn: z.ZodString;
             updatedAt: z.ZodString;
             count: z.ZodNumber;
             entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
                 item: z.ZodReadonly<z.ZodObject<{
+                    icon: z.ZodOptional<z.ZodString>;
+                    packageName: z.ZodOptional<z.ZodString>;
+                    titleZh: z.ZodOptional<z.ZodString>;
+                    titleEn: z.ZodOptional<z.ZodString>;
+                    descriptionEn: z.ZodOptional<z.ZodString>;
+                    keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+                    archived: z.ZodOptional<z.ZodBoolean>;
+                    disabled: z.ZodOptional<z.ZodBoolean>;
                     installInfo: z.ZodOptional<z.ZodObject<{
                         mode: z.ZodEnum<{
                             command: "command";
@@ -449,7 +525,7 @@ export declare const marketCatalogResultSchema: z.ZodReadonly<z.ZodObject<{
                         note: z.ZodString;
                         manual: z.ZodString;
                     }, z.core.$strip>>;
-                    fullName: z.ZodString;
+                    fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
                     owner: z.ZodString;
                     name: z.ZodString;
                     url: z.ZodString;

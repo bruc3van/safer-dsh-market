@@ -24,17 +24,27 @@ export declare function starCount(stars: number): string;
 /** Whether one row survives the current query and category filter. */
 export declare function matches(item: MarketPlugin, query: string, category: string, english: boolean): boolean;
 /**
- * The editorial picks that survive the current query, in the publisher's
- * order. The reason is searched alongside the row's own fields; the pick's
- * category is the picks themselves, so no category filter applies.
+ * Picks surviving the query and optional subscription category, in published
+ * order. Legacy editorial reasons remain searchable alongside row fields.
  */
-export declare function featuredRows(featured: MarketFeatured | undefined, query: string, english: boolean): readonly MarketFeaturedEntry[];
+export declare function featuredRows(featured: MarketFeatured | undefined, query: string, english: boolean, category?: string): readonly MarketFeaturedEntry[];
 /**
  * The rows the All view filters. A pick the shortlist does not carry is still
- * something the market can install, so a search reaches it too; without a
- * query the view stays the shortlist its count names.
+ * something the legacy market can install, so a search reaches it too.
+ * Schema 3 keeps the repository list distinct from subscription packages.
  */
 export declare function marketRows(items: readonly MarketPlugin[], featured: MarketFeatured | undefined, query: string): readonly MarketPlugin[];
+/** Stable card identity across repository and package lists, including monorepos. */
+export declare function marketKey(item: MarketPlugin): string;
+/** Paginate a complete result set; filtering and counts always use all results. */
+export declare function pageOf<T>(items: readonly T[], requested: number, size?: number): {
+    items: T[];
+    current: number;
+    pages: number;
+    total: number;
+    start: number;
+    end: number;
+};
 /** Whether one skill survives the current query. */
 export declare function matchesSkill(skill: MarketSkill, query: string): boolean;
 /** The status a package row shows, from its own live facts. */

@@ -33,7 +33,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const entryFile = join(root, 'lib', 'index.js')
 
 /** The catalog base the entry's schema fills in, mirrored from `src/index.ts`. */
-const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json'
+const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json'
 
 /** The symbols whose evaluation at import time is what the split defers. */
 const DEFERRED = ['TypertRemoteService', 'defineDomain'] as const

@@ -4,6 +4,7 @@ import type { MarketLocale } from './copy.ts'
 import { installChoices, installLabel } from './installTargets.ts'
 import type { DirectInstaller } from './directInstall.ts'
 import { installedReviewTargets, type ReviewTarget } from './reviewPrompt.ts'
+import { PluginLogo } from './PluginLogo.tsx'
 
 /** One shared installation remains observable if the recommendation page remounts. */
 export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, onReview, reviewBusy, reviewAvailable, reviewMessage }: {
@@ -42,9 +43,10 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
   return <dialog ref={dialog} className="dsh_market_directPanel" aria-labelledby={id}
     onCancel={e => { e.preventDefault(); if (canDismiss && !reviewBusy) dismiss() }}>
     <div className="dsh_market_directHead">
+      {visibleItem && <PluginLogo src={visibleItem.icon} name={visibleItem.name} />}
       <div className="dsh_market_installHeading">
         <span>{t('direct.title')}</span>
-        <h3 id={id}>{visibleItem?.name || state.spec || t('direct.title')}</h3>
+        <h3 id={id}>{(t('lang') === 'en' ? visibleItem?.titleEn : visibleItem?.titleZh) || visibleItem?.name || state.spec || t('direct.title')}</h3>
       </div>
       {canDismiss && <button type="button" disabled={reviewBusy} className="dsh_market_directClose" aria-label={t('direct.close')} onClick={dismiss}>
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -76,7 +78,7 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
         <span>{installLabel(entry.install)}</span>
       </label>)}
     </fieldset>}
-    {visibleItem && <details className="dsh_market_installDetails" key={visibleItem.fullName} open>
+    {visibleItem && <details className="dsh_market_installDetails" key={visibleItem.packageName || visibleItem.fullName} open>
       <summary>{t('direct.more')}</summary>
       {chosen.map(target => <div key={target.install}><code>{target.install}</code>{target.note && <p>{target.note}</p>}</div>)}
       {info?.requirements.length ? <ul>{info.requirements.map((r, i) => <li key={i}>{r}</li>)}</ul> : null}
@@ -100,7 +102,7 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
         : busy ? <button type="button" className="dsh_market_ghost" disabled={state.phase !== 'installing'} onClick={() => { void installer.cancel() }}>{t('direct.cancel')}</button>
         : (available || (showResult && state.phase === 'failed')) ? <button type="button" className="dsh_market_primary" disabled={!chosen.length && !showResult} onClick={showResult && state.phase === 'failed' ? () => { void installer.retry() } : start}>{showResult && state.phase === 'failed' ? t('direct.retry') : `${t('direct.confirm')}${chosen.length > 1 ? ` (${chosen.length})` : ''}`}</button>
         : <>
-          {visibleItem && <a className="dsh_market_link" href={visibleItem.url} target="_blank" rel="noreferrer">{t('repo')}</a>}
+          {visibleItem && <a className="dsh_market_link" href={visibleItem.url} target="_blank" rel="noreferrer">{t(visibleItem.fullName ? 'repo' : 'package.page')}</a>}
           <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t('direct.close')}</button>
         </>}
     </fieldset>

@@ -24,6 +24,8 @@
  * reaches.
  */
 export declare const PACKAGE_NAME = "safer-dsh-market";
+/** Logos render only as image elements, from inline image data or HTTPS. */
+export declare function isMarketIcon(value: string): boolean;
 /**
  * The only `owner/name` shape the market keeps. The repository link is
  * rebuilt on the Host from a slug matching this pattern, and the wire codec

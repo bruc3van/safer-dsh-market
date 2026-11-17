@@ -35,31 +35,44 @@ export function starCount(stars: number): string {
 export function matches(item: MarketPlugin, query: string, category: string, english: boolean): boolean {
   if (category !== '' && item.category !== category) return false
   if (query === '') return true
-  const haystack = `${item.fullName} ${item.installInfo?.targets.map(t => t.install).join(" ") ?? ""} ${item.installInfo?.tasks.join(" ") ?? ""} ${item.description} ${english ? item.categoryEn : item.categoryZh} ${item.language}`
+  const haystack = `${item.fullName} ${item.name} ${item.packageName ?? ''} ${item.titleZh ?? ''} ${item.titleEn ?? ''} ${item.keywords?.join(' ') ?? ''} ${item.installInfo?.targets.map(t => t.install).join(" ") ?? ""} ${item.installInfo?.tasks.join(" ") ?? ""} ${item.description} ${item.descriptionEn ?? ''} ${english ? item.categoryEn : item.categoryZh} ${item.language}`
     .toLocaleLowerCase()
   return query.split(/\s+/).every(word => haystack.includes(word))
 }
 
 /**
- * The editorial picks that survive the current query, in the publisher's
- * order. The reason is searched alongside the row's own fields; the pick's
- * category is the picks themselves, so no category filter applies.
+ * Picks surviving the query and optional subscription category, in published
+ * order. Legacy editorial reasons remain searchable alongside row fields.
  */
-export function featuredRows(featured: MarketFeatured | undefined, query: string, english: boolean): readonly MarketFeaturedEntry[] {
+export function featuredRows(featured: MarketFeatured | undefined, query: string, english: boolean, category = ''): readonly MarketFeaturedEntry[] {
   if (featured === undefined) return []
   return featured.entries.filter(entry =>
-    matches({ ...entry.item, description: `${entry.item.description} ${entry.reason}` }, query, '', english))
+    matches({ ...entry.item, description: `${entry.item.description} ${entry.reason}` }, query, category, english))
 }
 
 /**
  * The rows the All view filters. A pick the shortlist does not carry is still
- * something the market can install, so a search reaches it too; without a
- * query the view stays the shortlist its count names.
+ * something the legacy market can install, so a search reaches it too.
+ * Schema 3 keeps the repository list distinct from subscription packages.
  */
 export function marketRows(items: readonly MarketPlugin[], featured: MarketFeatured | undefined, query: string): readonly MarketPlugin[] {
-  if (query === '' || featured === undefined) return items
+  if (query === '' || featured === undefined || featured.categories !== undefined) return items
   const listed = new Set(items.map(item => item.fullName.toLowerCase()))
   return [...items, ...featured.entries.map(entry => entry.item).filter(item => !listed.has(item.fullName.toLowerCase()))]
+}
+
+/** Stable card identity across repository and package lists, including monorepos. */
+export function marketKey(item: MarketPlugin): string {
+  return item.packageName ? `package:${item.packageName}` : `repo:${item.fullName}`
+}
+
+/** Paginate a complete result set; filtering and counts always use all results. */
+export function pageOf<T>(items: readonly T[], requested: number, size = 50) {
+  const pages = Math.max(1, Math.ceil(items.length / size))
+  const current = Math.min(requested, pages - 1)
+  const offset = current * size
+  return { items: items.slice(offset, offset + size), current, pages, total: items.length,
+    start: items.length ? offset + 1 : 0, end: Math.min(offset + size, items.length) }
 }
 
 /** Whether one skill survives the current query. */

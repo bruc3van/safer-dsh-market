@@ -3,3 +3,6 @@ node_modules/
 *.tgz
 .DS_Store
 .mimosa
+.verification/
+.playwright-cli/
+output/playwright/catalog-*

@@ -15,16 +15,25 @@ import { isInstallSpec, type InstallInfo } from './installInfo.ts'
 import type { InvocationDescriptor } from '@deepseek-ai/dsh-typert-protocol'
 // The dependency-free shapes live in their own module so `./index.ts` and
 // `./catalog.ts` can reach them without evaluating every codec below.
-import { isSafeBranchName, PACKAGE_NAME_PATTERN, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
+import { isMarketIcon, isSafeBranchName, PACKAGE_NAME_PATTERN, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
 
 /** One row of the market: a community plugin the catalog kept. */
 export interface MarketPlugin {
+  readonly icon?: string
+  /** Present for subscription packages; repository cards retain fullName as their identity. */
+  readonly packageName?: string
+  readonly titleZh?: string
+  readonly titleEn?: string
+  readonly descriptionEn?: string
+  readonly keywords?: readonly string[]
+  readonly archived?: boolean
+  readonly disabled?: boolean
   readonly installInfo?: InstallInfo
-  /** `owner/name`, the catalog's identity for the entry. */
+  /** Repository slug; empty for a subscription package without a repository. */
   readonly fullName: string
   readonly owner: string
   readonly name: string
-  /** Rebuilt from fullName on the Host — never the snapshot's own href. */
+  /** Host-validated GitHub/Gitee repository or npm package page. */
   readonly url: string
   readonly description: string
   readonly stars: number
@@ -59,6 +68,7 @@ export interface MarketFeaturedEntry {
 
 /** The feed's editorial picks, resolved on the Host in the publisher's order. */
 export interface MarketFeatured {
+  readonly categories?: readonly MarketCategory[]
   readonly titleZh: string
   readonly titleEn: string
   readonly updatedAt: string
@@ -257,13 +267,18 @@ const installInfoSchema = z.object({
 
 /** Strict wire codec for one market row. */
 export const marketPluginSchema = z.object({
+  icon: z.string().refine(isMarketIcon).optional(),
+  packageName: z.string().regex(PACKAGE_NAME_PATTERN).optional(),
+  titleZh: z.string().optional(), titleEn: z.string().optional(), descriptionEn: z.string().optional(),
+  keywords: z.array(z.string()).readonly().optional(),
+  archived: z.boolean().optional(), disabled: z.boolean().optional(),
   installInfo: installInfoSchema.optional(),
-  fullName: z.string().regex(REPOSITORY_SLUG_PATTERN),
+  fullName: z.union([z.string().regex(REPOSITORY_SLUG_PATTERN), z.literal('')]),
   owner: z.string().min(1),
   name: z.string().min(1),
   // The Host rebuilds this from fullName; the codec makes the invariant
   // machine-checked, so no renderer needs to trust a caller's href.
-  url: z.string().regex(/^https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/),
+  url: z.string().regex(/^(?:https:\/\/(?:github\.com|gitee\.com)\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+|https:\/\/www\.npmjs\.com\/package\/(?:@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*)$/),
   description: z.string(),
   stars: z.number().int().min(0),
   language: z.string(),
@@ -285,6 +300,7 @@ export const marketCategorySchema = z.object({
 
 /** Strict wire codec for the editorial picks. */
 export const marketFeaturedSchema = z.object({
+  categories: z.array(marketCategorySchema).readonly().optional(),
   titleZh: z.string(),
   titleEn: z.string(),
   updatedAt: z.string(),

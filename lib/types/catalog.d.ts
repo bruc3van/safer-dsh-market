@@ -1,7 +1,7 @@
 import type { MarketCatalog } from './contract.ts';
 /** Default feed and CDN fallback serve the same npm package dataset. */
-export declare const DEFAULT_CATALOG_BASE = "https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json";
-export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-v2.json";
+export declare const DEFAULT_CATALOG_BASE = "https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json";
+export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-catalog.json";
 /**
  * The shape {@link deriveMarket} produces. A stored catalog records the
  * format it was derived under, and the cache gate refuses any other: a
@@ -9,9 +9,9 @@ export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin
  * changes the parse a 304 would keep serving the old build's reduction
  * forever. Bump this whenever the derived catalog gains or changes a field.
  * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions;
- * 4 — v2-only feeds (discard reductions previously accepted from v1).
+ * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions.
  */
-export declare const CATALOG_FORMAT = 4;
+export declare const CATALOG_FORMAT = 5;
 /**
  * Where a parsed catalog survives a restart. The catalog source neither opens
  * nor closes this — the plugin body owns the domain's lifecycle and hands the
@@ -38,21 +38,20 @@ export interface CatalogCache {
 }
 /** Deployment-varying knobs the plugin config owns. */
 export interface CatalogOptions {
-    /** A complete market-v2 JSON feed URL. */
+    /** A complete schema-3 catalog or legacy schema-2 JSON feed URL. */
     readonly base: string;
-    /** How many plugins the market shows. */
+    /** Legacy schema-2 size limit; schema 3 is never truncated. */
     readonly marketSize: number;
     /** Durable seat for the parse; absent means memory-only. */
     readonly cache?: CatalogCache;
 }
 /**
  * Parse the published market into the catalog the browser renders. The
- * publisher's order IS the balance — every category places its best entry
- * before any places its second — so rows are kept in file order and truncated
- * to the requested size; nothing is re-ranked here.
- * @param body - the parsed `market-v2.json` body.
- * @param marketSize - how many rows the browser shows.
- * @returns the parsed, validated, truncated catalog.
+ * publisher's file order is preserved. Only legacy schema-2 feeds are
+ * truncated to marketSize; schema 3 carries the complete reviewed catalog.
+ * @param body - the parsed catalog JSON body.
+ * @param marketSize - legacy schema-2 row limit.
+ * @returns the parsed and validated catalog.
  * @throws when the body is not a market this plugin understands.
  */
 export declare function deriveMarket(body: unknown, marketSize: number): MarketCatalog;

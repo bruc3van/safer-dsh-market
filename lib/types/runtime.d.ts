@@ -5,9 +5,8 @@
  * `/api/saferMarket/<method>`.
  *
  * The catalog read lives here rather than in the browser for two reasons:
- * the crawl is 2.4 MB and the browser needs 1000 rows of it, and the rows
- * carry remote text whose sanitizing belongs on one side of the wire, not in
- * every renderer that touches them.
+ * network reads share a durable cache across clients, and remote text is
+ * sanitized on one side of the wire before any renderer sees it.
  */
 import type { Context } from '@deepseek-ai/cordis';
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';

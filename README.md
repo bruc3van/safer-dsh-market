@@ -49,7 +49,7 @@ https://bruc3van.com/dsh-plugins/index.json
 
 ## 功能一览
 
-- **插件市场**：打开即展示编辑精选；浏览、搜索、按分类筛选社区推荐插件，支持手动刷新数据与离线缓存。
+- **插件市场**：打开即展示订阅源全部精选；浏览、搜索、按分类筛选完整收录目录，支持手动刷新数据与离线缓存。
 - **直接安装与可选审查**：安装统一调用官方 `pluginManager`；安装成功后或已安装卡片上可生成只读审查草稿，由你发送。
 - **已安装面板**：查看当前 profile 的插件，检查更新、一键停用/启用（即时生效）或卸载。
 - **技能页**：列出当前会话可用的技能及其来源、调用方式，可一键打开技能所在文件夹。
@@ -59,18 +59,18 @@ https://bruc3van.com/dsh-plugins/index.json
 
 ### 官方插件页接入与开发基线
 
-上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `0.12.0`，具体兼容范围见下表。
+上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `0.13.0`，具体兼容范围见下表。
 
 - 增加官方「插件」页的「安全市场」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
 - 接受新版安装拒绝信息的 `requirements`，并保留旧版 `peers`；技能列表使用宿主当前工作目录。
 - 显式声明 `engines.dsh`，移除已退役 `dsh-invariants` 的开发依赖；仅为旧 profile 保留可选 companion 导出。
 - 官方「发现」页 format-1 索引由数据源仓库 `awesome-dsh-plugin` 生成和审计，通过 `bruc3van.com` 分发。使用说明见 [官方市场接入](docs/host-market.md)。它不会自动添加索引源或发布文件。
 
-**0.12.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+**0.13.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.12.0` | `safer-dsh-market@0.12.0` |
+| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.13.0` | `safer-dsh-market@0.13.0` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -81,7 +81,7 @@ https://bruc3van.com/dsh-plugins/index.json
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-从旧版升级到 `0.12.0` 的注意事项：
+从旧版升级到 `0.13.0` 的注意事项：
 
 - 先把 DSH 升级到 `0.1.7-rc.2` 或 `0.2.x`；
 - 市场开关现由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效、重启后保留；
@@ -92,19 +92,19 @@ dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 以下 CLI 示例仅适用于可由 CLI 管理的 profile，**不适用于 Electron 的 `desktop`**。将 `<profile>` 替换为已核实的实际名称。推荐从 [npm](https://www.npmjs.com/package/safer-dsh-market) 安装指定版本：
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.12.0
+dsh plugin --profile <profile> add safer-dsh-market@0.13.0
 ```
 
 也可以把安装交给你的 Agent，复制这段提示词发过去：
 
 ```text
-帮我安装 DSH 安全市场 0.12.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.12.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
+帮我安装 DSH 安全市场 0.13.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.13.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
 ```
 
 需要锁定到本文档对应版本时，使用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.12.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.13.0.tar.gz
 ```
 
 官方管理器负责安装依赖和登记插件，无需手工修改 `package.json`。按返回结果判断是否需要重启：`applied` 表示已生效，`restart-required` 表示安装完成但需重启当前实例；失败或配置覆盖不能当作已生效。
@@ -132,8 +132,9 @@ dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/
 
 ### 3. 浏览与搜索
 
-- **查找插件**：「精选 / 已安装 / 全部」切换编辑精选、本机管理与完整目录，默认打开精选。搜索框支持名称、包名、功能或分类，在精选中输入会自动切到「全部」搜索完整目录；「全部」下的功能分类使用下拉菜单。筛选后可点击「清除筛选」恢复目录。
-- **编辑精选**：按编辑给出的顺序展示，数量取自上游目录；精选不按热度排序，卡片不显示 Star 数。
+- **查找插件**：「精选 / 已安装 / 全部」切换订阅精选、本机管理与完整收录目录，默认打开精选。精选和全部都支持分类下拉筛选，以及名称、包名、功能、关键词和分类搜索；搜索保留当前范围。筛选覆盖全部数据，每页显示 50 条，数量随上游发布自动更新。
+- **订阅精选**：与 awesome-dsh-plugin 发布的官方订阅插件集合和顺序一致，沿用其名称、描述、分类和关键词；按包名区分同仓库的多个插件。安装使用订阅首个版本的固定 npm 版本或 Git 提交及子目录，宿主仍执行安装检查。
+- **插件 Logo**：精选使用订阅里插件自己的 Logo，关联仓库卡片复用图标；图片懒加载，无图或加载失败显示首字母。标题、包名和分类分层显示。
 - **插件卡片**：显示分类、作者和最近更新日期，同一列表中的卡片等高、按钮底部对齐。已安装的插件标出「已安装 vX」，按钮显示「管理」，点击跳转到「已安装」。
 - **刷新数据**：右上角按钮读取最新目录，刷新中禁止重复点击。
 - **更多操作（⋯）**：[GitHub 仓库](https://github.com/bruc3van/safer-dsh-market)、[联系作者](https://x.com/bruc3van)。
@@ -235,14 +236,14 @@ DSH 模板自带的插件不在此列。
 
 ## 数据来源
 
-默认读取 [market-v2.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json)，失败时改用同一 npm 包的 unpkg 镜像。支持 ETag、本地缓存和手动刷新。
+默认读取 [market-catalog.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json)，失败时改用同一 npm 包的 unpkg 镜像。支持 ETag、本地缓存和手动刷新。
 
-- 仅支持 schema 2；已移除废弃的 `market.json` / schema 1 兼容。v2 附带 `packages` 安装信息，经 Host 校验后才进入客户端，功能标签也参与搜索；
-- 信封中的 `featured` / `featured_count` 提供编辑精选：条目按 `full_name` 匹配目录中的插件；不在目录中的精选须自带 `packages` 才会显示，否则跳过；字段缺失或格式异常时不显示精选，其余功能不受影响；
-- 升级后若本地缓存由旧版本解析，首次读取会完整重新下载一次，不会沿用缺少新字段的旧结果；
+- schema 3 同时下发完整的已审核仓库目录和官方订阅发布结果；「全部」按仓库计数，「精选」按订阅插件包计数，不硬编码数量；
+- 分类名称与订阅一致，精选保留订阅的插件级分类和关键词；全量仓库也能按关联订阅包名、名称和关键词检索；
+- 完整目录保留已归档或禁用仓库，并显示对应状态；没有安装映射的条目提供详情和仓库链接；
+- 旧内置 `market-v2.json` 地址自动迁移到新地址，旧解析缓存失效后完整下载一次；自定义 schema 2 数据源继续兼容；
 - 安装目标只接受受支持的 npm spec 和 GitHub / Gitee HTTPS 地址，不接受命令、环境变量、路径或 shell 片段；
-- 自定义 `catalogBase` 必须填写完整 v2 JSON URL（可含查询参数）；不再自动追加文件名。旧自定义源需更换为 v2 地址。
-
+- 自定义 `catalogBase` 必须填写完整 schema 3 或 schema 2 JSON URL（可含查询参数），不会自动追加文件名。
 协议详见 [docs/market-json-spec.md](docs/market-json-spec.md)。
 
 ## 配置
@@ -254,8 +255,8 @@ DSH 模板自带的插件不在此列。
 | 字段 | 默认值 | 说明 |
 | --- | --- | --- |
 | `enabled` | `false` | 是否允许读取社区目录；页面上的操作由宿主即时保存 |
-| `catalogBase` | npm feed 的 `market-v2.json` 完整 URL | 完整的 v2 JSON 地址，不接受旧目录配置 |
-| `marketSize` | `1000` | 返回给界面的最大条数（实际条数由上游目录决定） |
+| `catalogBase` | npm feed 的 `market-catalog.json` 完整 URL | 完整的 schema 3 或兼容 schema 2 JSON 地址 |
+| `marketSize` | `1000` | 仅限制旧 schema 2 数据源；schema 3 始终保留完整目录，界面分页 |
 | `profile` | `""`（自动识别） | 仅在宿主没有 `profileContext` 时作为显式后备值；不能覆盖当前实例 |
 
 ## 安全边界
@@ -271,7 +272,7 @@ DSH 模板自带的插件不在此列。
 
 **目录数据**
 
-- 市场文件在 Host 侧读取并重新校验后才发给浏览器（精选目录，而非完整爬取快照），由宿主的 `safe_market` 存储域持久化，实际路径由宿主决定；缓存过期或主动刷新时使用 ETag 条件请求，默认地址不可达时改用 unpkg 镜像，两边都不可达才使用上次的目录；
+- 市场文件在 Host 侧读取并重新校验后才发给浏览器（完整已审核目录与订阅精选，不包含未审核的爬取条目），由宿主的 `safe_market` 存储域持久化，实际路径由宿主决定；缓存过期或主动刷新时使用 ETag 条件请求，默认地址不可达时改用 unpkg 镜像，两边都不可达才使用上次的目录；
 - 仓库链接由 `owner/name` 重新拼装，不采信文件中的地址——被投毒的文件无法塞进自己的 URL scheme，wire codec 也会强制校验这一形状；
 - 卡片全部以纯文本渲染；
 - 市场关闭时 Remote 接口直接拒绝，无法绕过开关读取目录。

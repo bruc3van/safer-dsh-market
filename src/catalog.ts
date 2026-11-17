@@ -1,14 +1,15 @@
-/** Read the curated v2 feed.
+/** Read the full catalog and published subscription (or a legacy v2 feed).
  * Remote metadata is validated before entering the client wire contract.
  */
 import { brotliDecompressSync, gunzipSync, inflateSync } from 'node:zlib'
 import { parseInstallInfo } from './installInfo.ts'
 import type { MarketCatalog, MarketCategory, MarketFeatured, MarketFeaturedEntry, MarketPlugin } from './contract.ts'
-import { FEATURED_CATEGORY, isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
+import { FEATURED_CATEGORY, isMarketIcon, isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
+import { categoriesOf, deriveSubscription } from './subscription.ts'
 
 /** Default feed and CDN fallback serve the same npm package dataset. */
-export const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json'
-export const MIRROR_CATALOG_BASE = 'https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-v2.json'
+export const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json'
+export const MIRROR_CATALOG_BASE = 'https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-catalog.json'
 
 /** The market is refreshed daily upstream; asking more often than this is noise. */
 const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1_000
@@ -31,11 +32,11 @@ const SCHEMA_VERSION = 2
  * changes the parse a 304 would keep serving the old build's reduction
  * forever. Bump this whenever the derived catalog gains or changes a field.
  * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions;
- * 4 — v2-only feeds (discard reductions previously accepted from v1).
+ * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions.
  */
-export const CATALOG_FORMAT = 4
+export const CATALOG_FORMAT = 5
 
-/** Editorial picks are a short list; anything longer is not one. */
+/** Legacy schema-2 editorial cap; schema-3 subscription picks are not capped. */
 const FEATURED_LIMIT = 50
 
 /** A pick's reason is one sentence, not a second description. */
@@ -43,6 +44,10 @@ const REASON_LIMIT = 200
 
 /** One published entry, before the wire pass. Every field may be anything. */
 interface RawEntry {
+  icon?: unknown
+  keywords?: unknown
+  archived?: unknown
+  disabled?: unknown
   packages?: unknown
   full_name?: unknown
   description?: unknown
@@ -91,9 +96,9 @@ export interface CatalogCache {
 
 /** Deployment-varying knobs the plugin config owns. */
 export interface CatalogOptions {
-  /** A complete market-v2 JSON feed URL. */
+  /** A complete schema-3 catalog or legacy schema-2 JSON feed URL. */
   readonly base: string
-  /** How many plugins the market shows. */
+  /** Legacy schema-2 size limit; schema 3 is never truncated. */
   readonly marketSize: number
   /** Durable seat for the parse; absent means memory-only. */
   readonly cache?: CatalogCache
@@ -197,21 +202,21 @@ function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<str
 
 /**
  * Parse the published market into the catalog the browser renders. The
- * publisher's order IS the balance — every category places its best entry
- * before any places its second — so rows are kept in file order and truncated
- * to the requested size; nothing is re-ranked here.
- * @param body - the parsed `market-v2.json` body.
- * @param marketSize - how many rows the browser shows.
- * @returns the parsed, validated, truncated catalog.
+ * publisher's file order is preserved. Only legacy schema-2 feeds are
+ * truncated to marketSize; schema 3 carries the complete reviewed catalog.
+ * @param body - the parsed catalog JSON body.
+ * @param marketSize - legacy schema-2 row limit.
+ * @returns the parsed and validated catalog.
  * @throws when the body is not a market this plugin understands.
  */
 export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
   const envelope = body as {
     schema_version?: unknown; entries?: unknown; source_fetched_at?: unknown; source_repo_count?: unknown; featured?: unknown; featured_count?: unknown
+    subscription?: unknown; subscription_updated_at?: unknown
   }
-  if (envelope.schema_version !== SCHEMA_VERSION) {
+  if (envelope.schema_version !== SCHEMA_VERSION && envelope.schema_version !== 3) {
     const version = envelope.schema_version === undefined ? 'absent' : String(envelope.schema_version)
-    throw new Error(`unsupported market-v2.json schema version ${version}; expected 2`)
+    throw new Error(`unsupported market schema version ${version}; expected 2 or 3`)
   }
   const rows = Array.isArray(envelope.entries) ? envelope.entries as RawEntry[] : []
   if (rows.length === 0) throw new Error('the published market carried no entries')
@@ -228,6 +233,10 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
     if (category === '') continue
     const slash = fullName.indexOf('/')
     items.push({
+      ...(typeof row.icon === 'string' && isMarketIcon(row.icon) ? { icon: row.icon } : {}),
+      ...(Array.isArray(row.keywords) ? { keywords: row.keywords.filter((word): word is string => typeof word === 'string').slice(0, 200).map(word => text(word, 100)) } : {}),
+      ...(row.archived === true ? { archived: true } : {}),
+      ...(row.disabled === true ? { disabled: true } : {}),
       ...(row.packages === undefined ? {} : { installInfo: parseInstallInfo(row.packages) }),
       fullName,
       owner: fullName.slice(0, slash),
@@ -245,20 +254,18 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
     })
   }
 
-  const cut = items.slice(0, marketSize)
-  const categories: MarketCategory[] = []
-  for (const item of cut) {
-    const known = categories.find(entry => entry.key === item.category)
-    if (known === undefined) categories.push({ key: item.category, zh: item.categoryZh, en: item.categoryEn, count: 1 })
-    else (known as { count: number }).count += 1
-  }
-  categories.sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
+  // Schema 3 is a complete repository catalog. Legacy marketSize reductions
+  // must not silently cut an upgraded installation back down to 1000 rows.
+  const cut = envelope.schema_version === 3 ? items : items.slice(0, marketSize)
+  const categories: MarketCategory[] = categoriesOf(cut)
 
   // The picks lead the list whatever their count; the ranked categories
   // after them are exactly what a feed without picks produces.
   const byName = new Map<string, MarketPlugin>()
   for (const item of items) if (!byName.has(item.fullName.toLowerCase())) byName.set(item.fullName.toLowerCase(), item)
-  const featured = deriveFeatured(envelope.featured, envelope.featured_count, byName)
+  const featured = envelope.schema_version === 3
+    ? deriveSubscription(envelope.subscription, text(envelope.subscription_updated_at, 40), byName)
+    : deriveFeatured(envelope.featured, envelope.featured_count, byName)
   if (featured !== undefined) {
     categories.unshift({ key: FEATURED_CATEGORY, zh: featured.titleZh, en: featured.titleEn, count: featured.count })
   }
@@ -358,7 +365,10 @@ export interface CatalogSource {
  * @returns the reader.
  */
 export function createCatalogSource(options: CatalogOptions): CatalogSource {
-  const primary = options.base
+  // Migrate the previous built-in URL even when it was persisted by the host.
+  const primary = options.base === DEFAULT_CATALOG_BASE.replace('market-catalog.json', 'market-v2.json')
+    ? DEFAULT_CATALOG_BASE
+    : options.base === MIRROR_CATALOG_BASE.replace('market-catalog.json', 'market-v2.json') ? MIRROR_CATALOG_BASE : options.base
   // The mirror stands behind the default feed only. A deployment that
   // pointed the market at its own mirror or curation gets exactly that one
   // source — silently switching datasets is not what `catalogBase` was

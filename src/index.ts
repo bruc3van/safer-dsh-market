@@ -62,9 +62,9 @@ export type {
 export interface Config {
   /** Live, profile-persisted permission to fetch the community catalog. */
   enabled: Volatile<boolean>
-  /** A complete market-v2 JSON feed URL. */
+  /** A complete market-catalog (schema 3) or legacy market-v2 JSON URL. */
   catalogBase: string
-  /** How many plugins the market shows. */
+  /** Legacy schema-2 row limit. Schema 3 always returns the complete catalog. */
   marketSize: number
   /**
    * The profile an install would change. It names the `--profile` argument in

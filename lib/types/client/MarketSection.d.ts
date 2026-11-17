@@ -4,7 +4,7 @@ import type { SkillsSessionSource } from './skillsSubscription.ts';
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
  *
- * **Plugins** is the community shortlist. While the market is off it is one
+ * **Plugins** offers subscription picks and the full repository catalog. While the market is off it is one
  * card that says what turning it on will do and asks; the switch is the
  * plugin's own durable setting, so the answer survives a restart. While it is
  * on, cards use official Host installation, with optional read-only review

@@ -14,7 +14,7 @@
 
 ## 两种数据协议
 
-- 本插件读取 npm feed 的 `market-v2.json`，仅支持 `schema_version: 2`，默认 jsDelivr、失败回退到同包的 unpkg。`catalogBase` 必须是完整 v2 JSON URL；不再支持废弃的 `market.json` / schema 1 或目录地址补文件名。升级会失效旧解析缓存并完整下载一次。安装目标新增接受上游实际提供的 Gitee HTTPS 仓库，仍先交给官方管理器 inspect。见 [消费协议](market-json-spec.md)。
+- 本插件默认读取 npm feed 的 schema 3 `market-catalog.json`：完整已审核仓库目录加官方订阅的全部插件。精选与订阅一致，分类及关键词沿用订阅；全部按仓库计数。默认 jsDelivr、失败回退到同包 unpkg，自定义 schema 2 地址继续兼容。见 [消费协议](market-json-spec.md)。
 - 官方「发现」页和 `plugin_market` 工具读取 format-1 `index.json`。生成器、测试、发布流程、索引与生成报告由数据源仓库 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin/tree/main/scripts/host-market) 维护，本插件不生成或发布另一套索引，也不自动添加订阅。
 
 订阅地址：`https://bruc3van.com/dsh-plugins/index.json`（Bruce 的精选插件）。旧订阅地址 `https://bruc3van.com/markets/dsh/index.json` 由站点继续提供相同数据，已有订阅无需重复添加。该 URL 别名与已废弃的社区 `market.json` 是不同的接口。
@@ -32,7 +32,7 @@
 - 生成报告记录多宿主版本声明匹配覆盖（主目标 rc.3）、推荐来源和插件数量、展示质量与证据哈希。声明匹配不等于实机兼容或安全验收。
 - 站点从 `market-release` 的不可变发布记录读取，并核对生成任务及索引、报告摘要。读取失败时使用已校验的随站快照并通过 `X-Market-Fallback` 标注；显式指定版本不可用时返回 503。数据源成功发布后无需重新构建站点。
 
-社区 v2 feed 与官方订阅有各自的生成和分发流程；本插件不会因为官方订阅扩容而自动显示 2000 项。
+社区 v2 feed 保留原有生成规则；安全市场改读新全量目录，其中精选直接包含官方订阅全部发布结果。订阅扩容或收缩会自动反映在精选数量中，不硬编码为 2000。
 
 ## 验证边界
 
@@ -47,3 +47,7 @@
 用户确认目标版本后调用 `updateBundle(name, version, options)`：npm 传回列表所用 registry，Git 原样传回宿主提供的固定提交 spec；两者均携带请求 ID 并监听 `plugin-manager/update-state`。启用状态、移除、替换、恢复及重启语义由宿主实现。更新成功或失败结束后均刷新已安装列表；传输失败显示结果未确认，不自动重试安装。安装脚本授权等额外操作交由官方插件页处理。
 
 自动化覆盖检查只读、精确 RPC 参数、稳定版选择、预发布/弃用提示、兼容性阻止、Git 分页与来源、检查失败、请求进度匹配、重复确认、失败恢复及迟到响应。Playwright 预览使用真实市场组件和控制器、模拟 Remote 边界验证交互与窄屏布局，未更新用户的实际插件。
+
+## 全量目录改造的本地验证（2026-11-17）
+
+本地真实数据经新生成器、消费解析器和 wire codec 验证：发布前同步远端后再次验证：28440 个完整目录仓库、1677 个订阅插件、10 个分类，含 58 个未声明仓库地址的 npm 插件；订阅中 363 个插件携带 Logo。分类计数之和与各自列表一致；同仓库多个插件按包名分别保留。界面每页 50 条，搜索先覆盖完整数据。这里记录源码与本地数据验证，线上仍需发布新 feed 和插件后验证。

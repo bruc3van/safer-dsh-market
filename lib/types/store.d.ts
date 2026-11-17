@@ -19,6 +19,14 @@ export declare const pendingUninstallState: z.ZodObject<{
 export declare const safeMarketDomainState: z.ZodObject<{
     catalog: z.ZodUnion<readonly [z.ZodReadonly<z.ZodObject<{
         items: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+            icon: z.ZodOptional<z.ZodString>;
+            packageName: z.ZodOptional<z.ZodString>;
+            titleZh: z.ZodOptional<z.ZodString>;
+            titleEn: z.ZodOptional<z.ZodString>;
+            descriptionEn: z.ZodOptional<z.ZodString>;
+            keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+            archived: z.ZodOptional<z.ZodBoolean>;
+            disabled: z.ZodOptional<z.ZodBoolean>;
             installInfo: z.ZodOptional<z.ZodObject<{
                 mode: z.ZodEnum<{
                     command: "command";
@@ -34,7 +42,7 @@ export declare const safeMarketDomainState: z.ZodObject<{
                 note: z.ZodString;
                 manual: z.ZodString;
             }, z.core.$strip>>;
-            fullName: z.ZodString;
+            fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
             owner: z.ZodString;
             name: z.ZodString;
             url: z.ZodString;
@@ -55,12 +63,26 @@ export declare const safeMarketDomainState: z.ZodObject<{
             count: z.ZodNumber;
         }, z.core.$strip>>>>;
         featured: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+            categories: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                key: z.ZodString;
+                zh: z.ZodString;
+                en: z.ZodString;
+                count: z.ZodNumber;
+            }, z.core.$strip>>>>>;
             titleZh: z.ZodString;
             titleEn: z.ZodString;
             updatedAt: z.ZodString;
             count: z.ZodNumber;
             entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
                 item: z.ZodReadonly<z.ZodObject<{
+                    icon: z.ZodOptional<z.ZodString>;
+                    packageName: z.ZodOptional<z.ZodString>;
+                    titleZh: z.ZodOptional<z.ZodString>;
+                    titleEn: z.ZodOptional<z.ZodString>;
+                    descriptionEn: z.ZodOptional<z.ZodString>;
+                    keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+                    archived: z.ZodOptional<z.ZodBoolean>;
+                    disabled: z.ZodOptional<z.ZodBoolean>;
                     installInfo: z.ZodOptional<z.ZodObject<{
                         mode: z.ZodEnum<{
                             command: "command";
@@ -76,7 +98,7 @@ export declare const safeMarketDomainState: z.ZodObject<{
                         note: z.ZodString;
                         manual: z.ZodString;
                     }, z.core.$strip>>;
-                    fullName: z.ZodString;
+                    fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
                     owner: z.ZodString;
                     name: z.ZodString;
                     url: z.ZodString;
@@ -129,6 +151,14 @@ export declare const safeMarketDomainSpec: {
         schema: z.ZodObject<{
             catalog: z.ZodUnion<readonly [z.ZodReadonly<z.ZodObject<{
                 items: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                    icon: z.ZodOptional<z.ZodString>;
+                    packageName: z.ZodOptional<z.ZodString>;
+                    titleZh: z.ZodOptional<z.ZodString>;
+                    titleEn: z.ZodOptional<z.ZodString>;
+                    descriptionEn: z.ZodOptional<z.ZodString>;
+                    keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+                    archived: z.ZodOptional<z.ZodBoolean>;
+                    disabled: z.ZodOptional<z.ZodBoolean>;
                     installInfo: z.ZodOptional<z.ZodObject<{
                         mode: z.ZodEnum<{
                             command: "command";
@@ -144,7 +174,7 @@ export declare const safeMarketDomainSpec: {
                         note: z.ZodString;
                         manual: z.ZodString;
                     }, z.core.$strip>>;
-                    fullName: z.ZodString;
+                    fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
                     owner: z.ZodString;
                     name: z.ZodString;
                     url: z.ZodString;
@@ -165,12 +195,26 @@ export declare const safeMarketDomainSpec: {
                     count: z.ZodNumber;
                 }, z.core.$strip>>>>;
                 featured: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+                    categories: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                        key: z.ZodString;
+                        zh: z.ZodString;
+                        en: z.ZodString;
+                        count: z.ZodNumber;
+                    }, z.core.$strip>>>>>;
                     titleZh: z.ZodString;
                     titleEn: z.ZodString;
                     updatedAt: z.ZodString;
                     count: z.ZodNumber;
                     entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
                         item: z.ZodReadonly<z.ZodObject<{
+                            icon: z.ZodOptional<z.ZodString>;
+                            packageName: z.ZodOptional<z.ZodString>;
+                            titleZh: z.ZodOptional<z.ZodString>;
+                            titleEn: z.ZodOptional<z.ZodString>;
+                            descriptionEn: z.ZodOptional<z.ZodString>;
+                            keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+                            archived: z.ZodOptional<z.ZodBoolean>;
+                            disabled: z.ZodOptional<z.ZodBoolean>;
                             installInfo: z.ZodOptional<z.ZodObject<{
                                 mode: z.ZodEnum<{
                                     command: "command";
@@ -186,7 +230,7 @@ export declare const safeMarketDomainSpec: {
                                 note: z.ZodString;
                                 manual: z.ZodString;
                             }, z.core.$strip>>;
-                            fullName: z.ZodString;
+                            fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
                             owner: z.ZodString;
                             name: z.ZodString;
                             url: z.ZodString;
@@ -234,6 +278,14 @@ export declare const safeMarketDomainSpec: {
                     category: string;
                     categoryZh: string;
                     categoryEn: string;
+                    icon?: string | undefined;
+                    packageName?: string | undefined;
+                    titleZh?: string | undefined;
+                    titleEn?: string | undefined;
+                    descriptionEn?: string | undefined;
+                    keywords?: readonly string[] | undefined;
+                    archived?: boolean | undefined;
+                    disabled?: boolean | undefined;
                     installInfo?: {
                         mode: "command" | "manual";
                         targets: {
@@ -276,6 +328,14 @@ export declare const safeMarketDomainSpec: {
                             category: string;
                             categoryZh: string;
                             categoryEn: string;
+                            icon?: string | undefined;
+                            packageName?: string | undefined;
+                            titleZh?: string | undefined;
+                            titleEn?: string | undefined;
+                            descriptionEn?: string | undefined;
+                            keywords?: readonly string[] | undefined;
+                            archived?: boolean | undefined;
+                            disabled?: boolean | undefined;
                             installInfo?: {
                                 mode: "command" | "manual";
                                 targets: {
@@ -291,6 +351,12 @@ export declare const safeMarketDomainSpec: {
                         }>;
                         reason: string;
                     }>[];
+                    categories?: readonly Readonly<{
+                        key: string;
+                        zh: string;
+                        en: string;
+                        count: number;
+                    }>[] | undefined;
                 }> | undefined;
             }> | null;
             marketEtag: string;

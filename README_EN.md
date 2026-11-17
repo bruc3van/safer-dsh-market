@@ -59,18 +59,18 @@ This plugin connects curated community data to the official installation service
 
 ### Official Plugins page integration and development baseline
 
-The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `0.12.0`; its declared compatibility range is listed separately below.
+The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `0.13.0`; its declared compatibility range is listed separately below.
 
 - Adds a Safe Market tab to the official Plugins page, preserving standalone navigation and the right sidebar. Older hosts without `plugins.tab` do not register the tab.
 - Reads new installation rejection `requirements` and legacy `peers`; skill discovery follows the host's committed working directory.
 - Declares `engines.dsh` and removes the retired `dsh-invariants` development dependency, keeping only an optional companion export for older profiles.
 - The data-source repository `awesome-dsh-plugin` owns generation and auditing of the official Discover format-1 index; `bruc3van.com` serves it. See [host market integration](docs/host-market.md). It does not publish files or add index sources automatically.
 
-**0.12.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
+**0.13.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
 
 | DSH host version | Plugin version | npm install target |
 | --- | --- | --- |
-| `0.2.x`, `0.1.7-rc.2` (currently supported) | `0.12.0` | `safer-dsh-market@0.12.0` |
+| `0.2.x`, `0.1.7-rc.2` (currently supported) | `0.13.0` | `safer-dsh-market@0.13.0` |
 | `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -81,7 +81,7 @@ The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The cur
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-When upgrading to `0.12.0` from an older release:
+When upgrading to `0.13.0` from an older release:
 
 - upgrade DSH to `0.1.7-rc.2` or `0.2.x` first;
 - the market switch is now saved by the host in the active profile's `cordis.patch.yml`, applied live, and kept across restarts;
@@ -92,19 +92,19 @@ When upgrading to `0.12.0` from an older release:
 The CLI examples below target DSH `0.1.7-rc.2` and **do not apply to Electron’s `desktop` profile**. Replace `<profile>` with a verified CLI-managed profile. For desktop, use the current session’s official `plugin_manager` or Electron’s official plugin management UI. Use the pinned [npm](https://www.npmjs.com/package/safer-dsh-market) version:
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.12.0
+dsh plugin --profile <profile> add safer-dsh-market@0.13.0
 ```
 
 Or hand the install to your agent — copy this prompt:
 
 ```text
-Install DSH Safe Market 0.12.0: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target safer-dsh-market@0.12.0. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
+Install DSH Safe Market 0.13.0: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target safer-dsh-market@0.13.0. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
 ```
 
 To lock to the exact version this document describes, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.12.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.13.0.tar.gz
 ```
 
 The official manager installs the dependency and registers the bundle; do not edit package.json yourself. Follow the returned outcome: applied means active, while restart-required means installed pending a restart of the current instance. Failure or overridden configuration must not be reported as active.
@@ -132,8 +132,9 @@ Both entries share the switch and all operations; Settings no longer carries a d
 
 ### 3. Browse and search
 
-- **Find plugins**: Featured / Installed / All switches between the editor's picks, local management, and the full catalog; the market opens on Featured. Search by name, package, task, or category; typing in Featured switches to All and searches the full catalog. Under All, categories use a dropdown. Clear filters restores the unfiltered catalog.
-- **Editor's picks**: shown in the editor's order, with the count the upstream catalog declares. Picks are not ranked by popularity, so their cards show no star count.
+- **Find plugins**: Featured / Installed / All switches between subscription picks, local management, and the complete reviewed repository catalog. Both Featured and All support category filtering and full-result search by name, package, task, keyword, and category. Search stays in the selected scope. Lists show 50 results per page; counts follow upstream releases automatically.
+- **Subscription picks**: every plugin in the published awesome-dsh-plugin subscription, in its published order, with the same localized names, descriptions, categories, and keywords. Package identities keep monorepo plugins distinct. Installation uses the first published version pinned to an npm version or Git commit and subdirectory, subject to Host inspection.
+- **Plugin logos**: display each subscription plugin's own image and reuse it on associated repository cards. Images load lazily and fall back to initials. Titles, package identities, and categories have separate visual hierarchy.
 - **Plugin cards**: show category, author, and last update date; cards in a list share one height with their buttons aligned along the bottom. An installed plugin is marked **Installed vX** and its button reads **Manage**, which opens the Installed view.
 - **Refresh data**: the upper-right action fetches the latest catalog and blocks repeat clicks while it runs.
 - **More actions (⋯)**: [GitHub repository](https://github.com/bruc3van/safer-dsh-market), [contact the author](https://x.com/bruc3van).
@@ -235,14 +236,14 @@ Select **Check for updates** on an Installed card, choose a target version, then
 
 ## Data source
 
-The default is [market-v2.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json), falling back to the same npm package on unpkg. ETag caching, a local cache, and manual refresh are supported.
+The default is [market-catalog.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json), falling back to the same npm package on unpkg. ETag caching, a local cache, and manual refresh are supported.
 
-- Only schema 2 is supported; the retired `market.json` / schema 1 format is no longer accepted. v2 adds `packages` install data, which reaches the client only after Host validation; task labels are searchable too;
-- the envelope's `featured` / `featured_count` supply the editor's picks: each pick is matched to a catalog plugin by `full_name`; a pick missing from the catalog is shown only if it carries its own `packages`, and skipped otherwise. A missing or malformed section hides the picks and affects nothing else;
-- after an upgrade, a local cache parsed by an older version is downloaded again in full on the first read, instead of reusing a result that lacks the new fields;
-- install targets are limited to supported npm specs and GitHub / Gitee HTTPS URLs — no commands, environment variables, paths, or shell fragments;
-- a custom `catalogBase` must be a complete v2 JSON URL (query parameters are preserved); filenames are no longer appended. Update old directory configurations to a v2 URL.
-
+- Schema 3 delivers the complete reviewed repository catalog and the published official subscription together. All counts repositories; Featured counts subscription packages. Counts are never hardcoded.
+- Category labels follow the subscription. Picks retain plugin-level categories and keywords; repository searches also include associated subscription package names, titles, and keywords.
+- Archived and disabled repositories remain visible with status labels. Entries without install mappings offer details and repository links.
+- Previous built-in `market-v2.json` URLs migrate automatically. Old parsed caches are invalidated once. Custom schema-2 feeds remain supported.
+- Install targets accept supported npm specs and GitHub / Gitee HTTPS URLs, excluding commands, environment variables, local paths, and shell fragments.
+- A custom `catalogBase` must be a complete schema-3 or schema-2 JSON URL; query parameters are preserved and no filename is appended.
 See [docs/market-json-spec.md](docs/market-json-spec.md) for the contract.
 
 ## Configuration
@@ -254,8 +255,8 @@ Use the host’s supported configuration controls. A standard CLI profile uses `
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | Allow community catalog reads; page changes are saved live by the host |
-| `catalogBase` | Complete URL of the npm feed's `market-v2.json` | A complete v2 JSON URL; legacy directory configuration is unsupported |
-| `marketSize` | `1000` | Maximum rows returned to the UI (the actual count comes from the upstream catalog) |
+| `catalogBase` | Complete URL of the npm feed's `market-catalog.json` | A complete schema-3 or compatible schema-2 JSON URL |
+| `marketSize` | `1000` | Legacy schema-2 row limit; schema 3 retains the full catalog and paginates the UI |
 | `profile` | `""` (auto-detect) | Explicit fallback only without host profileContext; cannot override the active instance |
 
 ## Security boundary
@@ -271,7 +272,7 @@ Use the host’s supported configuration controls. A standard CLI profile uses `
 
 **Catalog data**
 
-- The market file is fetched and re-validated on the Host before the browser sees it (the curated catalog, not the full crawl), and persisted through the host’s safe_market storage domain, whose path is host-managed; stale caches and manual refreshes use ETag conditional requests, falls back to the unpkg mirror if the default is unreachable, and uses the last catalog only if both are;
+- The market file is fetched and re-validated on the Host before the browser sees it (the complete reviewed catalog and subscription picks, excluding unreviewed crawl entries), and persisted through the host’s safe_market storage domain, whose path is host-managed; stale caches and manual refreshes use ETag conditional requests, falls back to the unpkg mirror if the default is unreachable, and uses the last catalog only if both are;
 - repository links are rebuilt from `owner/name` rather than trusted from the file, so a poisoned file cannot contribute its own URL scheme — the wire codec enforces that shape;
 - every card renders as plain text;
 - while the market is off, the Remote refuses, so the catalog cannot be read around the switch.

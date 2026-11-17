@@ -1,22 +1,32 @@
-# 当前消费协议：market-v2.json
+# 安全市场消费协议
 
-默认地址为 `https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json`，回退到 `https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-v2.json`。`catalogBase` 必须填写完整的 v2 JSON URL（可以含查询参数），消费端原样请求，不再自动补文件名。仅接受 `schema_version: 2`；上游已废弃的 `market.json` 和 schema 1 不再支持。旧自定义源需切换到 v2 URL。
+## 默认 schema 3：market-catalog.json
 
-v2 提供仓库字段，并允许可选的 `packages`：
+默认地址为 `https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json`，回退到同包的 unpkg 地址。上游 `scripts/safe-market-catalog.mjs` 在 npm 打包时生成，不提交另一份全量生成文件。
 
-- `mode`: `command` 或 `manual`。
-- `targets[]`: `install`、`profile`、`note`。只将 install 作为官方 Remote 的单个 spec 参数；command/source 不进入安装调用。最多保留 30 个目标。
-- `tasks[]` / `requirements[]`: 功能搜索标签 / 安装要求；每组最多 30 项。
-- `note` / `manual_instructions`: 展示备注或手动安装说明。
+- `schema_version: 3`。
+- `source_fetched_at` / `source_repo_count`：爬取快照时间和扫描仓库数。
+- `repository_count` / `entries[]`：与仓库完整目录使用同一个 `catalogRepositories` 审核、描述和排除规则，不套用旧市场的 1000 条限制或榜单排除规则。保留归档、禁用状态。
+- 仓库条目保留 `full_name`、描述、Star、语言、许可证、更新时间、默认分支和分类；可含 `packages` 安装映射和关联订阅插件的 `keywords`。
+- `subscription`：已发布的完整 format-1 `dsh-market-index.json`；插件身份、顺序、分类、关键词、Logo、版本与安装来源保持原样。
+- `subscription_sha256` / `subscription_updated_at`：原始订阅文件摘要和生成报告时间。打包前核对索引摘要、插件数量和 `fetchFailures: 0`，不打包与报告不一致的结果。
 
-文字按 2000 字符截断；目标限制 2048 字符，接受受限 npm 包名及版本/tag、GitHub / Gitee HTTPS 仓库及 GitHub tarball URL。命令、路径、凭据 URL、选项或空白不作为可直接安装目标。手动条目不自动转为直接安装。来源 profile 仅展示，实际由当前宿主管理器决定安装位置。
+「精选」逐一适配 `subscription.plugins`，按插件包名区分身份；不使用其中 `featured` 标签缩小范围，也不再限制为 50 条。缺少仓库地址的 npm 插件保留，链接指向其 npm 页面。分类使用订阅的 `metadata.categories` 和插件自己的分类；关键词与标签中英文名称参与搜索。重复包名、无效安装来源或缺少订阅将使本次读取失败，保留上次有效缓存，不静默发布部分精选。
 
-v2 信封还可带可选的编辑精选：
+精选安装目标取订阅首个版本：npm 使用 `name@version`，Git 使用 HTTPS 仓库、完整提交和可选的 `path:` 子目录。安装前仍由当前宿主执行 `inspect` 和 `installBundle`。宿主版本要求在详情中展示，过长的显示文本带省略号，安装目标不截断。
 
-- `featured_count`: 精选条数，用于界面展示；缺失或不是非负整数时，以实际解析出的条数为准。
-- `featured`: `title_zh` / `title_en`（≤60 字符，缺失时用「编辑精选」/ "Editor's Picks"）、`updated_at`、`entries[]`。
-- `featured.entries[]`: `full_name`（同条目的 slug 规则）与 `reason`（≤200 字符），可选 `description`（≤300 字符）与 `packages`（与条目级 `packages` 结构相同）。
+Logo 支持订阅内联的 SVG、PNG、JPEG、WebP、GIF 图片及 HTTPS 图片，通过图片元素展示并懒加载；无图或加载失败显示名称首字母。仓库卡片复用关联订阅插件已提供的图标。
 
-每条精选先按 `full_name`（不区分大小写）匹配 `entries[]` 中的条目，匹配时直接使用该条目（在按 `marketSize` 截断前匹配）；不在 `entries[]` 中的精选必须自带可解析的 `packages` 才会合成一张卡片，否则跳过。合成卡片优先使用精选自带的 `description`；缺失、空白或类型无效时回退到 `reason`，两者均经过文本规范化与长度限制。已匹配主列表的卡片仍使用主列表条目的描述。重复、slug 非法的精选同样跳过，最多保留 50 条，保持发布顺序。字段缺失或格式异常只会让精选不显示，不影响目录本身。
+「全部」按仓库计数，精选按插件包计数。schema 3 忽略旧 `marketSize` 截断，数量随发布变化；两个列表先对完整数据筛选，再每页显示 50 条。精选与全部使用各自的分类计数。包级已安装状态按精确包名匹配，避免同仓库其他插件被误标为已安装。
 
-消费端缓存记录了解析格式；解析逻辑变化（如新增精选）后，旧格式的缓存不再使用，首次读取会不带 ETag 完整下载一次。
+## 兼容 schema 2：market-v2.json
+
+自定义 schema 2 URL 继续支持，`marketSize` 仅对它生效；内置 jsDelivr / unpkg 的旧 `@latest/data/market-v2.json` 地址自动迁移到新目录。自定义 URL 仍原样请求，不自动补文件名。不支持 schema 1。
+
+旧条目的可选 `packages` 包含 `mode`、`targets[]`、`tasks[]`、`requirements[]`、`note` 和 `manual_instructions`。只把校验过的 `install` 作为官方 Remote 的单个参数，命令与来源描述不作为可执行命令。手动安装条目不自动转换。
+
+旧 `featured` / `featured_count` 按 `full_name` 匹配仓库，允许携带内联安装信息；保持旧的 50 条解析上限。该兼容逻辑不影响 schema 3 的订阅精选。
+
+## 缓存与发布
+
+解析格式已升级，旧缓存完整下载一次；后续保留 ETag、持久化缓存、手动刷新及默认 CDN 回退。npm 包的数据摘要包括新全量目录，订阅或全量目录单独变化也会产生新版本。npm 发布接在官方订阅成功发布之后，避免先打包旧订阅；工作流同时清理新文件的 CDN 别名缓存。

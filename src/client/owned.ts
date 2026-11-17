@@ -2,8 +2,9 @@
  * The join between the catalog and what this profile already has.
  *
  * The two sides are keyed differently — the catalog is a crawl of GitHub, so
- * its identity is `owner/name`, while an install is a package name — and
- * nothing on the wire carries both. This module holds the whole of that
+ * repository identity is `owner/name`, while an install is a package name.
+ * Subscription cards carry an exact package identity; repository cards need
+ * the legacy join. This module holds the whole of that
  * reconciliation, out of the section's rendering and in a plain module, so
  * the rules that decide whether a card says "install" or "upgrade" can be
  * tested directly rather than through a React tree.
@@ -48,6 +49,7 @@ export function ownedIndexOf(packages: readonly MarketInstalledPackage[]): Reado
     // An unreadable package has no version and no slug to match on, and its
     // row already says so in the installed set.
     if (item.error !== '') continue
+    index.set(`package:${item.packageName}`, item)
     if (item.repository !== '') {
       index.set(`repo:${item.repository.toLocaleLowerCase()}`, item)
       continue
@@ -65,6 +67,7 @@ export function ownedBy(
   index: ReadonlyMap<string, MarketInstalledPackage>,
   item: MarketPlugin,
 ): MarketInstalledPackage | undefined {
+  if (item.packageName) return index.get(`package:${item.packageName}`)
   return index.get(`repo:${item.fullName.toLocaleLowerCase()}`) ?? index.get(`name:${item.name.toLocaleLowerCase()}`)
 }
 

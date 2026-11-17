@@ -121,7 +121,7 @@ test('deriveMarket rejects an unsupported schema version and an empty market', (
   assert.throws(() => deriveMarket({}, 200), /schema version/)
   assert.throws(() => deriveMarket({ schema_version: 1, entries: [entry()] }, 200), /expected 2/)
   assert.throws(() => deriveMarket({ schema_version: 2, entries: [] }, 200), /no entries/)
-  assert.throws(() => deriveMarket({ schema_version: 3, entries: [entry()] }, 200), /schema version/)
+  assert.throws(() => deriveMarket({ schema_version: 4, entries: [entry()] }, 200), /schema version/)
   assert.throws(() => deriveMarket({ schema_version: '2', entries: [entry()] }, 200), /schema version/)
 })
 
@@ -414,6 +414,19 @@ function stubFetch() {
 function jsonResponse(body: unknown, etag: string): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { etag } })
 }
+
+test('persisted built-in v2 URLs migrate to the complete catalog', async () => {
+  const fetch = stubFetch()
+  try {
+    for (const base of [DEFAULT_CATALOG_BASE, MIRROR_CATALOG_BASE]) {
+      const source = createCatalogSource({ base: base.replace('market-catalog.json', 'market-v2.json'), marketSize: 1000 })
+      const pending = source.read(false)
+      assert.equal(fetch.calls.at(-1)?.url, base)
+      fetch.parked.at(-1)!.resolve(jsonResponse({ schema_version: 2, entries: [entry()] }, '"migrated"'))
+      assert.equal((await pending).error, '')
+    }
+  } finally { fetch.restore() }
+})
 
 const NOT_MODIFIED = (): Response => new Response(null, { status: 304 })
 
@@ -809,10 +822,10 @@ test('an unpkg @latest 302 is followed to the pinned version', async () => {
     fetch.parked[0]!.reject(new Error('primary down'))
     await tick()
     assert.equal(fetch.calls[1]!.url, MIRROR_CATALOG_BASE)
-    fetch.parked[1]!.resolve(redirect(302, '/awesome-dsh-plugin-feed@0.20260928.1/data/market-v2.json'))
+    fetch.parked[1]!.resolve(redirect(302, '/awesome-dsh-plugin-feed@0.20260928.1/data/market-catalog.json'))
     await tick()
     assert.equal(fetch.calls.length, 3, 'the redirect is followed by hand')
-    assert.equal(fetch.calls[2]!.url, 'https://unpkg.com/awesome-dsh-plugin-feed@0.20260928.1/data/market-v2.json')
+    assert.equal(fetch.calls[2]!.url, 'https://unpkg.com/awesome-dsh-plugin-feed@0.20260928.1/data/market-catalog.json')
     fetch.parked[2]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-09-28', entries: [entry({ full_name: 'pinned/row' })] }, '"m-pin"'))
     const result = await pending
     assert.equal(result.error, '')
