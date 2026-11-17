@@ -42,14 +42,14 @@ The previous URL, `https://bruc3van.com/markets/dsh/index.json`, remains support
 
 If Discover is missing, check that you are running DSH V0.2.1-rc.2 or later and that Custom plugin markets is enabled. Enabling the feature does not add this subscription automatically; you still need to add its URL.
 
-Subscribing in the official Discover tab **does not require `dsh-market-pro`**. Install this plugin separately for its standalone interface, multiple-target installation, and optional post-install AI review. Custom plugin markets and this plugin's Enable DSH Market Pro switch are separate controls.
+Subscribing in the official Discover tab **does not require `dsh-market-pro`**. Install this plugin separately for its standalone interface, multiple-target installation, and optional post-install AI review. Custom plugin markets configures official subscriptions; this plugin loads its catalog by default without a separate Enable button.
 
 [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro) generates the index automatically; `bruc3van.com` serves JSON through Cloudflare without redirects. The index verifies npm metadata and Git bundles pinned to full commits, including bundle declarations, timestamps, and explicit host compatibility ranges. Up to 2000 verified plugins are selected by Star count, with categories, featured labels, and npm weekly-download sorting. This is a subset of the repository catalog, and inclusion is not a security audit or proof of runtime compatibility.
 
 [DSH Plugin Directory and subscription guide](https://bruc3van.com/dsh-plugins/#subscribe) · [Index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/dsh-market-pro)
 
 > [!IMPORTANT]
-> **Starting with 1.0.0, the plugin is DSH Market Pro and its package is `dsh-market-pro`**, with repository links pointing to [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro). Previous package names were `safer-dsh-market` and, before that, `dsh-desktop-safe-market`; neither upgrades to the new package automatically. To migrate: disable the old plugin → install and enable `dsh-market-pro@1.0.0` → reapply your configuration as needed. Cache and pending-removal records retain their original storage identifiers.
+> **Starting with 1.0.0, the plugin is DSH Market Pro and its package is `dsh-market-pro`**, with repository links pointing to [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro). Previous package names were `safer-dsh-market` and, before that, `dsh-desktop-safe-market`; neither upgrades to the new package automatically. To migrate: disable the old plugin → install and enable `dsh-market-pro@1.0.1` → reapply your configuration as needed. Cache and pending-removal records retain their original storage identifiers.
 
 ![DSH Market Pro](./assets/screenshots/marketplace.png)
 
@@ -59,24 +59,24 @@ Subscribing in the official Discover tab **does not require `dsh-market-pro`**. 
 - **Direct installation with optional review**: install through the official `pluginManager`, then stage a read-only audit from the result or an Installed card.
 - **Installed panel**: see this profile's plugins, check for updates, disable/enable them instantly, or uninstall.
 - **Skills page**: list the skills the current session can use, with their source and invocation policy, and open a skill's folder in one click.
-- **Catalog access is opt-in**: the community catalog is not fetched before you enable the market. This does not control networking by the host or other plugins.
+- **Automatic catalog access**: opening the market loads the community catalog by default; host configuration can disable it. This does not control networking by the host or other plugins.
 
 ## DSH version compatibility
 
 ### Official Plugins page integration and development baseline
 
-The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `1.0.0`; its declared compatibility range is listed separately below.
+The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `1.0.1`; its declared compatibility range is listed separately below.
 
 - Adds a DSH Market Pro tab to the official Plugins page, preserving standalone navigation and the right sidebar. Older hosts without `plugins.tab` do not register the tab.
 - Reads new installation rejection `requirements` and legacy `peers`; skill discovery follows the host's committed working directory.
 - Declares `engines.dsh` and removes the retired `dsh-invariants` development dependency, keeping only an optional companion export for older profiles.
 - The data-source repository `awesome-dsh-plugin-pro` owns generation and auditing of the official Discover format-1 index; `bruc3van.com` serves it. See [host market integration](docs/host-market.md). It does not publish files or add index sources automatically.
 
-**1.0.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
+**1.0.1 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
 
 | DSH host version | Plugin version | npm install target |
 | --- | --- | --- |
-| `0.2.x`, `0.1.7-rc.2` (currently supported) | `1.0.0` | `dsh-market-pro@1.0.0` |
+| `0.2.x`, `0.1.7-rc.2` (currently supported) | `1.0.1` | `dsh-market-pro@1.0.1` |
 | `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -87,30 +87,30 @@ The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The cur
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-When upgrading to `1.0.0` from an older release:
+When upgrading to `1.0.1` from an older release:
 
 - upgrade DSH to `0.1.7-rc.2` or `0.2.x` first;
 - the market switch is now saved by the host in the active profile's `cordis.patch.yml`, applied live, and kept across restarts;
-- the old `safe-market` section in `settings.yaml` is **not** migrated; if the market is off after upgrading, enable it once from the page.
+- the old `safe-market` section in `settings.yaml` is **not** migrated; catalog access defaults to enabled when not configured; an explicit `enabled: false` is preserved.
 
 ## Install
 
 The CLI examples below target DSH `0.1.7-rc.2` and **do not apply to Electron’s `desktop` profile**. Replace `<profile>` with a verified CLI-managed profile. For desktop, use the current session’s official `plugin_manager` or Electron’s official plugin management UI. Use the pinned [npm](https://www.npmjs.com/package/dsh-market-pro) version:
 
 ```sh
-dsh plugin --profile <profile> add dsh-market-pro@1.0.0
+dsh plugin --profile <profile> add dsh-market-pro@1.0.1
 ```
 
 Or hand the install to your agent — copy this prompt:
 
 ```text
-Install DSH Market Pro 1.0.0: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target dsh-market-pro@1.0.0. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
+Install DSH Market Pro 1.0.1: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target dsh-market-pro@1.0.1. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
 ```
 
 To lock to the exact version this document describes, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.0.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.0.1.tar.gz
 ```
 
 The official manager installs the dependency and registers the bundle; do not edit package.json yourself. Follow the returned outcome: applied means active, while restart-required means installed pending a restart of the current instance. Failure or overridden configuration must not be reported as active.
@@ -119,11 +119,11 @@ The browser and the desktop client see the same market data when connected to th
 
 ## Getting started
 
-### 1. Enable the market
+### 1. Enabled by default
 
-The market ships **off**: the page shows one explanatory card and an **Enable DSH Market Pro** button.
+The market ships **enabled**: opening the page loads the community catalog online without an Enable button. Its name follows the host language: 插件市场Pro in Chinese and DSH Market Pro in English.
 
-Enabling the market allows community catalog requests. The host saves the setting across restarts. The page has no Disable button; use the host’s supported configuration controls to set enabled to false if you want to stop catalog access.
+Use the host’s supported configuration controls to set `enabled` to `false` to stop catalog access; an existing disabled preference is preserved. AI review remains optional after installation. Plugins may already have executed; a later review cannot provide pre-install protection. Listing is no guarantee of safety or compatibility.
 
 ### 2. Open the market
 
@@ -220,7 +220,7 @@ Uninstall removes the current profile's `bundles` entry, then checks whether ano
 
 If the client is still installed and still set to seat the built-in Safe Market, it will seat the plugin again on next start. To remove it for good, turn that switch off in the client's connection settings. An in-box bundle with no ownership marker belongs to the deployment itself and is neither listed nor removable here.
 
-With the market off, the Plugins page shows the enable notice instead of installed-plugin management. The Skills page remains independently available.
+With the market off, the Plugins page shows a disabled notice instead of installed-plugin management. The Skills page remains independently available.
 
 ## Skills page
 
@@ -260,7 +260,7 @@ Use the host’s supported configuration controls. A standard CLI profile uses `
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `enabled` | `false` | Allow community catalog reads; page changes are saved live by the host |
+| `enabled` | `true` | Allow community catalog reads; the host persists this setting and preserves an existing disabled preference |
 | `catalogBase` | Complete URL of the npm feed's `market-catalog.json` | A complete schema-3 or compatible schema-2 JSON URL |
 | `marketSize` | `1000` | Legacy schema-2 row limit; schema 3 retains the full catalog and paginates the UI |
 | `profile` | `""` (auto-detect) | Explicit fallback only without host profileContext; cannot override the active instance |

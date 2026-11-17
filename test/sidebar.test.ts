@@ -43,7 +43,7 @@ test('official Plugins tab waits for declaration and keeps review separate from 
   assert.equal(entry, undefined, 'old hosts without plugins.tab keep running')
   register!()
   assert.equal(entry.options.id, MARKET_TAB_ID)
-  assert.equal(entry.options.label(), 'DSH Market Pro')
+  assert.equal(entry.options.label(), '插件市场Pro')
   assert.equal(entry.component, MarketPluginTab)
   const injected = entry.options.inject()
   assert.equal(injected.install, undefined, 'do not collide with the owner install prop')
@@ -88,7 +88,7 @@ test('left navigation pairs its destination, returns to conversation, and cleans
   const main = entries.get('main')
   assert.equal(row.id, MARKET_TAB_ID)
   assert.equal(main.entry.key, row.id)
-  assert.equal(row.label(), 'DSH Market Pro')
+  assert.equal(row.label(), '插件市场Pro')
   dictionary = en
   assert.equal(row.label(), 'DSH Market Pro')
   assert.equal(main.component, MarketMain)
@@ -135,7 +135,8 @@ test('sidebar registration waits for its service, shares the face, and follows p
   const definition = types.get(MARKET_TAB_ID)
   assert.equal(definition.kind, MARKET_TAB_ID)
   assert.equal(definition.guide[0].id, MARKET_TAB_ID)
-  assert.equal(definition.title(), 'DSH Market Pro')
+  assert.equal(definition.title(), '插件市场Pro')
+  assert.equal(definition.guide[0].title(), '插件市场Pro')
   assert.equal(definition.guide[0].description(), zh['sidebar.description'])
   dictionary = en
   assert.equal(definition.title(), 'DSH Market Pro')

@@ -81,7 +81,7 @@ export interface Config {
  * command aimed at someone else's.
  */
 export const Config = z.object({
-  enabled: z.boolean().default(false).volatile(),
+  enabled: z.boolean().default(true).volatile(),
   catalogBase: z.string().default(DEFAULT_CATALOG_BASE),
   marketSize: z.natural().min(1).default(1000),
   profile: z.string().default(''),

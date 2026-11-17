@@ -157,7 +157,7 @@ test('a body that loads and starts hands its own disposer back', async () => {
     // The entry, not the body, is what applies the schema defaults.
     const { enabled, ...ordinary } = body.seen[0] as { enabled: { get(): boolean }; [key: string]: unknown }
     assert.deepEqual(ordinary, { catalogBase: DEFAULT_CATALOG_BASE, marketSize: 1000, profile: '' })
-    assert.equal(enabled.get(), false)
+    assert.equal(enabled.get(), true)
     disposer()
     assert.equal(body.seen[1], 'disposed', 'the body owns teardown; the entry only passes it through')
   } finally {

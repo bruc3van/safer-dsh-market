@@ -24,7 +24,6 @@ import type {
   MarketInstalledResult,
   MarketSkillsResult,
   SafeMarketSettings,
-  SafeMarketSettingsUpdate,
 } from '../contract.ts'
 import { createDirectInstaller, type InstallHost } from './directInstall.ts'
 import { createPluginUpdater, type UpdateHost, type UpdateMarketHost } from './pluginUpdates.ts'
@@ -105,7 +104,6 @@ interface SafeMarketFace {
   listSkills(agentId: string, signal?: AbortSignal): Promise<{ ok: true; value: MarketSkillsResult } | { ok: false; error: { code: string; message: string } }>
   describe(): Promise<{ ok: true; value: MarketEnvironment } | { ok: false; error: { code: string; message: string } }>
   getSettings(): Promise<{ ok: true; value: SafeMarketSettings } | { ok: false; error: { code: string; message: string } }>
-  updateSettings(update: SafeMarketSettingsUpdate): Promise<{ ok: true; value: SafeMarketSettings } | { ok: false; error: { code: string; message: string } }>
   listInstalled(): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
   setInstalledEnabled(update: { packageName: string; enabled: boolean }): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
   uninstallInstalled(update: { packageName: string }): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
@@ -131,7 +129,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => adoptStyles(), 'dsh-market-pro: styles')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-market-pro: dictionaries')
 
-  const scope = createMarketStore({ value: defaultSettings(), profile: null as string | null, version: '' })
+  const scope = createMarketStore({ value: defaultSettings(), settingsReady: false, profile: null as string | null, version: '' })
   let settingsGeneration = 0
 
   const workspaces = ctx.get('workspaces') as MarketWorkspaces
@@ -159,7 +157,7 @@ export function apply(ctx: ClientContext): void {
         reportError('settings read', result.error)
         return
       }
-      scope.set({ ...scope.getSnapshot(), value: result.value })
+      scope.set({ ...scope.getSnapshot(), value: result.value, settingsReady: true })
     } catch (error) {
       if (market === remote && generation === settingsGeneration) reportError('settings read', error)
     }
@@ -205,32 +203,6 @@ export function apply(ctx: ClientContext): void {
     void loadSettings()
     void loadEnvironment()
   })
-
-  const setEnabled = async (enabled: boolean): Promise<void> => {
-    const remote = market
-    if (remote === undefined) {
-      const error = new Error('the dshMarketPro Remote is not mounted')
-      reportError('settings update', error)
-      throw error
-    }
-    const generation = ++settingsGeneration
-    let result: { ok: true; value: SafeMarketSettings } | { ok: false; error: { code: string; message: string } }
-    try {
-      result = await remote.updateSettings({ field: 'enabled', value: enabled })
-    } catch (error) {
-      if (market === remote && generation === settingsGeneration) {
-        reportError('settings update', error)
-        throw error
-      }
-      return
-    }
-    if (market !== remote || generation !== settingsGeneration) return
-    if (!result.ok) {
-      reportError('settings update', result.error)
-      throw new Error(result.error.message)
-    }
-    scope.set({ ...scope.getSnapshot(), value: result.value })
-  }
 
   /**
    * The skills read is addressed by the current session, not by the plugin's
@@ -420,7 +392,6 @@ export function apply(ctx: ClientContext): void {
     hooks: { scope },
     directInstaller,
     pluginUpdater,
-    setEnabled,
     loadCatalog,
     listSkills,
     skillsSession,

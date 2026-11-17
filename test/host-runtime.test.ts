@@ -71,10 +71,9 @@ test('built market boots, registers RPCs, and persists settings and plugin toggl
     }
     const first = await start()
     const market = first.get('dshMarketPro')
-    assert.deepEqual(market.getSettings(), { enabled: false })
+    assert.deepEqual(market.getSettings(), { enabled: true })
     assert.equal(market.describe().profile, 'test')
     assert.equal(first.settings.describe().find(row => row.ns === 'renamed-market').autoGenerate, false)
-    await assert.rejects(market.getCatalog(false, new AbortController().signal), /disabled/)
     for (const descriptor of SAFE_MARKET_INVOCATIONS) {
       const registered = first.typert.local.get(`dshMarketPro/${descriptor.method}`)
       assert.ok(registered, `${descriptor.method} must be registered`)
@@ -114,6 +113,8 @@ test('built market boots, registers RPCs, and persists settings and plugin toggl
     assert.equal(disabled.error, '')
     assert.equal(disabled.packages[0].enabled, false)
     assert.equal(first.get('marketTestDemo'), undefined)
+    await market.updateSettings({ field: 'enabled', value: false })
+    await assert.rejects(market.getCatalog(false, new AbortController().signal), /disabled/)
     assert.deepEqual(await market.updateSettings({ field: 'enabled', value: true }), { enabled: true })
     assert.deepEqual(market.getSettings(), { enabled: true }, 'the original service must observe live edits')
     assert.match(await readFile(profile.patchPath, 'utf8'), /enabled: true/)

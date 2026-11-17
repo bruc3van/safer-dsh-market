@@ -7,11 +7,9 @@ import type { SkillsSessionSource } from './skillsSubscription.ts'
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
  *
- * **Plugins** offers subscription picks and the full repository catalog. While the market is off it is one
- * card that says what turning it on will do and asks; the switch is the
- * plugin's own durable setting, so the answer survives a restart. While it is
- * on, cards use official Host installation, with optional read-only review
- * of installed artifacts.
+ * **Plugins** offers subscription picks and the full repository catalog by
+ * default. The host configuration can disable catalog access. Cards use
+ * official Host installation, with optional read-only review of installed artifacts.
  *
  * **Skills** is what this deployment can already resolve. It needs neither the
  * switch nor the network.
@@ -48,6 +46,8 @@ import { useSearchDock } from './useSearchDock.ts'
 /** The live snapshot the section renders from: the switch plus the deployment facts. */
 export interface SafeMarketSnapshot {
   readonly value: SafeMarketSettings
+  /** Wait for the host's persisted catalog preference before loading. */
+  readonly settingsReady: boolean
   /** Current instance profile; reviews stay disabled until the Host confirms it. */
   readonly profile: string | null
   /** The market's own version, from the same `describe`; '' until it answers. */
@@ -83,8 +83,6 @@ export interface MarketSectionInjected {
   directInstaller?: DirectInstaller
   pluginUpdater?: PluginUpdater
   hooks: { scope: SafeMarketSource }
-  /** Turn the market on or off (durable). */
-  setEnabled: (enabled: boolean) => Promise<void>
   /** Read the reduced catalog; `force` bypasses the refresh interval. */
   loadCatalog: (force: boolean) => Promise<{ catalog: MarketCatalog | null; stale: boolean; error: string }>
   /** Read the skills this deployment resolves. */
@@ -513,14 +511,13 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, onCheckUpdate }: {
+function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, onCheckUpdate }: {
   setDirectItem: (item: MarketPlugin) => void
   installedRevision: number
   onCheckUpdate?: (packageName: string) => void
   t: MarketLocale
   english: boolean
   snapshot: SafeMarketSnapshot
-  setEnabled: MarketSectionInjected['setEnabled']
   loadCatalog: MarketSectionInjected['loadCatalog']
   listInstalled: MarketSectionInjected['listInstalled']
   setInstalledEnabled: MarketSectionInjected['setInstalledEnabled']
@@ -532,9 +529,8 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
   installBusy: boolean
   onReviewDraft: (cardKey: string, prompt: string, viaNewWorkspace: boolean) => void
 }): ReactElement {
-  const enabled = snapshot.value.enabled
+  const enabled = snapshot.settingsReady && snapshot.value.enabled
   const [state, setState] = useState<CatalogState>(enabled ? { status: 'loading' } : { status: 'idle' })
-  const [switching, setSwitching] = useState(false)
   // A force refresh from `ready` keeps showing the catalog, so the busy
   // answer is a separate flag rather than the `loading` status.
   const [refreshing, setRefreshing] = useState(false)
@@ -545,7 +541,6 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
   const [filterCategory, setFilterCategory] = useState('')
   const [page, setPage] = useState(0)
   const resultsRef = useRef<HTMLDivElement>(null)
-  const [switchError, setSwitchError] = useState('')
   const installed = useInstalled({ t, active: enabled, listInstalled, setInstalledEnabled, uninstallInstalled })
   useEffect(() => { if (installedRevision > 0) installed.reload() }, [installedRevision, installed.reload])
   const installedSelected = category === INSTALLED_FILTER
@@ -602,8 +597,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
     })
   }, [loadCatalog])
 
-  // The first read happens when the market is switched on, not when the page
-  // mounts: a disabled market must not reach the network at all.
+  // The host resolves the persisted preference before catalog access begins.
   useEffect(() => {
     if (!enabled) {
       setState({ status: 'idle' })
@@ -611,20 +605,6 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
     }
     load(false)
   }, [enabled, load])
-
-  const toggle = (next: boolean): void => {
-    setSwitching(true)
-    setSwitchError('')
-    void setEnabled(next).then(() => {
-      if (mounted.current) setSwitching(false)
-    }, (error: unknown) => {
-      if (!mounted.current) return
-      setSwitching(false)
-      setSwitchError(t(next ? 'intro.enableFailed' : 'intro.disableFailed', {
-        reason: error instanceof Error ? error.message : String(error),
-      }))
-    })
-  }
 
   const catalog = state.status === 'ready' ? state.catalog : null
   const needle = query.trim().toLocaleLowerCase()
@@ -648,29 +628,16 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
     resultsRef.current?.scrollTo({ top: 0 })
   }, [catalog, category, filterCategory, query, english])
 
+  if (!snapshot.settingsReady) {
+    return <p className="dsh_market_status" role="status">{t('loading')}</p>
+  }
+
   if (!enabled) {
-    // Off means off: the page is the switch and nothing else. The installed
-    // set is local enough that showing it here would break no privacy promise
-    // — but a marketplace the user has turned off should not still be running
-    // a plugin manager in their settings, and a panel with no filter chips
-    // above it read as a second, always-on feature rather than as part of the
-    // market they had just declined.
     return (
       <div className="dsh_market_page">
         <div className="dsh_market_intro">
           <p className="dsh_market_introTitle">{t('intro.title')}</p>
-          <p className="dsh_market_introBody">{t('intro.body')}</p>
-          {switchError !== '' && <p className="dsh_market_status" data-error="true">{switchError}</p>}
-          <div className="dsh_market_introActions">
-            <button
-              type="button"
-              className="dsh_market_primary"
-              disabled={switching}
-              onClick={() => { toggle(true) }}
-            >
-              {switching ? t('intro.enabling') : t('intro.enable')}
-            </button>
-          </div>
+          <p className="dsh_market_introBody">{t('intro.disabled')}</p>
         </div>
       </div>
     )
@@ -747,7 +714,6 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
           </svg>
           {refreshing ? t('refreshing') : t('refresh')}
         </button>
-      {switchError !== '' && <p className="dsh_market_status" data-error="true">{switchError}</p>}
 
       <div className="dsh_market_filterBar">
         <div className="dsh_market_scope" role="group" aria-label={t('filter.scope')}>
@@ -889,7 +855,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
         <p className="dsh_market_note">
           {t('snapshot', { date: catalog.fetchedAt.slice(0, 10), scanned: String(catalog.scanned) })}
           {' · '}
-          <a href="https://github.com/bruc3van/awesome-dsh-plugin" target="_blank" rel="noreferrer">{t('source')}</a>
+          <a href="https://github.com/bruc3van/awesome-dsh-plugin-pro" target="_blank" rel="noreferrer">{t('source')}</a>
           {state.status === 'ready' && state.stale ? ` · ${t('stale')}` : ''}
         </p>
       )}
@@ -907,7 +873,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
 
 /** The Marketplace section. */
 export function MarketSection({
-  useScope, setEnabled, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
+  useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
   listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t,
 }: MarketSectionProps): ReactElement {
   const snapshot = useScope(value => value)
@@ -1091,7 +1057,6 @@ export function MarketSection({
           t={t}
           english={english}
           snapshot={snapshot}
-          setEnabled={setEnabled}
           loadCatalog={loadCatalog}
           listInstalled={listInstalled}
           setInstalledEnabled={setInstalledEnabled}

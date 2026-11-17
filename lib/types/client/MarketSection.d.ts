@@ -4,11 +4,9 @@ import type { SkillsSessionSource } from './skillsSubscription.ts';
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
  *
- * **Plugins** offers subscription picks and the full repository catalog. While the market is off it is one
- * card that says what turning it on will do and asks; the switch is the
- * plugin's own durable setting, so the answer survives a restart. While it is
- * on, cards use official Host installation, with optional read-only review
- * of installed artifacts.
+ * **Plugins** offers subscription picks and the full repository catalog by
+ * default. The host configuration can disable catalog access. Cards use
+ * official Host installation, with optional read-only review of installed artifacts.
  *
  * **Skills** is what this deployment can already resolve. It needs neither the
  * switch nor the network.
@@ -22,6 +20,8 @@ import type { MarketCatalog, MarketInstalledResult, MarketSkillsResult, SafeMark
 /** The live snapshot the section renders from: the switch plus the deployment facts. */
 export interface SafeMarketSnapshot {
     readonly value: SafeMarketSettings;
+    /** Wait for the host's persisted catalog preference before loading. */
+    readonly settingsReady: boolean;
     /** Current instance profile; reviews stay disabled until the Host confirms it. */
     readonly profile: string | null;
     /** The market's own version, from the same `describe`; '' until it answers. */
@@ -72,8 +72,6 @@ export interface MarketSectionInjected {
     hooks: {
         scope: SafeMarketSource;
     };
-    /** Turn the market on or off (durable). */
-    setEnabled: (enabled: boolean) => Promise<void>;
     /** Read the reduced catalog; `force` bypasses the refresh interval. */
     loadCatalog: (force: boolean) => Promise<{
         catalog: MarketCatalog | null;
@@ -113,4 +111,4 @@ export type MarketSectionProps = {
     close: () => void;
 } & InjectFace<MarketSectionInjected> & PropsLocale<'settings.dshMarketPro'>;
 /** The Marketplace section. */
-export declare function MarketSection({ useScope, setEnabled, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t, }: MarketSectionProps): ReactElement;
+export declare function MarketSection({ useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t, }: MarketSectionProps): ReactElement;

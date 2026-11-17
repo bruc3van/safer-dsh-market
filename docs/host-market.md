@@ -8,7 +8,7 @@
 
 核对了 rc.1 → rc.3 的插件页、侧栏插槽、会话控制器、Loader/Settings 和安装 Remote。`plugins.tab` 新增 owner 的 `update` 回调，市场与 owner 的安装、更新回调保持隔离；侧栏仍通过 `sidebar.panellist` 注册。现有市场直接安装、审查草稿和技能列表接口继续适用。本插件的菜单使用原生 disclosure，没有使用本次改变的宿主浮层定位接口。
 
-市场通过 `plugins.tab` 注册「DSH Market Pro」标签，共享原市场的数据源、安装队列和审查功能。注册跟随插槽和插件生命周期销毁；独立入口和右侧栏仍可用。
+市场通过 `plugins.tab` 注册「插件市场Pro」（英文为「DSH Market Pro」）标签，共享原市场的数据源、安装队列和审查功能。注册跟随插槽和插件生命周期销毁；独立入口和右侧栏仍可用。
 
 市场使用自己的多选安装确认框和官方 `pluginManager` Remote。官方标签 owner 的安装入口要求精确版本和版本元数据；社区 v2 目录允许裸 npm 包名、分支及多组件目标，不能直接作为官方索引的版本记录。
 

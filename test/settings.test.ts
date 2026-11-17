@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import { registerSafeMarketSettings } from '../src/settings.ts'
 import { Config } from '../src/index.ts'
 
-test('catalog access is disabled by default and declared as a live Config field', () => {
-  assert.equal(Config({}).enabled.get(), false)
+test('catalog access is enabled by default and declared as a live Config field', () => {
+  assert.equal(Config({}).enabled.get(), true)
   assert.equal(Config({ enabled: true }).enabled.get(), true)
+  assert.equal(Config({ enabled: false }).enabled.get(), false)
   assert.equal(Config.dict.enabled.meta.volatile, true)
 })
 
@@ -44,7 +45,7 @@ test('settings persistence failures propagate and do not change the live permiss
     effect: (setup: () => unknown) => setup(),
     settings: { configure: () => () => {}, update: async () => { throw new Error('write refused') } },
   }
-  const settings = registerSafeMarketSettings(ctx, Config({}))
+  const settings = registerSafeMarketSettings(ctx, Config({ enabled: false }))
   await assert.rejects(settings.update({ enabled: true }), /write refused/)
   assert.deepEqual(settings.get(), { enabled: false })
 })
