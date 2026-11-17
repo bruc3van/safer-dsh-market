@@ -1,5 +1,38 @@
 /** Localized UI copy and read-only installed-artifact review requests. */
 export declare const zh: {
+    readonly 'update.check': "检查更新";
+    readonly 'update.title': "插件更新";
+    readonly 'update.installed': "当前安装：{version}";
+    readonly 'update.transition': "本次更新：{from} → {to}";
+    readonly 'update.checking': "正在检查更新…";
+    readonly 'update.available': "发现新版本，请选择要更新的版本。";
+    readonly 'update.noGitUpdate': "已配置的订阅索引中没有可用于此 Git 安装的新版本。";
+    readonly 'update.latest': "当前已是最新版本。";
+    readonly 'update.choose': "选择新版本";
+    readonly 'update.prerelease': "预发布版";
+    readonly 'update.deprecated': "已弃用：{reason}";
+    readonly 'update.blocked': "此版本无法更新：{reason}";
+    readonly 'update.omitted': "还有 {count} 个较早的新版本未列出。";
+    readonly 'update.confirm': "将 {from} 更新到 {to}？";
+    readonly 'update.source': "更新来源";
+    readonly 'update.defaultRegistry': "宿主配置的默认 registry";
+    readonly 'update.notice': "更新由官方插件管理器执行，并保留原启用状态。更新期间插件可能暂停；安装失败时，宿主会尝试恢复原版本。";
+    readonly 'update.removing': "正在停止并移除原版本…";
+    readonly 'update.installing': "正在安装新版本…";
+    readonly 'update.restoring': "正在恢复原版本…";
+    readonly 'update.unknown': "更新结果未确认，请先到官方插件页核对当前状态，再重新检查。";
+    readonly 'update.failed': "检查更新失败：{reason}";
+    readonly 'update.applied': "更新已生效。";
+    readonly 'update.restart-required': "新版本已安装，请重启客户端。";
+    readonly 'update.overridden': "更新已处理，但被其他配置覆盖，请到官方插件页检查。";
+    readonly 'update.cancelled': "更新已取消。";
+    readonly 'update.failedResult': "更新失败，请查看详细信息。";
+    readonly 'update.restored': "已恢复原版本。";
+    readonly 'update.restoreRestart': "原版本已恢复，请重启客户端。";
+    readonly 'update.restoreFailed': "原版本未成功恢复，请到官方插件页处理。";
+    readonly 'update.partial': "部分订阅源检查失败：";
+    readonly 'update.action': "确认更新";
+    readonly 'update.recheck': "重新检查";
     readonly 'audit.action': "AI 审查已安装版本";
     readonly 'audit.targets': "审查本次已安装的组件";
     readonly 'direct.authorization': "需要授权";
@@ -97,7 +130,7 @@ export declare const zh: {
     readonly 'workspace.failed': "创建工作区失败：{reason}";
     readonly 'installed.chip': "已安装";
     readonly 'installed.count': "共 {count} 个";
-    readonly 'installed.body': "管理已安装插件，可执行 AI 审查、停用或卸载。";
+    readonly 'installed.body': "管理已安装插件，可检查更新、执行 AI 审查、停用或卸载。";
     readonly 'installed.loading': "正在加载已安装插件…";
     readonly 'installed.failed': "读取已安装插件失败：{reason}";
     readonly 'installed.empty': "还没有已安装的插件，切换到「全部」发现更多插件。";

@@ -1,7 +1,7 @@
 {
   "name": "safer-dsh-market",
   "description": "DeepSeek Harness 第三方插件市场，支持通过官方插件管理器安装，并可对已安装插件进行 AI 安全审查。",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "license": "MIT",
   "icon": "./assets/logo.svg",
   "type": "module",
@@ -179,6 +179,7 @@
     "@deepseek-ai/dsh-client-store": "0.2.2-rc.3",
     "@deepseek-ai/dsh-client-ui-conversation": "0.2.2-rc.3",
     "@deepseek-ai/dsh-client-ui-layout": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.2.2-rc.3",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.2-rc.3",
     "@deepseek-ai/dsh-client-ui-session": "0.2.2-rc.3",
     "@deepseek-ai/dsh-client-ui-sidebar": "0.2.2-rc.3",
@@ -186,6 +187,8 @@
     "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.3",
     "@deepseek-ai/dsh-client-ui-workspace": "0.2.2-rc.3",
     "@deepseek-ai/dsh-config-editor": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-plugin-manager": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-plugin-market": "0.2.2-rc.3",
     "@deepseek-ai/dsh-settings": "0.2.2-rc.3",
     "@deepseek-ai/dsh-skill": "0.2.2-rc.3",
     "@deepseek-ai/dsh-storage-domain": "0.2.2-rc.3",
@@ -196,8 +199,7 @@
     "@types/react": "^18.2.0",
     "esbuild": "^0.25.0",
     "react": "^18.2.0",
-    "typescript": "^6.0.3",
-    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.2.2-rc.3"
+    "typescript": "^6.0.3"
   },
   "engines": {
     "dsh": ">=0.1.7-rc.2 <0.3.0"

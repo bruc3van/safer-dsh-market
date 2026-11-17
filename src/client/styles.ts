@@ -56,6 +56,7 @@ export const cssText = `
 }
 .dsh_market_directPanel::backdrop { background: rgba(0, 0, 0, .3); }
 .dsh_market_directHead { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.dsh_market_updateActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .dsh_market_installHeading { min-width: 0; }
 .dsh_market_installHeading > span { font-size: 12px; color: var(--dsw-alias-label-tertiary); }
 .dsh_market_installHeading h3 { margin: 6px 0 0; font-size: 18px; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }

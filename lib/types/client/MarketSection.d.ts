@@ -1,4 +1,5 @@
 import type { DirectInstaller } from './directInstall.ts';
+import type { PluginUpdater } from './pluginUpdates.ts';
 import type { SkillsSessionSource } from './skillsSubscription.ts';
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
@@ -67,6 +68,7 @@ export type WorkspaceReadiness = 'pending' | 'none' | 'present';
 /** Injected business face: the live source and the section's verbs. */
 export interface MarketSectionInjected {
     directInstaller?: DirectInstaller;
+    pluginUpdater?: PluginUpdater;
     hooks: {
         scope: SafeMarketSource;
     };
@@ -111,4 +113,4 @@ export type MarketSectionProps = {
     close: () => void;
 } & InjectFace<MarketSectionInjected> & PropsLocale<'settings.saferMarket'>;
 /** The Marketplace section. */
-export declare function MarketSection({ useScope, setEnabled, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, close, t, }: MarketSectionProps): ReactElement;
+export declare function MarketSection({ useScope, setEnabled, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t, }: MarketSectionProps): ReactElement;

@@ -27,6 +27,7 @@ import type {
   SafeMarketSettingsUpdate,
 } from '../contract.ts'
 import { createDirectInstaller, type InstallHost } from './directInstall.ts'
+import { createPluginUpdater, type UpdateHost, type UpdateMarketHost } from './pluginUpdates.ts'
 import { stageReviewPrompt } from './handoff.ts'
 import { SAFE_MARKET_REMOTE } from './remote.ts'
 import {
@@ -392,6 +393,11 @@ export function apply(ctx: ClientContext): void {
   }
 
   const directInstaller = createDirectInstaller(() => ctx.reflect.get('remote.pluginManager') as InstallHost | undefined)
+  const pluginUpdater = createPluginUpdater(
+    () => ctx.reflect.get('remote.pluginManager') as UpdateHost | undefined,
+    () => ctx.reflect.get('remote.pluginMarket') as UpdateMarketHost | undefined,
+  )
+  ctx.effect(() => ctx.remote.$on('plugin-manager/update-state', progress => pluginUpdater.progress(progress)), 'safer-dsh-market: update progress')
 
   // The Host's own path opener (the session namespace the conversation UI
   // uses for opening files). It re-verifies the path on the Host and reports
@@ -413,6 +419,7 @@ export function apply(ctx: ClientContext): void {
   const injectMarket = (): MarketSectionInjected => ({
     hooks: { scope },
     directInstaller,
+    pluginUpdater,
     setEnabled,
     loadCatalog,
     listSkills,

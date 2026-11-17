@@ -51,7 +51,7 @@ https://bruc3van.com/dsh-plugins/index.json
 
 - **插件市场**：打开即展示编辑精选；浏览、搜索、按分类筛选社区推荐插件，支持手动刷新数据与离线缓存。
 - **直接安装与可选审查**：安装统一调用官方 `pluginManager`；安装成功后或已安装卡片上可生成只读审查草稿，由你发送。
-- **已安装面板**：查看当前 profile 的插件，一键停用/启用（即时生效）或卸载。
+- **已安装面板**：查看当前 profile 的插件，检查更新、一键停用/启用（即时生效）或卸载。
 - **技能页**：列出当前会话可用的技能及其来源、调用方式，可一键打开技能所在文件夹。
 - **按需加载目录**：启用前不联网读取社区目录；这不控制宿主或其他插件的网络活动。
 
@@ -59,18 +59,18 @@ https://bruc3van.com/dsh-plugins/index.json
 
 ### 官方插件页接入与开发基线
 
-上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `0.11.0`，具体兼容范围见下表。
+上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `0.12.0`，具体兼容范围见下表。
 
 - 增加官方「插件」页的「安全市场」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
 - 接受新版安装拒绝信息的 `requirements`，并保留旧版 `peers`；技能列表使用宿主当前工作目录。
 - 显式声明 `engines.dsh`，移除已退役 `dsh-invariants` 的开发依赖；仅为旧 profile 保留可选 companion 导出。
 - 官方「发现」页 format-1 索引由数据源仓库 `awesome-dsh-plugin` 生成和审计，通过 `bruc3van.com` 分发。使用说明见 [官方市场接入](docs/host-market.md)。它不会自动添加索引源或发布文件。
 
-**0.11.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+**0.12.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.11.0` | `safer-dsh-market@0.11.0` |
+| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.12.0` | `safer-dsh-market@0.12.0` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -81,7 +81,7 @@ https://bruc3van.com/dsh-plugins/index.json
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-从旧版升级到 `0.11.0` 的注意事项：
+从旧版升级到 `0.12.0` 的注意事项：
 
 - 先把 DSH 升级到 `0.1.7-rc.2` 或 `0.2.x`；
 - 市场开关现由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效、重启后保留；
@@ -92,19 +92,19 @@ dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 以下 CLI 示例仅适用于可由 CLI 管理的 profile，**不适用于 Electron 的 `desktop`**。将 `<profile>` 替换为已核实的实际名称。推荐从 [npm](https://www.npmjs.com/package/safer-dsh-market) 安装指定版本：
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.11.0
+dsh plugin --profile <profile> add safer-dsh-market@0.12.0
 ```
 
 也可以把安装交给你的 Agent，复制这段提示词发过去：
 
 ```text
-帮我安装 DSH 安全市场 0.11.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.11.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
+帮我安装 DSH 安全市场 0.12.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.12.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
 ```
 
 需要锁定到本文档对应版本时，使用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.11.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.12.0.tar.gz
 ```
 
 官方管理器负责安装依赖和登记插件，无需手工修改 `package.json`。按返回结果判断是否需要重启：`applied` 表示已生效，`restart-required` 表示安装完成但需重启当前实例；失败或配置覆盖不能当作已生效。
@@ -224,6 +224,14 @@ DSH 模板自带的插件不在此列。
 来源目录后的文件夹图标会通过宿主官方的路径打开能力，在系统文件管理器中打开该技能自己的目录（鼠标悬停可看到完整路径）。宿主会先核实路径确实存在于本机；宿主没有桌面环境（如无界面或远程部署）时不显示图标。
 
 ![技能页](./assets/screenshots/marketplace-skills.png)
+
+## 检查与更新已安装插件
+
+在「已安装」卡片上点击 **检查更新**，选择目标版本后点击 **确认更新**。检查本身只读，不会自动安装。此功能需要宿主提供 `listVersions` / `updateBundle`（当前适配 DSH `0.2.2-rc.3`）；旧宿主或不支持更新的安装方式会显示原因。
+
+- **npm 插件**：使用官方管理器读取较新版本和兼容信息，默认选择未弃用的兼容稳定版；预发布版和已弃用版本需手动选择，不兼容或非 bundle 的版本不可选。
+- **固定提交的 Git 插件**：使用官方「发现」页已经配置的订阅源寻找同包名新版，仅接受宿主标记为同仓库、同子目录的更新；不从社区目录的分支或裸 URL 推测新版本。没有订阅或无候选时明确提示，源读取失败不会显示为「已是最新」。
+- 更新由宿主官方 `updateBundle` 执行，保留原启用状态，展示执行阶段、重启要求，以及失败后原版本的恢复结果。网络断开导致结果未确认时，请先到官方插件页核对；市场不会自动重试更新。需要安装脚本授权等额外处理时，可查看详细信息并使用官方插件页继续处理。
 
 ## 数据来源
 

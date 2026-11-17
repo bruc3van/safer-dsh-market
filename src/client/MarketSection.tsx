@@ -1,6 +1,8 @@
 import type { DirectInstaller } from './directInstall.ts'
 import { MarketSelector } from './InstallModeSelector.tsx'
 import { DirectInstallPanel } from './DirectInstallPanel.tsx'
+import type { PluginUpdater } from './pluginUpdates.ts'
+import { PluginUpdatePanel } from './PluginUpdatePanel.tsx'
 import type { SkillsSessionSource } from './skillsSubscription.ts'
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
@@ -78,6 +80,7 @@ export type WorkspaceReadiness = 'pending' | 'none' | 'present'
 /** Injected business face: the live source and the section's verbs. */
 export interface MarketSectionInjected {
   directInstaller?: DirectInstaller
+  pluginUpdater?: PluginUpdater
   hooks: { scope: SafeMarketSource }
   /** Turn the market on or off (durable). */
   setEnabled: (enabled: boolean) => Promise<void>
@@ -288,7 +291,7 @@ function useInstalled({ t, active, listInstalled, setInstalledEnabled, uninstall
  * stays one grid and the eye does not have to re-learn the layout when the
  * filter changes.
  */
-function InstalledCard({ t, item, installed, snapshot, card, installBusy, readiness, onReview }: {
+function InstalledCard({ t, item, installed, snapshot, card, installBusy, readiness, onReview, onCheckUpdate }: {
   t: MarketLocale
   item: MarketInstalledPackage
   installed: ReturnType<typeof useInstalled>
@@ -297,6 +300,7 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
   installBusy: boolean
   readiness: WorkspaceReadiness
   onReview: (item: MarketInstalledPackage, viaNewWorkspace: boolean) => void
+  onCheckUpdate?: (packageName: string) => void
 }): ReactElement {
   const { busy, confirming, setConfirming, toggle, uninstall } = installed
   const uninstalling = busy === `${item.packageName}:uninstall`
@@ -408,6 +412,9 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
             )
           : (
             <>
+              {onCheckUpdate && <button type="button" className="dsh_market_ghost"
+                disabled={busy !== null || installBusy || item.error !== ''}
+                onClick={() => onCheckUpdate(item.packageName)}>{t('update.check')}</button>}
               <button
                 type="button"
                 className="dsh_market_install"
@@ -425,7 +432,7 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
                 <button
                   type="button"
                   className="dsh_market_ghost"
-                  disabled={busyRow || busy !== null || item.error !== '' || item.entries.length === 0}
+                  disabled={busyRow || busy !== null || installBusy || item.error !== '' || item.entries.length === 0}
                   onClick={() => { toggle(item) }}
                 >
                   {busy === `${item.packageName}:toggle`
@@ -436,7 +443,7 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
               <button
                 type="button"
                 className="dsh_market_danger"
-                disabled={busyRow || busy !== null}
+                disabled={busyRow || busy !== null || installBusy}
                 onClick={() => { setConfirming(item.packageName) }}
               >
                 {t('installed.uninstall')}
@@ -449,7 +456,7 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
 }
 
 /** The installed set as a card grid, with its own status lines above it. */
-function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness, onReview }: {
+function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness, onReview, onCheckUpdate }: {
   t: MarketLocale
   installed: ReturnType<typeof useInstalled>
   snapshot: SafeMarketSnapshot
@@ -457,6 +464,7 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
   installBusy: boolean
   readiness: WorkspaceReadiness
   onReview: (item: MarketInstalledPackage, viaNewWorkspace: boolean) => void
+  onCheckUpdate?: (packageName: string) => void
 }): ReactElement {
   const { state, notice, actionError, reload } = installed
   return (
@@ -494,6 +502,7 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
               installBusy={installBusy}
               readiness={readiness}
               onReview={onReview}
+              onCheckUpdate={onCheckUpdate}
             />
           ))}
         </ul>
@@ -503,9 +512,10 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision }: {
+function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, onCheckUpdate }: {
   setDirectItem: (item: MarketPlugin) => void
   installedRevision: number
+  onCheckUpdate?: (packageName: string) => void
   t: MarketLocale
   english: boolean
   snapshot: SafeMarketSnapshot
@@ -782,6 +792,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
             installBusy={installBusy}
             readiness={readiness}
             onReview={reviewInstalledPackage}
+            onCheckUpdate={onCheckUpdate}
           />
           )
         : state.status === 'error'
@@ -855,9 +866,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
                 {item.description !== '' && <p className="dsh_market_desc">{item.description}</p>}
                 <div className="dsh_market_foot">
                   <a className="dsh_market_link" href={item.url} target="_blank" rel="noreferrer">{t('repo')}</a>
-                  {/* The host has no update verb, and its installer refuses a
-                      package that is already there — so an installed row
-                      offers the Installed view instead of an install. */}
+                  {/* Manage updates using the installed package's exact identity. */}
                   {owned !== undefined
                     ? (
                       <button type="button" className="dsh_market_install"
@@ -893,7 +902,7 @@ function PluginsPage({ t, english, snapshot, setEnabled, loadCatalog, listInstal
 /** The Marketplace section. */
 export function MarketSection({
   useScope, setEnabled, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
-  listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, close, t,
+  listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t,
 }: MarketSectionProps): ReactElement {
   const snapshot = useScope(value => value)
   // The slot props carry a translate function, not a locale tag; the
@@ -902,8 +911,15 @@ export function MarketSection({
   const english = t('lang') === 'en'
   const [page, setPage] = useState<Page>('plugins')
   const [directItem, setDirectItem] = useState<MarketPlugin | null>(null)
+  const [updateOpen, setUpdateOpen] = useState(false)
+  const updateState = useSyncExternalStore(pluginUpdater?.subscribe ?? (() => () => {}), pluginUpdater?.getSnapshot ?? (() => null))
   const [installedRevision, setInstalledRevision] = useState(0)
   const refreshInstalled = useCallback(() => setInstalledRevision(value => value + 1), [])
+  useEffect(() => { if (updateState?.revision) refreshInstalled() }, [updateState?.revision, refreshInstalled])
+  const checkUpdate = pluginUpdater ? (packageName: string) => {
+    setUpdateOpen(true)
+    if (pluginUpdater.getSnapshot().phase !== 'updating') void pluginUpdater.check(packageName)
+  } : undefined
   const searchDock = useSearchDock(page)
   const [cards, setCards] = useState<Readonly<Record<string, CardState>>>({})
   const tabsId = useId()
@@ -922,7 +938,7 @@ export function MarketSection({
   }, [])
   // One review hand-off at a time: two cards clicked back to back must not
   // open two sessions and stage two drafts.
-  const installBusy = Object.values(cards).some(card => card.status === 'busy' || card.status === 'picking')
+  const installBusy = updateState?.phase === 'updating' || Object.values(cards).some(card => card.status === 'busy' || card.status === 'picking')
 
   const report = (fullName: string, next: CardState): void => {
     cardsRef.current = { ...cardsRef.current, [fullName]: next }
@@ -1028,6 +1044,8 @@ export function MarketSection({
         onClose={closeInstallPanel} onInstalled={refreshInstalled}
         onReview={reviewInstalled} reviewBusy={installBusy} reviewAvailable={snapshot.profile !== null}
         reviewMessage={reviewResult?.status === 'error' || reviewResult?.status === 'needs-workspace' ? reviewResult.message : ''} />}
+      {pluginUpdater && updateState && <PluginUpdatePanel open={updateOpen} state={updateState} updater={pluginUpdater} t={t}
+        onClose={() => setUpdateOpen(false)} />}
       <div className="dsh_market_tabToolbar">
       <div className="dsh_market_tabs" role="tablist" aria-label={t('tabs.aria')}>
         {pages.map((entry, index) => (
@@ -1063,6 +1081,7 @@ export function MarketSection({
         <PluginsPage
           setDirectItem={setDirectItem}
           installedRevision={installedRevision}
+          onCheckUpdate={checkUpdate}
           t={t}
           english={english}
           snapshot={snapshot}

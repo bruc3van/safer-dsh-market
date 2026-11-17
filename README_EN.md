@@ -59,18 +59,18 @@ This plugin connects curated community data to the official installation service
 
 ### Official Plugins page integration and development baseline
 
-The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `0.11.0`; its declared compatibility range is listed separately below.
+The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `0.12.0`; its declared compatibility range is listed separately below.
 
 - Adds a Safe Market tab to the official Plugins page, preserving standalone navigation and the right sidebar. Older hosts without `plugins.tab` do not register the tab.
 - Reads new installation rejection `requirements` and legacy `peers`; skill discovery follows the host's committed working directory.
 - Declares `engines.dsh` and removes the retired `dsh-invariants` development dependency, keeping only an optional companion export for older profiles.
 - The data-source repository `awesome-dsh-plugin` owns generation and auditing of the official Discover format-1 index; `bruc3van.com` serves it. See [host market integration](docs/host-market.md). It does not publish files or add index sources automatically.
 
-**0.11.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
+**0.12.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
 
 | DSH host version | Plugin version | npm install target |
 | --- | --- | --- |
-| `0.2.x`, `0.1.7-rc.2` (currently supported) | `0.11.0` | `safer-dsh-market@0.11.0` |
+| `0.2.x`, `0.1.7-rc.2` (currently supported) | `0.12.0` | `safer-dsh-market@0.12.0` |
 | `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -81,7 +81,7 @@ The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The cur
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-When upgrading to `0.11.0` from an older release:
+When upgrading to `0.12.0` from an older release:
 
 - upgrade DSH to `0.1.7-rc.2` or `0.2.x` first;
 - the market switch is now saved by the host in the active profile's `cordis.patch.yml`, applied live, and kept across restarts;
@@ -92,19 +92,19 @@ When upgrading to `0.11.0` from an older release:
 The CLI examples below target DSH `0.1.7-rc.2` and **do not apply to Electron’s `desktop` profile**. Replace `<profile>` with a verified CLI-managed profile. For desktop, use the current session’s official `plugin_manager` or Electron’s official plugin management UI. Use the pinned [npm](https://www.npmjs.com/package/safer-dsh-market) version:
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.11.0
+dsh plugin --profile <profile> add safer-dsh-market@0.12.0
 ```
 
 Or hand the install to your agent — copy this prompt:
 
 ```text
-Install DSH Safe Market 0.11.0: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target safer-dsh-market@0.11.0. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
+Install DSH Safe Market 0.12.0: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target safer-dsh-market@0.12.0. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
 ```
 
 To lock to the exact version this document describes, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.11.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.12.0.tar.gz
 ```
 
 The official manager installs the dependency and registers the bundle; do not edit package.json yourself. Follow the returned outcome: applied means active, while restart-required means installed pending a restart of the current instance. Failure or overridden configuration must not be reported as active.
@@ -224,6 +224,14 @@ Skills are read from the current session’s agent scope and refreshed when the 
 The folder icon after the source directory opens that skill's own directory in the system file manager through the host's official path opener (hover to see the full path). The host first verifies the path exists on this machine; the icon is hidden when the host has no desktop, such as a headless or remote deployment.
 
 ![Skills page](./assets/screenshots/marketplace-skills.png)
+
+## Check and update installed plugins
+
+Select **Check for updates** on an Installed card, choose a target version, then **Confirm update**. Checking is read-only. The Host must provide `listVersions` / `updateBundle` (currently adapted to DSH `0.2.2-rc.3`); unsupported hosts or installation types show an explanation.
+
+- **npm**: the official manager lists newer versions and compatibility. A compatible, non-deprecated stable version is selected by default; prereleases and deprecated versions require explicit selection. Incompatible versions and non-bundles cannot be selected.
+- **Pinned Git**: checks indexes already configured in the official Discover page, matching the exact package name and accepting only versions the Host marks as updates of the same repository directory. Branches and bare community URLs do not determine updates. Missing subscriptions or candidates have distinct messages; source failures are never reported as up to date.
+- The official `updateBundle` preserves enabled state. The dialog shows progress, restart requirements, and restoration of the previous version after failure. If the connection is lost, inspect the official Plugins page before retrying; the market never automatically repeats an update. Build-script approvals or other additional actions can be handled in the official Plugins page after reading the details.
 
 ## Data source
 
