@@ -11,7 +11,7 @@ test('installed audits preserve identity and forbid mutations in every profile a
       for (const targets of [
         [{ packageName: '@acme/plugin', version: '0.5.1' }],
         [{ installReference: 'https://github.com/acme/mono#v1.0.0&path:/packages/plugin', application: 'restart-required' }],
-        [{ packageName: 'safer-dsh-market', version: '0.7.5' }],
+        [{ packageName: 'dsh-market-pro', version: '0.7.5' }],
       ]) {
         const prompt = buildReviewPrompt((key, params) => Object.entries(params ?? {}).reduce(
           (text, [key, value]) => text.replaceAll(`{${key}}`, value), dictionary[key]), { profile, targets })

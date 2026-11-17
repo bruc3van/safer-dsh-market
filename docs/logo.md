@@ -1,4 +1,4 @@
-# 安全市场 Logo
+# DSH Market Pro Logo
 
 正式资源为手工构建的 `assets/logo.svg`，不含位图、渐变、滤镜、字体或外部引用。`assets/logo.png` 是从同一 SVG 栅格化的 256 × 256 透明 PNG，便于不支持 SVG 的使用场景。
 

@@ -10,7 +10,7 @@
  */
 
 /** Stable `<style>` element id (idempotent injection across HMR re-runs). */
-export const STYLE_ID = 'safer-dsh-market-style'
+export const STYLE_ID = 'dsh-market-pro-style'
 
 /** The market tab's injected stylesheet text. */
 export const cssText = `
@@ -941,11 +941,11 @@ export function adoptStyles(): () => void {
     // The host claims every untagged stylesheet for the next materialized
     // plugin, then deletes its claimed sheets on uninstall. Mark ownership
     // before insertion so another plugin cannot claim the market's CSS.
-    tag.setAttribute('data-plugin', 'safer-dsh-market')
+    tag.setAttribute('data-plugin', 'dsh-market-pro')
     document.head.appendChild(tag)
   } else {
     // Also repair an existing tag left by a previous client module version.
-    tag.setAttribute('data-plugin', 'safer-dsh-market')
+    tag.setAttribute('data-plugin', 'dsh-market-pro')
   }
   tag[STYLE_OWNERS] = (tag[STYLE_OWNERS] ?? 0) + 1
   // Guard against a disposer that fires twice: it must not double-decrement

@@ -1,8 +1,8 @@
 /**
- * The safe-market Host Remote service (`ctx.saferMarket`, wire namespace
- * `saferMarket`). Registered as a TypertRemoteService so the Host Gateway
+ * The safe-market Host Remote service (`ctx.dshMarketPro`, wire namespace
+ * `dshMarketPro`). Registered as a TypertRemoteService so the Host Gateway
  * exports its `@Remote` methods to the Web client under
- * `/api/saferMarket/<method>`.
+ * `/api/dshMarketPro/<method>`.
  *
  * The catalog read lives here rather than in the browser for two reasons:
  * network reads share a durable cache across clients, and remote text is
@@ -23,7 +23,7 @@ export declare class SafeMarketRuntime extends TypertRemoteService {
     private readonly environment;
     private readonly installed;
     /**
-     * Register the service under the `saferMarket` key (the wire namespace).
+     * Register the service under the `dshMarketPro` key (the wire namespace).
      * @param ctx - owning cordis context.
      * @param catalog - the catalog reader.
      * @param readSettings - live settings read.

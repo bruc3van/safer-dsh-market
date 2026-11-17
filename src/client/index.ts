@@ -1,6 +1,6 @@
 /**
- * safer-dsh-market client plugin: the browser half of the safe plugin
- * marketplace. Mounts the saferMarket Remote namespace, contributes the
+ * dsh-market-pro client plugin: the browser half of the safe plugin
+ * marketplace. Mounts the dshMarketPro Remote namespace, contributes the
  * market pages to the left navigation and right sidebar, and owns the review
  * hand-off — which opens a session in the current or most recent workspace and
  * stages a security-review prompt in its composer.
@@ -62,12 +62,12 @@ export { NO_SESSION, SESSIONS_PENDING } from './SkillsView.tsx'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** The safe plugin marketplace's copy. */
-    'settings.saferMarket': SafeMarketLocaleKey
+    'settings.dshMarketPro': SafeMarketLocaleKey
   }
 }
 
 /** Dictionary namespace owned by this plugin. */
-export const NS = 'settings.saferMarket'
+export const NS = 'settings.dshMarketPro'
 
 /** Required DSH services: locale, Remote, split Controllers, navigation, and conversation. */
 export const inject = ['slots', 'locale', 'remote', 'sessions', 'workspaces', 'uiWorkspace', 'conversation']
@@ -99,7 +99,7 @@ function createMarketStore<T>(initial: T): {
   }
 }
 
-/** The mounted saferMarket namespace service's callable face. */
+/** The mounted dshMarketPro namespace service's callable face. */
 interface SafeMarketFace {
   getCatalog(force: boolean, signal?: AbortSignal): Promise<{ ok: true; value: MarketCatalogResult } | { ok: false; error: { code: string; message: string } }>
   listSkills(agentId: string, signal?: AbortSignal): Promise<{ ok: true; value: MarketSkillsResult } | { ok: false; error: { code: string; message: string } }>
@@ -128,8 +128,8 @@ function wait(ms: number): Promise<void> {
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => adoptStyles(), 'safer-dsh-market: styles')
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'safer-dsh-market: dictionaries')
+  ctx.effect(() => adoptStyles(), 'dsh-market-pro: styles')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-market-pro: dictionaries')
 
   const scope = createMarketStore({ value: defaultSettings(), profile: null as string | null, version: '' })
   let settingsGeneration = 0
@@ -139,11 +139,11 @@ export function apply(ctx: ClientContext): void {
   const navigation = ctx.get('uiWorkspace') as MarketUiWorkspace
 
   const reportError = (operation: string, error: unknown): void => {
-    console.error(`[safer-dsh-market] ${operation} failed:`, error)
+    console.error(`[dsh-market-pro] ${operation} failed:`, error)
   }
 
   // The mounted namespace handle resolves through the service store
-  // (`ctx.reflect.get`), not through `ctx.remote.saferMarket`: the dotted read
+  // (`ctx.reflect.get`), not through `ctx.remote.dshMarketPro`: the dotted read
   // walks the cordis fiber chain, which stops at the Loader's runtime-less
   // internal forks between a plugin entry and the root fiber.
   let market: SafeMarketFace | undefined
@@ -187,9 +187,9 @@ export function apply(ctx: ClientContext): void {
 
   ctx.effect(async () => {
     const dispose = await ctx.remote.$mount(SAFE_MARKET_REMOTE)
-    market = (ctx.reflect as unknown as { get(name: string): unknown }).get('remote.saferMarket') as SafeMarketFace | undefined
+    market = (ctx.reflect as unknown as { get(name: string): unknown }).get('remote.dshMarketPro') as SafeMarketFace | undefined
     if (market === undefined) {
-      throw new Error('safer-dsh-market: the saferMarket Remote namespace did not mount')
+      throw new Error('dsh-market-pro: the dshMarketPro Remote namespace did not mount')
     }
     await Promise.all([loadSettings(), loadEnvironment()])
     return () => {
@@ -197,7 +197,7 @@ export function apply(ctx: ClientContext): void {
       market = undefined
       void dispose()
     }
-  }, 'safer-dsh-market: remote')
+  }, 'dsh-market-pro: remote')
 
   // Reconnect may have rebuilt the host: the durable switch and the
   // deployment facts are re-read rather than assumed to have survived.
@@ -209,7 +209,7 @@ export function apply(ctx: ClientContext): void {
   const setEnabled = async (enabled: boolean): Promise<void> => {
     const remote = market
     if (remote === undefined) {
-      const error = new Error('the saferMarket Remote is not mounted')
+      const error = new Error('the dshMarketPro Remote is not mounted')
       reportError('settings update', error)
       throw error
     }
@@ -242,7 +242,7 @@ export function apply(ctx: ClientContext): void {
    */
   const listSkills = async (): Promise<MarketSkillsResult> => {
     const remote = market
-    if (remote === undefined) throw new Error('the saferMarket Remote is not mounted')
+    if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
     const sessions = ctx.get('sessions') as ISessions
     const snapshot = sessions.list.getSnapshot()
     // "Pending" means the first list pull has not landed yet — telling the
@@ -267,7 +267,7 @@ export function apply(ctx: ClientContext): void {
 
   const loadCatalog = async (force: boolean): Promise<MarketCatalogResult> => {
     const remote = market
-    if (remote === undefined) throw new Error('the saferMarket Remote is not mounted')
+    if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
     const result = await remote.getCatalog(force)
     if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
     return result.value
@@ -276,7 +276,7 @@ export function apply(ctx: ClientContext): void {
   /** The installed-panel verbs: local profile facts, so they need no market switch. */
   const listInstalled = async (): Promise<MarketInstalledResult> => {
     const remote = market
-    if (remote === undefined) throw new Error('the saferMarket Remote is not mounted')
+    if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
     const result = await remote.listInstalled()
     if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
     return result.value
@@ -284,7 +284,7 @@ export function apply(ctx: ClientContext): void {
 
   const setInstalledEnabled = async (packageName: string, enabled: boolean): Promise<MarketInstalledResult> => {
     const remote = market
-    if (remote === undefined) throw new Error('the saferMarket Remote is not mounted')
+    if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
     const result = await remote.setInstalledEnabled({ packageName, enabled })
     if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
     return result.value
@@ -292,7 +292,7 @@ export function apply(ctx: ClientContext): void {
 
   const uninstallInstalled = async (packageName: string): Promise<MarketInstalledResult> => {
     const remote = market
-    if (remote === undefined) throw new Error('the saferMarket Remote is not mounted')
+    if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
     const result = await remote.uninstallInstalled({ packageName })
     if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
     return result.value
@@ -397,7 +397,7 @@ export function apply(ctx: ClientContext): void {
     () => ctx.reflect.get('remote.pluginManager') as UpdateHost | undefined,
     () => ctx.reflect.get('remote.pluginMarket') as UpdateMarketHost | undefined,
   )
-  ctx.effect(() => ctx.remote.$on('plugin-manager/update-state', progress => pluginUpdater.progress(progress)), 'safer-dsh-market: update progress')
+  ctx.effect(() => ctx.remote.$on('plugin-manager/update-state', progress => pluginUpdater.progress(progress)), 'dsh-market-pro: update progress')
 
   // The Host's own path opener (the session namespace the conversation UI
   // uses for opening files). It re-verifies the path on the Host and reports

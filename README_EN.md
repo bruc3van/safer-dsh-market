@@ -1,12 +1,24 @@
-# safer-dsh-market
+# DSH Market Pro
 
-<img src="./assets/logo.svg" alt="Safer Market logo: a shield, plugin modules, and a review checkmark" width="96" height="96" />
+<img src="./assets/logo.svg" alt="DSH Market Pro logo: a shield, plugin modules, and a review checkmark" width="96" height="96" />
 
-**Discover plugins. Install what you need.**
+**Curated plugins, complete management: browse, install, update, and review with AI.**
 
 [中文](./README.md) | English
 
-A third-party plugin marketplace for DeepSeek Harness (DSH). It reads the community catalog [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin), searchable by name, package, task label, and category. Install through the host's official plugin manager, then optionally ask AI to **review the installed version**.
+A third-party plugin marketplace for DeepSeek Harness (DSH), built on the maintainer-reviewed community catalog [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin). Curated picks, browsing, installation, updates, and optional post-install AI review in one interface.
+
+## Why Pro?
+
+A `dsh-plugin` topic is a discovery signal, not an admission ticket. We verify that a repository is a DSH plugin, exclude unrelated projects and repositories using the topic for exposure, and connect discovery with everyday management:
+
+- **Curated picks**: the complete catalog is reviewed by maintainers. Subscription picks undergo additional checks of install targets, bundle declarations, and host version ranges, with a public [index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json).
+- **Practical browsing**: Featured, All, and Installed views, with categories, keyword and package search, plugin icons, pagination, and an offline cache.
+- **Managed installation**: the host's official plugin manager inspects, installs, and enables plugins, with multiple selections, component choices, permission requests, and visible outcomes.
+- **Managed updates**: check installed plugins for newer versions, inspect compatibility, and confirm an update while retaining enabled state and seeing progress, restart requirements, and restoration results.
+- **Evidence-based AI review**: optionally ask an Agent to review the actual installed version and local artifacts in the current profile, reporting risks and verification gaps for you to act on.
+
+Pro means care in catalog quality and a complete workflow. Inclusion is not a security endorsement; AI review takes place after installation and cannot prevent or undo code that has already run.
 
 ## Subscribe in DSH Discover
 
@@ -30,28 +42,22 @@ The previous URL, `https://bruc3van.com/markets/dsh/index.json`, remains support
 
 If Discover is missing, check that you are running DSH V0.2.1-rc.2 or later and that Custom plugin markets is enabled. Enabling the feature does not add this subscription automatically; you still need to add its URL.
 
-Subscribing in the official Discover tab **does not require `safer-dsh-market`**. Install this plugin separately for its standalone interface, multiple-target installation, and optional post-install AI review. Custom plugin markets and this plugin's Enable Safe Market switch are separate controls.
+Subscribing in the official Discover tab **does not require `dsh-market-pro`**. Install this plugin separately for its standalone interface, multiple-target installation, and optional post-install AI review. Custom plugin markets and this plugin's Enable DSH Market Pro switch are separate controls.
 
 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) generates the index automatically; `bruc3van.com` serves JSON through Cloudflare without redirects. The index verifies npm metadata and Git bundles pinned to full commits, including bundle declarations, timestamps, and explicit host compatibility ranges. Up to 2000 verified plugins are selected by Star count, with categories, featured labels, and npm weekly-download sorting. This is a subset of the repository catalog, and inclusion is not a security audit or proof of runtime compatibility.
 
-[DSH Plugin Directory and subscription guide](https://bruc3van.com/dsh-plugins/#subscribe) · [Index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/safer-dsh-market)
+[DSH Plugin Directory and subscription guide](https://bruc3van.com/dsh-plugins/#subscribe) · [Index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/dsh-market-pro)
 
 > [!IMPORTANT]
-> **The package has been renamed from `dsh-desktop-safe-market` to `safer-dsh-market`**, and the GitHub repository is now [`bruc3van/safer-dsh-market`](https://github.com/bruc3van/safer-dsh-market). The old package does not upgrade to the new one automatically. To migrate: disable the old plugin → install and enable the new one → reapply your configuration as needed. Cache and pending-removal records keep their original storage paths; nothing needs migrating.
+> **Starting with 1.0.0, the plugin is DSH Market Pro and its package is `dsh-market-pro`**, with repository links pointing to [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro). Previous package names were `safer-dsh-market` and, before that, `dsh-desktop-safe-market`; neither upgrades to the new package automatically. To migrate: disable the old plugin → install and enable `dsh-market-pro@1.0.0` → reapply your configuration as needed. Cache and pending-removal records retain their original storage identifiers.
 
-![Safe Market](./assets/screenshots/marketplace.png)
-
-## Why it exists
-
-Installing a plugin means running someone else's code on your machine. An ordinary catalog answers *which plugins exist*; *is this one safe* — the thing you are actually betting on when you click install — stays unanswered.
-
-This plugin connects curated community data to the official installation services: find plugins by what they do and install them directly, then optionally review the installed artifacts with AI. A later review cannot prevent execution at installation time.
+![DSH Market Pro](./assets/screenshots/marketplace.png)
 
 ## Features
 
 - **Plugin market**: opens on the editor's picks; browse, search, and filter curated plugins by category, with manual data refresh and an offline cache.
 - **Direct installation with optional review**: install through the official `pluginManager`, then stage a read-only audit from the result or an Installed card.
-- **Installed panel**: see this profile's plugins, disable/enable them instantly, or uninstall.
+- **Installed panel**: see this profile's plugins, check for updates, disable/enable them instantly, or uninstall.
 - **Skills page**: list the skills the current session can use, with their source and invocation policy, and open a skill's folder in one click.
 - **Catalog access is opt-in**: the community catalog is not fetched before you enable the market. This does not control networking by the host or other plugins.
 
@@ -59,18 +65,18 @@ This plugin connects curated community data to the official installation service
 
 ### Official Plugins page integration and development baseline
 
-The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `0.13.0`; its declared compatibility range is listed separately below.
+The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `1.0.0`; its declared compatibility range is listed separately below.
 
-- Adds a Safe Market tab to the official Plugins page, preserving standalone navigation and the right sidebar. Older hosts without `plugins.tab` do not register the tab.
+- Adds a DSH Market Pro tab to the official Plugins page, preserving standalone navigation and the right sidebar. Older hosts without `plugins.tab` do not register the tab.
 - Reads new installation rejection `requirements` and legacy `peers`; skill discovery follows the host's committed working directory.
 - Declares `engines.dsh` and removes the retired `dsh-invariants` development dependency, keeping only an optional companion export for older profiles.
 - The data-source repository `awesome-dsh-plugin` owns generation and auditing of the official Discover format-1 index; `bruc3van.com` serves it. See [host market integration](docs/host-market.md). It does not publish files or add index sources automatically.
 
-**0.13.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
+**1.0.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
 
 | DSH host version | Plugin version | npm install target |
 | --- | --- | --- |
-| `0.2.x`, `0.1.7-rc.2` (currently supported) | `0.13.0` | `safer-dsh-market@0.13.0` |
+| `0.2.x`, `0.1.7-rc.2` (currently supported) | `1.0.0` | `dsh-market-pro@1.0.0` |
 | `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -81,7 +87,7 @@ The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The cur
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-When upgrading to `0.13.0` from an older release:
+When upgrading to `1.0.0` from an older release:
 
 - upgrade DSH to `0.1.7-rc.2` or `0.2.x` first;
 - the market switch is now saved by the host in the active profile's `cordis.patch.yml`, applied live, and kept across restarts;
@@ -89,22 +95,22 @@ When upgrading to `0.13.0` from an older release:
 
 ## Install
 
-The CLI examples below target DSH `0.1.7-rc.2` and **do not apply to Electron’s `desktop` profile**. Replace `<profile>` with a verified CLI-managed profile. For desktop, use the current session’s official `plugin_manager` or Electron’s official plugin management UI. Use the pinned [npm](https://www.npmjs.com/package/safer-dsh-market) version:
+The CLI examples below target DSH `0.1.7-rc.2` and **do not apply to Electron’s `desktop` profile**. Replace `<profile>` with a verified CLI-managed profile. For desktop, use the current session’s official `plugin_manager` or Electron’s official plugin management UI. Use the pinned [npm](https://www.npmjs.com/package/dsh-market-pro) version:
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.13.0
+dsh plugin --profile <profile> add dsh-market-pro@1.0.0
 ```
 
 Or hand the install to your agent — copy this prompt:
 
 ```text
-Install DSH Safe Market 0.13.0: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target safer-dsh-market@0.13.0. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
+Install DSH Market Pro 1.0.0: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target dsh-market-pro@1.0.0. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
 ```
 
 To lock to the exact version this document describes, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.13.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.0.0.tar.gz
 ```
 
 The official manager installs the dependency and registers the bundle; do not edit package.json yourself. Follow the returned outcome: applied means active, while restart-required means installed pending a restart of the current instance. Failure or overridden configuration must not be reported as active.
@@ -115,7 +121,7 @@ The browser and the desktop client see the same market data when connected to th
 
 ### 1. Enable the market
 
-The market ships **off**: the page shows one explanatory card and an **Enable Safe Market** button.
+The market ships **off**: the page shows one explanatory card and an **Enable DSH Market Pro** button.
 
 Enabling the market allows community catalog requests. The host saves the setting across restarts. The page has no Disable button; use the host’s supported configuration controls to set enabled to false if you want to stop catalog access.
 
@@ -123,8 +129,8 @@ Enabling the market allows community catalog requests. The host saves the settin
 
 | Entry | Where | Requires |
 | --- | --- | --- |
-| Left navigation | **Safe Market**, below New Session and above Workspaces; browse in the main area | DSH global panel and sidebar navigation slots |
-| Right sidebar | Open a session → expand the right sidebar → choose **Safe Market** on the Start page | The right Sidebar service |
+| Left navigation | **DSH Market Pro**, below New Session and above Workspaces; browse in the main area | DSH global panel and sidebar navigation slots |
+| Right sidebar | Open a session → expand the right sidebar → choose **DSH Market Pro** on the Start page | The right Sidebar service |
 
 Both entries share the switch and all operations; Settings no longer carries a duplicate entry.
 
@@ -137,7 +143,7 @@ Both entries share the switch and all operations; Settings no longer carries a d
 - **Plugin logos**: display each subscription plugin's own image and reuse it on associated repository cards. Images load lazily and fall back to initials. Titles, package identities, and categories have separate visual hierarchy.
 - **Plugin cards**: show category, author, and last update date; cards in a list share one height with their buttons aligned along the bottom. An installed plugin is marked **Installed vX** and its button reads **Manage**, which opens the Installed view.
 - **Refresh data**: the upper-right action fetches the latest catalog and blocks repeat clicks while it runs.
-- **More actions (⋯)**: [GitHub repository](https://github.com/bruc3van/safer-dsh-market), [contact the author](https://x.com/bruc3van).
+- **More actions (⋯)**: [GitHub repository](https://github.com/bruc3van/dsh-market-pro), [contact the author](https://x.com/bruc3van).
 - **Scrolling**: the heading, tabs, search, and filters stay fixed while cards scroll. In panels at least 440px wide, scrolling down on the Plugins or Skills page docks the search box beside the tabs; scrolling back up or reaching the top restores it.
 - **Back to top**: after roughly half a screen (at least 240px) a button appears in the lower right; reduced-motion preferences are respected.
 
@@ -178,7 +184,7 @@ The audit verifies the current instance, profile, actual local package, exact ve
 
 ### Updates
 
-The official plugin manager has no update action yet and refuses to install a package that is already installed, so the market offers no update entry for now: a catalog card for an installed plugin shows **Manage**, which opens the Installed view. To update, reinstall with an explicit version as described in the installation section above. An Installed card's **AI review** checks the current version without updating it.
+An installed catalog card shows **Manage**, which opens Installed. Select **Check for updates**, choose a version, and confirm. Updates use the official host APIs; see [Check and update installed plugins](#check-and-update-installed-plugins) for supported installations, version selection, and failure handling. **AI review** checks the currently installed version without updating it.
 
 ## Installed panel
 
@@ -291,7 +297,7 @@ Use the host’s supported configuration controls. A standard CLI profile uses `
 ## Known limitations
 
 - **Skills are read-only for now**: the market currently provides no skill installation action.
-- **No updates yet**: the official plugin manager has no update action, so the market offers no update entry (see Updates).
+- **Updates require host support**: the host must provide `listVersions` / `updateBundle`; built-in, local, or unpinned Git installations may require their original installer.
 - **Review requires readable evidence**: if the session cannot read the installed files, it must report verification gaps. AI review is not a safety guarantee.
 
 ## Development
@@ -306,9 +312,9 @@ pnpm run check      # typecheck, build, then tests; some tests read the built ar
 ### Releasing
 
 1. Bump the version together in `package.json`, `dsh.plugin.json`, and the install commands and tarball URLs in both READMEs. The version gate in `pnpm test` (`test/version.test.ts`) checks these, and CI (`.github/workflows/check.yml`) runs the same checks on every push and PR.
-2. Push a `vX.Y.Z` tag. CI (`.github/workflows/release.yml`) creates the GitHub Release and publishes to [npm](https://www.npmjs.com/package/safer-dsh-market) via Trusted Publishing — no manual `npm publish`.
+2. Push a `vX.Y.Z` tag. CI (`.github/workflows/release.yml`) creates the GitHub Release and publishes to [npm](https://www.npmjs.com/package/dsh-market-pro) via Trusted Publishing — no manual `npm publish`.
 
-Before the first release, register this repository's `release.yml` as a Trusted Publisher in the npm package settings (user `bruc3van`, repo `safer-dsh-market`, workflow filename `release.yml`, allow `npm publish`). Because of the rename, `safer-dsh-market` needs this set up on its own.
+The first publication of a new package requires a maintainer login and `npm publish --access public` before its Trusted Publisher can be configured (user `bruc3van`, repo `dsh-market-pro`, workflow filename `release.yml`, allow `npm publish`). The old package's configuration does not carry over. The tag workflow skips an existing version only when its package integrity exactly matches the current pack; different contents fail the release. Subsequent new versions publish through the workflow. After verifying that the new package is installable, update external directory references and the old package's migration notice.
 
 ## Related projects
 

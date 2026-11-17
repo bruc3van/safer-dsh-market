@@ -7,8 +7,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import { MarketSection, type MarketSectionInjected } from './MarketSection.tsx'
 
-export const MARKET_TAB_ID = 'safer-dsh-market'
-const NS = 'settings.saferMarket'
+export const MARKET_TAB_ID = 'dsh-market-pro'
+const NS = 'settings.dshMarketPro'
 
 type MarketSidebarProps = PropsRuntime<'sidebar.right.pane.tab'>
   & InjectFace<MarketSectionInjected> & PropsLocale<typeof NS>
@@ -50,7 +50,7 @@ export function registerMarketPluginTab(ctx: Context, injectMarket: () => Market
         const { install, ...market } = injectMarket()
         return { ...market, stageReview: install, close: () => panelCtx.layout.selectPanel(null) }
       },
-    }, MarketPluginTab)), 'safe-market: plugins tab')
+    }, MarketPluginTab)), 'dsh-market-pro: plugins tab')
   })
 }
 
@@ -67,7 +67,7 @@ export function registerMarketNavigation(ctx: Context, injectMarket: () => Marke
         name: 'sidebar.panellist', id: MARKET_TAB_ID, order: 60, label: () => t('nav'),
       }, MarketIcon))
       return () => { disposeRow(); disposeMain() }
-    }), 'safe-market: left navigation')
+    }), 'dsh-market-pro: left navigation')
   })
 }
 
@@ -88,9 +88,9 @@ export function registerMarketSidebar(ctx: Context, injectMarket: () => MarketSe
       title: () => t('nav'),
       guide: [{ id: MARKET_TAB_ID, order: 60, title: () => t('nav'), description: () => t('sidebar.description'), icon: MarketIcon }],
     }
-    sidebarCtx.effect(() => sidebarCtx.sidebarRightTabs.register(definition), 'safe-market: sidebar type')
+    sidebarCtx.effect(() => sidebarCtx.sidebarRightTabs.register(definition), 'dsh-market-pro: sidebar type')
     sidebarCtx.effect(() => sidebarCtx.slots.inject('sidebar.right.pane.tab', () => sidebarCtx.slots.register({
       name: 'sidebar.right.pane.tab', key: MARKET_TAB_ID, locale: NS, inject: injectMarket,
-    }, MarketSidebar)), 'safe-market: sidebar body')
+    }, MarketSidebar)), 'dsh-market-pro: sidebar body')
   })
 }

@@ -11,8 +11,8 @@ export function registerSafeMarketSettings(ctx: Context, config: Config): {
   update(patch: SafeMarketSettings): Promise<void>
 } {
   const entryId = ctx.fiber.entry?.options.id
-  if (entryId === undefined) throw new Error('Safe Market settings require a profile entry')
-  ctx.effect(() => ctx.settings.configure({ auto: false }, ctx.fiber), 'safe-market: settings page')
+  if (entryId === undefined) throw new Error('DSH Market Pro settings require a profile entry')
+  ctx.effect(() => ctx.settings.configure({ auto: false }, ctx.fiber), 'dsh-market-pro: settings page')
   return {
     get: () => ({ enabled: config.enabled.get() }),
     update: patch => ctx.settings.update(entryId, patch),

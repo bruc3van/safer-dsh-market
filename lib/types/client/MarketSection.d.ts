@@ -111,6 +111,6 @@ export interface MarketSectionInjected {
 /** Full section props: runtime share + injected face + locale seat. */
 export type MarketSectionProps = {
     close: () => void;
-} & InjectFace<MarketSectionInjected> & PropsLocale<'settings.saferMarket'>;
+} & InjectFace<MarketSectionInjected> & PropsLocale<'settings.dshMarketPro'>;
 /** The Marketplace section. */
 export declare function MarketSection({ useScope, setEnabled, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t, }: MarketSectionProps): ReactElement;

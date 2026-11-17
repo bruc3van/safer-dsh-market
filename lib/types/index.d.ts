@@ -1,5 +1,5 @@
 /**
- * safer-dsh-market host plugin: the package entry, and deliberately
+ * dsh-market-pro host plugin: the package entry, and deliberately
  * nothing more than a guard around the real body in `./plugin.ts`.
  *
  * The market is seated into a profile that ANY dsh installation may boot —
@@ -24,12 +24,12 @@
  *
  * `name`, `inject` and `Config` stay here because the Loader reads them
  * before deciding to load anything at all.
- * @module safer-dsh-market
+ * @module dsh-market-pro
  */
 import type { Context, Volatile } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
 /** Cordis plugin name (the Loader entry and client bundle id). */
-export declare const name = "safer-dsh-market";
+export declare const name = "dsh-market-pro";
 /**
  * Services required before load. `skills` and `storageDomain` join the
  * settings and Typert seats: the market lists what this deployment can

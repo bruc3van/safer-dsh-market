@@ -1,5 +1,5 @@
 /**
- * safer-dsh-market host plugin: the package entry, and deliberately
+ * dsh-market-pro host plugin: the package entry, and deliberately
  * nothing more than a guard around the real body in `./plugin.ts`.
  *
  * The market is seated into a profile that ANY dsh installation may boot —
@@ -24,7 +24,7 @@
  *
  * `name`, `inject` and `Config` stay here because the Loader reads them
  * before deciding to load anything at all.
- * @module safer-dsh-market
+ * @module dsh-market-pro
  */
 import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -107,7 +107,7 @@ export function apply(ctx: Context, config?: Config): void {
   // not remote text, so this is defence in depth — and the market declines
   // rather than staging a command aimed at something it cannot name.
   if (resolved.profile !== '' && !PROFILE_NAME_PATTERN.test(resolved.profile)) {
-    console.error('[safer-dsh-market] refusing to start: the configured profile name '
+    console.error('[dsh-market-pro] refusing to start: the configured profile name '
       + `${JSON.stringify(resolved.profile)} is not a plain profile name, and it would be interpolated `
       + 'into the install command this market stages for review')
     return
@@ -127,7 +127,7 @@ export function apply(ctx: Context, config?: Config): void {
       // One line, then out of the way. This is the runtime saying it is not
       // the one this build was made for; every other plugin is unaffected,
       // which is the only outcome that matters here.
-      console.warn('[safer-dsh-market] this dsh runtime cannot load the marketplace, skipping it:',
+      console.warn('[dsh-market-pro] this dsh runtime cannot load the marketplace, skipping it:',
         error instanceof Error ? error.message : String(error))
       return () => {}
     }
@@ -140,9 +140,9 @@ export function apply(ctx: Context, config?: Config): void {
       // fine, which is the one thing that message would have ruled out. The
       // whole error goes out, stack included: nobody is coming back to
       // reproduce this.
-      console.error('[safer-dsh-market] the marketplace failed to start on a runtime that loaded it; '
+      console.error('[dsh-market-pro] the marketplace failed to start on a runtime that loaded it; '
         + 'this is a fault in the marketplace, not in the runtime:', error)
       return () => {}
     }
-  }, 'safer-dsh-market: load')
+  }, 'dsh-market-pro: load')
 }

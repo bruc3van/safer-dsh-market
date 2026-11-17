@@ -14,7 +14,7 @@
  *
  * Anything added here must stay importable by the entry: no dependencies, no
  * module-scope work beyond a literal.
- * @module safer-dsh-market/shapes
+ * @module dsh-market-pro/shapes
  */
 
 /**
@@ -24,7 +24,7 @@
  * bundle in behind it, and the entry must stay free of anything the body
  * reaches.
  */
-export const PACKAGE_NAME = 'safer-dsh-market'
+export const PACKAGE_NAME = 'dsh-market-pro'
 
 /** Logos render only as image elements, from inline image data or HTTPS. */
 export function isMarketIcon(value: string): boolean {

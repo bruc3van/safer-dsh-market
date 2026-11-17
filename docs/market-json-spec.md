@@ -1,4 +1,4 @@
-# 安全市场消费协议
+# DSH Market Pro消费协议
 
 ## 默认 schema 3：market-catalog.json
 

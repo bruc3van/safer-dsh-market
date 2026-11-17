@@ -1,8 +1,8 @@
 /**
- * The safe-market Host Remote service (`ctx.saferMarket`, wire namespace
- * `saferMarket`). Registered as a TypertRemoteService so the Host Gateway
+ * The safe-market Host Remote service (`ctx.dshMarketPro`, wire namespace
+ * `dshMarketPro`). Registered as a TypertRemoteService so the Host Gateway
  * exports its `@Remote` methods to the Web client under
- * `/api/saferMarket/<method>`.
+ * `/api/dshMarketPro/<method>`.
  *
  * The catalog read lives here rather than in the browser for two reasons:
  * network reads share a durable cache across clients, and remote text is
@@ -27,7 +27,7 @@ import type {
 /** Market service: the reduced catalog, the plugin's durable settings, and the installed-panel verbs. */
 export class SafeMarketRuntime extends TypertRemoteService {
   /**
-   * Register the service under the `saferMarket` key (the wire namespace).
+   * Register the service under the `dshMarketPro` key (the wire namespace).
    * @param ctx - owning cordis context.
    * @param catalog - the catalog reader.
    * @param readSettings - live settings read.
@@ -43,7 +43,7 @@ export class SafeMarketRuntime extends TypertRemoteService {
     private readonly environment: MarketEnvironment,
     private readonly installed: InstalledManager,
   ) {
-    super(ctx, 'saferMarket')
+    super(ctx, 'dshMarketPro')
   }
 
   /**
@@ -96,7 +96,7 @@ export class SafeMarketRuntime extends TypertRemoteService {
   @Remote
   async getCatalog(force: boolean, signal: AbortSignal): Promise<MarketCatalogResult> {
     if (!this.readSettings().enabled) {
-      throw new Error('Safe Market is disabled in Settings')
+      throw new Error('DSH Market Pro is disabled in Settings')
     }
     return await this.catalog.read(force, signal)
   }

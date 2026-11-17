@@ -1,9 +1,9 @@
 /**
- * The market's actual body: mounts the `saferMarket` Typert Remote service
+ * The market's actual body: mounts the `dshMarketPro` Typert Remote service
  * (the reduced community plugin catalog, the deployment's resolvable skills,
  * and the market's own durable settings) and registers its strict Typert
  * manifest. The client half ships in the same package (`./client`); the web
- * server serves it under /plugins/safer-dsh-market/client.js.
+ * server serves it under /plugins/dsh-market-pro/client.js.
  *
  * The client can use the official pluginManager Remote for direct installs,
  * or stage a review prompt. This service owns the catalog and legacy management.
@@ -16,7 +16,7 @@
  * plugins and any CLI sharing the profile down with the market. So `index.ts`
  * imports this file dynamically, inside a guard: an incompatible runtime
  * costs the market and nothing else. See the note there.
- * @module safer-dsh-market/plugin
+ * @module dsh-market-pro/plugin
  */
 import type {} from '@deepseek-ai/dsh-app-boot'
 import { resolveActiveProfile } from './activeProfile.ts'
@@ -57,7 +57,7 @@ function readSelfVersion(): string {
     const manifest = createRequire(import.meta.url)('../package.json') as { version?: unknown }
     return typeof manifest.version === 'string' ? manifest.version : ''
   } catch (error) {
-    console.warn('[safer-dsh-market] could not read own version:', error)
+    console.warn('[dsh-market-pro] could not read own version:', error)
     return ''
   }
 }
@@ -134,7 +134,7 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
         // Durability is an optimization, and a failed write must not take the
         // market down with it — the reduction is still in memory either way.
         void domain.global.set(next).catch((error: unknown) => {
-          console.warn('[safer-dsh-market] catalog cache write failed:', error)
+          console.warn('[dsh-market-pro] catalog cache write failed:', error)
         })
       }
       const stored = domain.global.get()
@@ -167,13 +167,13 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
       // A damaged or version-mismatched store must not take the market down
       // with it: the catalog and the skills page still run from memory, and
       // the next successful read simply cannot survive the restart.
-      console.warn('[safer-dsh-market] catalog cache unavailable, running memory-only:', error)
+      console.warn('[dsh-market-pro] catalog cache unavailable, running memory-only:', error)
       // The pending-uninstall seat is a file, not this domain: the sweep still
       // runs and takes last session's stop rows back out of the patch layer.
       await installed.sweep()
       return () => { persist = undefined }
     }
-  }, 'safer-dsh-market: catalog cache')
+  }, 'dsh-market-pro: catalog cache')
 
   const catalog = createCatalogSource({ base: resolved.catalogBase, marketSize: resolved.marketSize, cache })
   new SafeMarketRuntime(
@@ -191,7 +191,7 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
   ctx.effect(() => {
     const dispose = ctx.typert.register(TYPERT_MANIFEST)
     return () => { void dispose() }
-  }, 'safer-dsh-market: typert manifest')
+  }, 'dsh-market-pro: typert manifest')
 
   // Everything above is owned by `ctx` and torn down with the fiber; the
   // entry's effect seat needs a disposer, not a second teardown path.

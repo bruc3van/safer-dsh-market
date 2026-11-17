@@ -72,7 +72,7 @@ test('a runtime that cannot load the body loses the market and nothing else', as
       inject: string[]
       apply: (ctx: unknown, config?: unknown) => void
     }
-    assert.equal(module.name, 'safer-dsh-market')
+    assert.equal(module.name, 'dsh-market-pro')
     // The Loader reads these before deciding to load anything; they must
     // survive on a runtime whose body will not load.
     assert.deepEqual(module.inject, ['typert', 'settings', 'skills', 'storageDomain', 'loader'])

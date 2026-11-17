@@ -1,6 +1,6 @@
 /**
- * Package-owned invariant companion for `safer-dsh-market`.
- * @module safer-dsh-market/invariant
+ * Package-owned invariant companion for `dsh-market-pro`.
+ * @module dsh-market-pro/invariant
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -11,10 +11,10 @@ interface LegacyInvariants {
   register(name: string, install: () => void): () => void
 }
 
-const PACKAGE_NAME = 'safer-dsh-market'
+const PACKAGE_NAME = 'dsh-market-pro'
 
 /** Cordis companion plugin name. */
-export const name = 'safer-dsh-market-invariant'
+export const name = 'dsh-market-pro-invariant'
 /** Service required before the companion can reserve package ownership. */
 export const inject = ['invariants']
 

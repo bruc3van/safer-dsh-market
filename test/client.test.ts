@@ -122,7 +122,7 @@ test('every class the stylesheet defines is namespaced to this plugin', () => {
   for (const selector of cssText.match(/\.[A-Za-z_][\w-]*/g) ?? []) {
     assert.ok(selector.startsWith('.dsh_market'), `${selector} is not namespaced`)
   }
-  assert.equal(STYLE_ID, 'safer-dsh-market-style')
+  assert.equal(STYLE_ID, 'dsh-market-pro-style')
 })
 
 test('one overlapping client module cannot remove another module copy\'s stylesheet', async () => {
@@ -180,7 +180,7 @@ test('third-party module claiming and uninstall cannot take the market styleshee
     getElementById: (id: string) => tags.get(id) ?? null,
     createElement: createTag,
     head: { appendChild(tag: ReturnType<typeof createTag>) {
-      assert.equal(tag.getAttribute('data-plugin'), 'safer-dsh-market', 'ownership must exist before insertion')
+      assert.equal(tag.getAttribute('data-plugin'), 'dsh-market-pro', 'ownership must exist before insertion')
       tags.set(tag.id, tag)
     } },
   } })
@@ -206,7 +206,7 @@ test('third-party module claiming and uninstall cannot take the market styleshee
     // A module upgrade also corrects a sheet misclaimed by the old version.
     sheet.setAttribute('data-plugin', thirdParty)
     const disposeSecond = adoptStyles()
-    assert.equal(sheet.getAttribute('data-plugin'), 'safer-dsh-market')
+    assert.equal(sheet.getAttribute('data-plugin'), 'dsh-market-pro')
     dispose()
     assert.equal(tags.get(STYLE_ID), sheet)
     disposeSecond()

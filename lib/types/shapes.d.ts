@@ -14,7 +14,7 @@
  *
  * Anything added here must stay importable by the entry: no dependencies, no
  * module-scope work beyond a literal.
- * @module safer-dsh-market/shapes
+ * @module dsh-market-pro/shapes
  */
 /**
  * This package's name, and with it the cordis plugin name, the client bundle
@@ -23,7 +23,7 @@
  * bundle in behind it, and the entry must stay free of anything the body
  * reaches.
  */
-export declare const PACKAGE_NAME = "safer-dsh-market";
+export declare const PACKAGE_NAME = "dsh-market-pro";
 /** Logos render only as image elements, from inline image data or HTTPS. */
 export declare function isMarketIcon(value: string): boolean;
 /**

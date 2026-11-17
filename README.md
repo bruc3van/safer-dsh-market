@@ -1,12 +1,24 @@
-# safer-dsh-market
+# DSH Market Pro
 
-<img src="./assets/logo.svg" alt="安全市场 Logo：盾牌、插件模块与审查勾选标记" width="96" height="96" />
+<img src="./assets/logo.svg" alt="DSH Market Pro Logo：盾牌、插件模块与审查勾选标记" width="96" height="96" />
 
-**发现插件，按需安装。**
+**精选插件，专业管理：浏览、安装、更新、AI 审查。**
 
 中文 | [English](./README_EN.md)
 
-DeepSeek Harness（DSH）的第三方插件市场。数据来自社区推荐目录 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin)，可按名称、包名、功能标签和分类搜索；通过宿主官方插件管理器**直接安装**，安装后可选择 **AI 审查已安装版本**。
+DeepSeek Harness（DSH）的第三方插件市场。基于人工核实的社区目录 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin)，把插件精选、浏览、安装、更新和安装后 AI 审查放在同一个界面。
+
+## 为什么是 Pro？
+
+给仓库打上 `dsh-plugin` 标签只是发现线索，不能直接成为收录资格。我们先核实它是不是 DSH 插件，剔除蹭标签和非插件仓库，再把发现与日常管理接起来：
+
+- **精选有依据**：完整目录经过人工核实；精选订阅进一步核实安装目标、bundle 声明和宿主版本范围，并公开[索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json)。
+- **浏览更省事**：精选、全部、已安装分区，支持分类、关键词、包名搜索、插件图标、分页和离线缓存。
+- **安装有流程**：通过宿主官方插件管理器检查、安装和启用，支持多选与多组件安装，显示授权要求和执行结果。
+- **更新有管理**：检查已安装插件的新版本，查看兼容性并确认更新，保留启用状态，展示进度、重启要求和失败恢复结果。
+- **AI 审查有证据**：安装后可把当前 profile、实际版本和本地产物交给 Agent 做只读审查，报告风险与未核实项，由你决定后续处理。
+
+Pro 体现在目录质量和完整使用流程。收录核实不等于安全背书；AI 审查是安装后的辅助检查，不能阻止或撤销插件已经发生的执行。
 
 ## 订阅到 DSH 官方「发现」页
 
@@ -30,22 +42,16 @@ https://bruc3van.com/dsh-plugins/index.json
 
 如果没有看到「发现」，请先检查 DSH 是否为 V0.2.1-rc.2 及以上版本，以及「自定义插件市场」是否已开启。只开启功能还不会自动添加本订阅源，仍需完成上面的添加步骤。
 
-仅订阅官方「发现」页**无需安装 `safer-dsh-market`**；如需独立市场界面、多选安装和安装后 AI 审查，可另行安装市场插件。开启「自定义插件市场」与本插件自己的「启用安全市场」开关是两个不同入口。
+仅订阅官方「发现」页**无需安装 `dsh-market-pro`**；如需独立市场界面、多选安装和安装后 AI 审查，可另行安装市场插件。开启「自定义插件市场」与本插件自己的「启用 DSH Market Pro」开关是两个不同入口。
 
 索引由 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) 自动生成，通过 Cloudflare 上的 `bruc3van.com` 提供无重定向 JSON。收录经过核实的 npm 目标及固定完整提交的 Git 组合包，核实 bundle 声明、时间及官方宿主兼容范围规则，按 Star 选取最多 2000 项，并提供分类、推荐标签与 npm 周下载量排序，因此不是完整仓库目录；收录不代表安全审查或实机兼容保证。
 
-[DSH 插件导航与订阅指南](https://bruc3van.com/dsh-plugins/#subscribe) · [查看索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json) · [最新版市场插件](https://www.npmjs.com/package/safer-dsh-market)
+[DSH 插件导航与订阅指南](https://bruc3van.com/dsh-plugins/#subscribe) · [查看索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json) · [最新版市场插件](https://www.npmjs.com/package/dsh-market-pro)
 
 > [!IMPORTANT]
-> **包名已从 `dsh-desktop-safe-market` 更名为 `safer-dsh-market`**，GitHub 仓库同步更名为 [`bruc3van/safer-dsh-market`](https://github.com/bruc3van/safer-dsh-market)。旧包不会自动升级为新包。迁移步骤：停用旧插件 → 安装并启用新插件 → 按需重新设置原来的配置。缓存和待卸载记录沿用原存储路径，无需迁移。
+> **从 1.0.0 起，插件名为 DSH Market Pro，包名为 `dsh-market-pro`**，仓库地址使用 [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro)。此前的包名为 `safer-dsh-market`，更早为 `dsh-desktop-safe-market`；旧包不会自动升级为新包。迁移步骤：停用旧插件 → 安装并启用 `dsh-market-pro@1.0.0` → 按需重新设置原来的配置。缓存和待卸载记录沿用原存储标识。
 
-![安全市场](./assets/screenshots/marketplace.png)
-
-## 为什么需要它
-
-装插件，本质上是在自己的机器上运行别人写的代码。普通目录只回答「有哪些插件」，而「这个插件安全吗」——你点下安装那一刻真正在赌的问题——始终没人回答。
-
-这个插件把社区推荐数据和官方安装能力连在一起：按用途发现插件，确认后直接安装；安装后可选择只读 AI 审查，检查潜在风险。事后审查不能阻止插件在安装启用时执行。
+![DSH Market Pro](./assets/screenshots/marketplace.png)
 
 ## 功能一览
 
@@ -59,18 +65,18 @@ https://bruc3van.com/dsh-plugins/index.json
 
 ### 官方插件页接入与开发基线
 
-上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `0.13.0`，具体兼容范围见下表。
+上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `1.0.0`，具体兼容范围见下表。
 
-- 增加官方「插件」页的「安全市场」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
+- 增加官方「插件」页的「DSH Market Pro」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
 - 接受新版安装拒绝信息的 `requirements`，并保留旧版 `peers`；技能列表使用宿主当前工作目录。
 - 显式声明 `engines.dsh`，移除已退役 `dsh-invariants` 的开发依赖；仅为旧 profile 保留可选 companion 导出。
 - 官方「发现」页 format-1 索引由数据源仓库 `awesome-dsh-plugin` 生成和审计，通过 `bruc3van.com` 分发。使用说明见 [官方市场接入](docs/host-market.md)。它不会自动添加索引源或发布文件。
 
-**0.13.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+**1.0.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.13.0` | `safer-dsh-market@0.13.0` |
+| `0.2.x`、`0.1.7-rc.2`（当前适配） | `1.0.0` | `dsh-market-pro@1.0.0` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -81,7 +87,7 @@ https://bruc3van.com/dsh-plugins/index.json
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-从旧版升级到 `0.13.0` 的注意事项：
+从旧版升级到 `1.0.0` 的注意事项：
 
 - 先把 DSH 升级到 `0.1.7-rc.2` 或 `0.2.x`；
 - 市场开关现由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效、重启后保留；
@@ -89,22 +95,22 @@ dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 
 ## 安装
 
-以下 CLI 示例仅适用于可由 CLI 管理的 profile，**不适用于 Electron 的 `desktop`**。将 `<profile>` 替换为已核实的实际名称。推荐从 [npm](https://www.npmjs.com/package/safer-dsh-market) 安装指定版本：
+以下 CLI 示例仅适用于可由 CLI 管理的 profile，**不适用于 Electron 的 `desktop`**。将 `<profile>` 替换为已核实的实际名称。推荐从 [npm](https://www.npmjs.com/package/dsh-market-pro) 安装指定版本：
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.13.0
+dsh plugin --profile <profile> add dsh-market-pro@1.0.0
 ```
 
 也可以把安装交给你的 Agent，复制这段提示词发过去：
 
 ```text
-帮我安装 DSH 安全市场 0.13.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.13.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
+帮我安装 DSH Market Pro 1.0.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 dsh-market-pro@1.0.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
 ```
 
 需要锁定到本文档对应版本时，使用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.13.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.0.0.tar.gz
 ```
 
 官方管理器负责安装依赖和登记插件，无需手工修改 `package.json`。按返回结果判断是否需要重启：`applied` 表示已生效，`restart-required` 表示安装完成但需重启当前实例；失败或配置覆盖不能当作已生效。
@@ -115,7 +121,7 @@ dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/
 
 ### 1. 启用市场
 
-市场默认是**关闭**的，页面上只有一张说明卡片和「启用安全市场」按钮。
+市场默认是**关闭**的，页面上只有一张说明卡片和「启用 DSH Market Pro」按钮。
 
 启用后才会联网读取社区目录。开关由宿主持久化，重启后保留；页面没有「停用市场」按钮。如需关闭目录读取，可通过宿主支持的配置方式将 `enabled` 设为 `false`。
 
@@ -123,8 +129,8 @@ dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/
 
 | 入口 | 位置 | 依赖 |
 | --- | --- | --- |
-| 左侧导航 | 「新会话」下方、「工作区」上方的「安全市场」，在主区域浏览 | DSH 全局面板及侧栏导航插槽 |
-| 右侧栏 | 打开会话 → 「打开右侧边栏」→「开始」页选择「安全市场」 | 右侧 Sidebar 服务 |
+| 左侧导航 | 「新会话」下方、「工作区」上方的「DSH Market Pro」，在主区域浏览 | DSH 全局面板及侧栏导航插槽 |
+| 右侧栏 | 打开会话 → 「打开右侧边栏」→「开始」页选择「DSH Market Pro」 | 右侧 Sidebar 服务 |
 
 两个入口共用开关和操作逻辑，设置页不再重复提供入口。
 
@@ -137,7 +143,7 @@ dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/
 - **插件 Logo**：精选使用订阅里插件自己的 Logo，关联仓库卡片复用图标；图片懒加载，无图或加载失败显示首字母。标题、包名和分类分层显示。
 - **插件卡片**：显示分类、作者和最近更新日期，同一列表中的卡片等高、按钮底部对齐。已安装的插件标出「已安装 vX」，按钮显示「管理」，点击跳转到「已安装」。
 - **刷新数据**：右上角按钮读取最新目录，刷新中禁止重复点击。
-- **更多操作（⋯）**：[GitHub 仓库](https://github.com/bruc3van/safer-dsh-market)、[联系作者](https://x.com/bruc3van)。
+- **更多操作（⋯）**：[GitHub 仓库](https://github.com/bruc3van/dsh-market-pro)、[联系作者](https://x.com/bruc3van)。
 - **滚动**：标题、页签、搜索和筛选栏固定，卡片列表独立滚动。宽度足够时（至少 440px），插件页和技能页向下滚动都会把搜索框收起到页签右侧，回滚或回到顶部时复原。
 - **回到顶部**：滚动超过约半屏（至少 240px）后右下角出现按钮；遵循系统「减少动效」偏好。
 
@@ -178,7 +184,7 @@ dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/
 
 ### 更新
 
-官方插件管理器目前没有更新功能，并且会拒绝重复安装已安装的包，因此市场暂不提供更新入口：目录中已安装插件的卡片显示「管理」，点击后跳转到「已安装」。需要更新时，请按上文的安装方式指定新版本重新安装。已安装卡片的「AI 审查」只检查当前版本，不执行更新。
+目录中已安装插件的卡片显示「管理」，点击跳转到「已安装」，再使用「检查更新」选择并确认目标版本。更新通过宿主官方接口执行；支持范围、版本选择和失败处理见[检查与更新已安装插件](#检查与更新已安装插件)。已安装卡片的「AI 审查」只检查当前版本，不执行更新。
 
 ## 已安装面板
 
@@ -291,7 +297,7 @@ DSH 模板自带的插件不在此列。
 ## 已知限制
 
 - **技能仅支持浏览**：市场当前不提供技能安装功能。
-- **暂无更新功能**：官方插件管理器尚未提供更新，市场不提供更新入口（见「更新」）。
+- **更新依赖宿主能力**：需要宿主提供 `listVersions` / `updateBundle`；内置、本地或未固定提交的 Git 安装可能需要通过原安装方更新。
 - **审查依赖可读证据**：当前会话无法读取安装目录时只能报告未核实；AI 审查不等于安全保证。
 
 ## 开发
@@ -306,9 +312,9 @@ pnpm run check      # 依次进行类型检查、构建、测试；部分测试�
 ### 发版
 
 1. 同步修改版本号：`package.json`、`dsh.plugin.json`，以及两份 README 中的安装命令和 tarball 地址。`pnpm test` 中的版本门禁（`test/version.test.ts`）会核对这些位置，CI（`.github/workflows/check.yml`）在每次推送和 PR 上运行同一套检查。
-2. 推送 `vX.Y.Z` 标签，CI（`.github/workflows/release.yml`）会创建 GitHub Release，并通过 Trusted Publishing 发布到 [npm](https://www.npmjs.com/package/safer-dsh-market)，无需手动 `npm publish`。
+2. 推送 `vX.Y.Z` 标签，CI（`.github/workflows/release.yml`）会创建 GitHub Release，并通过 Trusted Publishing 发布到 [npm](https://www.npmjs.com/package/dsh-market-pro)，无需手动 `npm publish`。
 
-首次发布前，需要在 npm 包设置中把本仓库的 `release.yml` 配置为 Trusted Publisher（user `bruc3van`，repo `safer-dsh-market`，workflow filename `release.yml`，允许 `npm publish`）。由于包已更名，`safer-dsh-market` 需要单独完成这一配置。
+新包首次发布需要先用维护者登录完成 `npm publish --access public`，才能为它单独配置 Trusted Publisher（user `bruc3van`，repo `dsh-market-pro`，workflow filename `release.yml`，允许 `npm publish`）。旧包的发布配置不会自动应用到新包。标签工作流在 npm 已有同版本且打包完整性摘要完全一致时跳过重复发布，内容不一致则失败；后续新版本继续由工作流发布。新包验证可安装后，再更新外部目录引用和旧包的迁移提示。
 
 ## 相关项目
 

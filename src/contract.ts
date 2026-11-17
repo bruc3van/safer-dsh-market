@@ -1,5 +1,5 @@
 /**
- * The saferMarket wire contract, shared verbatim by the host manifest
+ * The dshMarketPro wire contract, shared verbatim by the host manifest
  * (`ctx.typert.register` in typert.ts) and the client contribution
  * (`ctx.remote.$mount` in client/remote.ts). The service exposes the reduced
  * community catalog and the plugin's own durable settings.
@@ -413,12 +413,12 @@ export const uninstallInstalledUpdateSchema = z.object({
   packageName: packageNameSchema,
 }).readonly()
 
-/** The saferMarket Remote namespace's strict invocation descriptors. */
+/** The dshMarketPro Remote namespace's strict invocation descriptors. */
 export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
   {
-    id: 'safer-dsh-market#saferMarket/getCatalog',
-    service: 'saferMarket',
-    namespace: 'saferMarket',
+    id: 'dsh-market-pro#dshMarketPro/getCatalog',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
     method: 'getCatalog',
     invocation: { kind: 'direct' },
     parameters: [
@@ -428,7 +428,7 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         source: 'json',
         codec: {
           mode: 'strict',
-          typeSymbol: 'safer-dsh-market#ForceRefresh',
+          typeSymbol: 'dsh-market-pro#ForceRefresh',
           create: () => z.boolean(),
         },
       },
@@ -436,14 +436,14 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     cancellation: { parameter: 'signal' },
     result: {
       mode: 'strict',
-      typeSymbol: 'safer-dsh-market#MarketCatalogResult',
+      typeSymbol: 'dsh-market-pro#MarketCatalogResult',
       create: () => marketCatalogResultSchema,
     },
   },
   {
-    id: 'safer-dsh-market#saferMarket/listSkills',
-    service: 'saferMarket',
-    namespace: 'saferMarket',
+    id: 'dsh-market-pro#dshMarketPro/listSkills',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
     method: 'listSkills',
     invocation: { kind: 'direct' },
     parameters: [
@@ -460,40 +460,40 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     cancellation: { parameter: 'signal' },
     result: {
       mode: 'strict',
-      typeSymbol: 'safer-dsh-market#MarketSkillsResult',
+      typeSymbol: 'dsh-market-pro#MarketSkillsResult',
       create: () => marketSkillsResultSchema,
     },
   },
   {
-    id: 'safer-dsh-market#saferMarket/describe',
-    service: 'saferMarket',
-    namespace: 'saferMarket',
+    id: 'dsh-market-pro#dshMarketPro/describe',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
     method: 'describe',
     invocation: { kind: 'direct' },
     parameters: [],
     result: {
       mode: 'strict',
-      typeSymbol: 'safer-dsh-market#MarketEnvironment',
+      typeSymbol: 'dsh-market-pro#MarketEnvironment',
       create: () => marketEnvironmentSchema,
     },
   },
   {
-    id: 'safer-dsh-market#saferMarket/getSettings',
-    service: 'saferMarket',
-    namespace: 'saferMarket',
+    id: 'dsh-market-pro#dshMarketPro/getSettings',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
     method: 'getSettings',
     invocation: { kind: 'direct' },
     parameters: [],
     result: {
       mode: 'strict',
-      typeSymbol: 'safer-dsh-market#SafeMarketSettings',
+      typeSymbol: 'dsh-market-pro#SafeMarketSettings',
       create: () => safeMarketSettingsSchema,
     },
   },
   {
-    id: 'safer-dsh-market#saferMarket/updateSettings',
-    service: 'saferMarket',
-    namespace: 'saferMarket',
+    id: 'dsh-market-pro#dshMarketPro/updateSettings',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
     method: 'updateSettings',
     invocation: { kind: 'direct' },
     parameters: [
@@ -503,34 +503,34 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         source: 'json',
         codec: {
           mode: 'strict',
-          typeSymbol: 'safer-dsh-market#SafeMarketSettingsUpdate',
+          typeSymbol: 'dsh-market-pro#SafeMarketSettingsUpdate',
           create: () => safeMarketSettingsUpdateSchema,
         },
       },
     ],
     result: {
       mode: 'strict',
-      typeSymbol: 'safer-dsh-market#SafeMarketSettings',
+      typeSymbol: 'dsh-market-pro#SafeMarketSettings',
       create: () => safeMarketSettingsSchema,
     },
   },
   {
-    id: 'safer-dsh-market#saferMarket/listInstalled',
-    service: 'saferMarket',
-    namespace: 'saferMarket',
+    id: 'dsh-market-pro#dshMarketPro/listInstalled',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
     method: 'listInstalled',
     invocation: { kind: 'direct' },
     parameters: [],
     result: {
       mode: 'strict',
-      typeSymbol: 'safer-dsh-market#MarketInstalledResult',
+      typeSymbol: 'dsh-market-pro#MarketInstalledResult',
       create: () => marketInstalledResultSchema,
     },
   },
   {
-    id: 'safer-dsh-market#saferMarket/setInstalledEnabled',
-    service: 'saferMarket',
-    namespace: 'saferMarket',
+    id: 'dsh-market-pro#dshMarketPro/setInstalledEnabled',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
     method: 'setInstalledEnabled',
     invocation: { kind: 'direct' },
     parameters: [
@@ -540,21 +540,21 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         source: 'json',
         codec: {
           mode: 'strict',
-          typeSymbol: 'safer-dsh-market#SetInstalledEnabledUpdate',
+          typeSymbol: 'dsh-market-pro#SetInstalledEnabledUpdate',
           create: () => setInstalledEnabledUpdateSchema,
         },
       },
     ],
     result: {
       mode: 'strict',
-      typeSymbol: 'safer-dsh-market#MarketInstalledResult',
+      typeSymbol: 'dsh-market-pro#MarketInstalledResult',
       create: () => marketInstalledResultSchema,
     },
   },
   {
-    id: 'safer-dsh-market#saferMarket/uninstallInstalled',
-    service: 'saferMarket',
-    namespace: 'saferMarket',
+    id: 'dsh-market-pro#dshMarketPro/uninstallInstalled',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
     method: 'uninstallInstalled',
     invocation: { kind: 'direct' },
     parameters: [
@@ -564,14 +564,14 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
         source: 'json',
         codec: {
           mode: 'strict',
-          typeSymbol: 'safer-dsh-market#UninstallInstalledUpdate',
+          typeSymbol: 'dsh-market-pro#UninstallInstalledUpdate',
           create: () => uninstallInstalledUpdateSchema,
         },
       },
     ],
     result: {
       mode: 'strict',
-      typeSymbol: 'safer-dsh-market#MarketInstalledResult',
+      typeSymbol: 'dsh-market-pro#MarketInstalledResult',
       create: () => marketInstalledResultSchema,
     },
   },

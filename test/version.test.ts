@@ -14,6 +14,8 @@ import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { evaluatePluginCompatibility } from '@deepseek-ai/dsh-app-boot'
+import { parse } from 'yaml'
+import { PACKAGE_NAME } from '../src/shapes.ts'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -23,7 +25,11 @@ const pkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8')) as
   peerDependencies: Record<string, string>
   devDependencies: Record<string, string>
 }
-const plugin = JSON.parse(await readFile(resolve(root, 'dsh.plugin.json'), 'utf8')) as { version: string }
+const plugin = JSON.parse(await readFile(resolve(root, 'dsh.plugin.json'), 'utf8')) as {
+  name: string
+  version: string
+  entry: { name: string }
+}
 
 const npmInstall = `dsh plugin --profile <profile> add ${pkg.name}`
 
@@ -54,7 +60,13 @@ function tarballTags(markdown: string): string[] {
   return [...markdown.matchAll(/archive\/refs\/tags\/(v\d+\.\d+\.\d+)\.tar\.gz/g)].map(match => match[1]!)
 }
 
-test('dsh.plugin.json declares the same version as package.json', () => {
+test('package metadata and bundle entry agree on the plugin identity and version', async () => {
+  assert.equal(pkg.name, PACKAGE_NAME)
+  assert.equal(plugin.name, pkg.name)
+  assert.equal(plugin.entry.name, pkg.name)
+  const patch = parse(await readFile(resolve(root, 'cordis.patch.yml'), 'utf8'))
+  assert.equal(patch[0].insert[0].id, pkg.name)
+  assert.equal(patch[0].insert[0].name, pkg.name)
   assert.equal(
     plugin.version,
     pkg.version,
