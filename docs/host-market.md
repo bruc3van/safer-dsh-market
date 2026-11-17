@@ -15,7 +15,7 @@
 ## 两种数据协议
 
 - 本插件默认读取 npm feed 的 schema 3 `market-catalog.json`：完整已审核仓库目录加官方订阅的全部插件。精选与订阅一致，分类及关键词沿用订阅；全部按仓库计数。默认 jsDelivr、失败回退到同包 unpkg，自定义 schema 2 地址继续兼容。见 [消费协议](market-json-spec.md)。
-- 官方「发现」页和 `plugin_market` 工具读取 format-1 `index.json`。生成器、测试、发布流程、索引与生成报告由数据源仓库 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin/tree/main/scripts/host-market) 维护，本插件不生成或发布另一套索引，也不自动添加订阅。
+- 官方「发现」页和 `plugin_market` 工具读取 format-1 `index.json`。生成器、测试、发布流程、索引与生成报告由数据源仓库 [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro/tree/main/scripts/host-market) 维护，本插件不生成或发布另一套索引，也不自动添加订阅。
 
 订阅地址：`https://bruc3van.com/dsh-plugins/index.json`（Bruce 的精选插件）。旧订阅地址 `https://bruc3van.com/markets/dsh/index.json` 由站点继续提供相同数据，已有订阅无需重复添加。该 URL 别名与已废弃的社区 `market.json` 是不同的接口。
 

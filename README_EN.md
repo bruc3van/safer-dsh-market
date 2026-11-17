@@ -6,7 +6,7 @@
 
 [中文](./README.md) | English
 
-A third-party plugin marketplace for DeepSeek Harness (DSH), built on the maintainer-reviewed community catalog [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin). Curated picks, browsing, installation, updates, and optional post-install AI review in one interface.
+A third-party plugin marketplace for DeepSeek Harness (DSH), built on the maintainer-reviewed community catalog [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro). Curated picks, browsing, installation, updates, and optional post-install AI review in one interface.
 
 ## Why Pro?
 
@@ -44,7 +44,7 @@ If Discover is missing, check that you are running DSH V0.2.1-rc.2 or later and 
 
 Subscribing in the official Discover tab **does not require `dsh-market-pro`**. Install this plugin separately for its standalone interface, multiple-target installation, and optional post-install AI review. Custom plugin markets and this plugin's Enable DSH Market Pro switch are separate controls.
 
-[awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) generates the index automatically; `bruc3van.com` serves JSON through Cloudflare without redirects. The index verifies npm metadata and Git bundles pinned to full commits, including bundle declarations, timestamps, and explicit host compatibility ranges. Up to 2000 verified plugins are selected by Star count, with categories, featured labels, and npm weekly-download sorting. This is a subset of the repository catalog, and inclusion is not a security audit or proof of runtime compatibility.
+[awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro) generates the index automatically; `bruc3van.com` serves JSON through Cloudflare without redirects. The index verifies npm metadata and Git bundles pinned to full commits, including bundle declarations, timestamps, and explicit host compatibility ranges. Up to 2000 verified plugins are selected by Star count, with categories, featured labels, and npm weekly-download sorting. This is a subset of the repository catalog, and inclusion is not a security audit or proof of runtime compatibility.
 
 [DSH Plugin Directory and subscription guide](https://bruc3van.com/dsh-plugins/#subscribe) · [Index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/dsh-market-pro)
 
@@ -70,7 +70,7 @@ The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The cur
 - Adds a DSH Market Pro tab to the official Plugins page, preserving standalone navigation and the right sidebar. Older hosts without `plugins.tab` do not register the tab.
 - Reads new installation rejection `requirements` and legacy `peers`; skill discovery follows the host's committed working directory.
 - Declares `engines.dsh` and removes the retired `dsh-invariants` development dependency, keeping only an optional companion export for older profiles.
-- The data-source repository `awesome-dsh-plugin` owns generation and auditing of the official Discover format-1 index; `bruc3van.com` serves it. See [host market integration](docs/host-market.md). It does not publish files or add index sources automatically.
+- The data-source repository `awesome-dsh-plugin-pro` owns generation and auditing of the official Discover format-1 index; `bruc3van.com` serves it. See [host market integration](docs/host-market.md). It does not publish files or add index sources automatically.
 
 **1.0.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
 
@@ -139,7 +139,7 @@ Both entries share the switch and all operations; Settings no longer carries a d
 ### 3. Browse and search
 
 - **Find plugins**: Featured / Installed / All switches between subscription picks, local management, and the complete reviewed repository catalog. Both Featured and All support category filtering and full-result search by name, package, task, keyword, and category. Search stays in the selected scope. Lists show 50 results per page; counts follow upstream releases automatically.
-- **Subscription picks**: every plugin in the published awesome-dsh-plugin subscription, in its published order, with the same localized names, descriptions, categories, and keywords. Package identities keep monorepo plugins distinct. Installation uses the first published version pinned to an npm version or Git commit and subdirectory, subject to Host inspection.
+- **Subscription picks**: every plugin in the published awesome-dsh-plugin-pro subscription, in its published order, with the same localized names, descriptions, categories, and keywords. Package identities keep monorepo plugins distinct. Installation uses the first published version pinned to an npm version or Git commit and subdirectory, subject to Host inspection.
 - **Plugin logos**: display each subscription plugin's own image and reuse it on associated repository cards. Images load lazily and fall back to initials. Titles, package identities, and categories have separate visual hierarchy.
 - **Plugin cards**: show category, author, and last update date; cards in a list share one height with their buttons aligned along the bottom. An installed plugin is marked **Installed vX** and its button reads **Manage**, which opens the Installed view.
 - **Refresh data**: the upper-right action fetches the latest catalog and blocks repeat clicks while it runs.
@@ -214,7 +214,7 @@ The market itself has no Disable button, to avoid shutting down the current mana
 
 ### Legacy copies placed by third-party DSH Desktop
 
-This compatibility path applies only to market copies placed by third-party [DSH Desktop](https://github.com/bruc3van/dsh-desktop) with ownership markers. It does not describe the official Electron installer. Recognized copies are labelled Included with the client and can be removed here; packages installed normally through the official manager remain ordinary installed plugins.
+This compatibility path applies only to market copies placed by third-party [DSH Desktop](https://github.com/bruc3van/dsh-desktop-pro) with ownership markers. It does not describe the official Electron installer. Recognized copies are labelled Included with the client and can be removed here; packages installed normally through the official manager remain ordinary installed plugins.
 
 Uninstall removes the current profile's `bundles` entry, then checks whether another profile still resolves the same copy. Files stay when another profile references them, when references cannot be checked, or when the directory is outside the managed locations.
 
@@ -320,8 +320,8 @@ The first publication of a new package requires a maintainer login and `npm publ
 
 **Maintained by the author**
 
-- **[dsh-desktop](https://github.com/bruc3van/dsh-desktop)**: a standalone DeepSeek Harness client that keeps an agent safely resident on your desktop — the official Web UI untouched, long-running tasks in the tray, community plugin management. This market ships in-box with it.
-- **[awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin)**: find the right plugin for your DeepSeek Harness in 30 seconds. Every GitHub repository tagged `dsh-plugin` is crawled daily and then verified by hand — genuine plugins enter the catalog, topic riders land on the blacklist, and every exclusion reason is public. It is also this market's data source.
+- **[DSH Desktop Pro](https://github.com/bruc3van/dsh-desktop-pro)**: a standalone DeepSeek Harness client that keeps an agent safely resident on your desktop — the official Web UI untouched, long-running tasks in the tray, community plugin management. The client offers a preset curated subscription; since 0.6.0 this standalone market is installed on demand.
+- **[awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro)**: find the right plugin for your DeepSeek Harness in 30 seconds. Every GitHub repository tagged `dsh-plugin` is crawled daily and then verified by hand — genuine plugins enter the catalog, topic riders land on the blacklist, and every exclusion reason is public. It is also this market's data source.
 
 **Official repositories**
 

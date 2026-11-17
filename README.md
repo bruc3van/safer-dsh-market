@@ -6,7 +6,7 @@
 
 中文 | [English](./README_EN.md)
 
-DeepSeek Harness（DSH）的第三方插件市场。基于人工核实的社区目录 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin)，把插件精选、浏览、安装、更新和安装后 AI 审查放在同一个界面。
+DeepSeek Harness（DSH）的第三方插件市场。基于人工核实的社区目录 [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro)，把插件精选、浏览、安装、更新和安装后 AI 审查放在同一个界面。
 
 ## 为什么是 Pro？
 
@@ -44,7 +44,7 @@ https://bruc3van.com/dsh-plugins/index.json
 
 仅订阅官方「发现」页**无需安装 `dsh-market-pro`**；如需独立市场界面、多选安装和安装后 AI 审查，可另行安装市场插件。开启「自定义插件市场」与本插件自己的「启用 DSH Market Pro」开关是两个不同入口。
 
-索引由 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) 自动生成，通过 Cloudflare 上的 `bruc3van.com` 提供无重定向 JSON。收录经过核实的 npm 目标及固定完整提交的 Git 组合包，核实 bundle 声明、时间及官方宿主兼容范围规则，按 Star 选取最多 2000 项，并提供分类、推荐标签与 npm 周下载量排序，因此不是完整仓库目录；收录不代表安全审查或实机兼容保证。
+索引由 [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro) 自动生成，通过 Cloudflare 上的 `bruc3van.com` 提供无重定向 JSON。收录经过核实的 npm 目标及固定完整提交的 Git 组合包，核实 bundle 声明、时间及官方宿主兼容范围规则，按 Star 选取最多 2000 项，并提供分类、推荐标签与 npm 周下载量排序，因此不是完整仓库目录；收录不代表安全审查或实机兼容保证。
 
 [DSH 插件导航与订阅指南](https://bruc3van.com/dsh-plugins/#subscribe) · [查看索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json) · [最新版市场插件](https://www.npmjs.com/package/dsh-market-pro)
 
@@ -70,7 +70,7 @@ https://bruc3van.com/dsh-plugins/index.json
 - 增加官方「插件」页的「DSH Market Pro」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
 - 接受新版安装拒绝信息的 `requirements`，并保留旧版 `peers`；技能列表使用宿主当前工作目录。
 - 显式声明 `engines.dsh`，移除已退役 `dsh-invariants` 的开发依赖；仅为旧 profile 保留可选 companion 导出。
-- 官方「发现」页 format-1 索引由数据源仓库 `awesome-dsh-plugin` 生成和审计，通过 `bruc3van.com` 分发。使用说明见 [官方市场接入](docs/host-market.md)。它不会自动添加索引源或发布文件。
+- 官方「发现」页 format-1 索引由数据源仓库 `awesome-dsh-plugin-pro` 生成和审计，通过 `bruc3van.com` 分发。使用说明见 [官方市场接入](docs/host-market.md)。它不会自动添加索引源或发布文件。
 
 **1.0.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
@@ -139,7 +139,7 @@ dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/ar
 ### 3. 浏览与搜索
 
 - **查找插件**：「精选 / 已安装 / 全部」切换订阅精选、本机管理与完整收录目录，默认打开精选。精选和全部都支持分类下拉筛选，以及名称、包名、功能、关键词和分类搜索；搜索保留当前范围。筛选覆盖全部数据，每页显示 50 条，数量随上游发布自动更新。
-- **订阅精选**：与 awesome-dsh-plugin 发布的官方订阅插件集合和顺序一致，沿用其名称、描述、分类和关键词；按包名区分同仓库的多个插件。安装使用订阅首个版本的固定 npm 版本或 Git 提交及子目录，宿主仍执行安装检查。
+- **订阅精选**：与 awesome-dsh-plugin-pro 发布的官方订阅插件集合和顺序一致，沿用其名称、描述、分类和关键词；按包名区分同仓库的多个插件。安装使用订阅首个版本的固定 npm 版本或 Git 提交及子目录，宿主仍执行安装检查。
 - **插件 Logo**：精选使用订阅里插件自己的 Logo，关联仓库卡片复用图标；图片懒加载，无图或加载失败显示首字母。标题、包名和分类分层显示。
 - **插件卡片**：显示分类、作者和最近更新日期，同一列表中的卡片等高、按钮底部对齐。已安装的插件标出「已安装 vX」，按钮显示「管理」，点击跳转到「已安装」。
 - **刷新数据**：右上角按钮读取最新目录，刷新中禁止重复点击。
@@ -214,7 +214,7 @@ DSH 模板自带的插件不在此列。
 
 ### 第三方 DSH Desktop 接入的旧版插件
 
-此兼容逻辑仅针对第三方 [DSH Desktop](https://github.com/bruc3van/dsh-desktop) 曾通过复制文件和归属标记接入的市场，不代表官方 Electron 的安装方式。页面将识别出的副本标为「客户端内置」，并提供移除入口；正常通过官方管理器安装的包仍按普通插件管理。
+此兼容逻辑仅针对第三方 [DSH Desktop](https://github.com/bruc3van/dsh-desktop-pro) 曾通过复制文件和归属标记接入的市场，不代表官方 Electron 的安装方式。页面将识别出的副本标为「客户端内置」，并提供移除入口；正常通过官方管理器安装的包仍按普通插件管理。
 
 卸载时先移除当前 profile 的 `bundles` 条目，再检查其他 profile 是否仍引用同一份副本；仍被引用、无法检查或目录不在受管位置时保留文件，避免影响其他 profile。
 
@@ -320,8 +320,8 @@ pnpm run check      # 依次进行类型检查、构建、测试；部分测试�
 
 **作者维护**
 
-- **[dsh-desktop](https://github.com/bruc3van/dsh-desktop)**：让 Agent 安全常驻桌面的独立 DeepSeek Harness 客户端。官方 Web UI 原封不动，长任务常驻托盘，支持社区插件管理。本市场在桌面端以 in-box 方式内置。
-- **[awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin)**：30 秒为你的 DeepSeek Harness 找到合适的插件。GitHub 上所有带 `dsh-plugin` 标签的仓库每天由脚本自动抓取，再经人工逐个核实——真插件进目录，蹭热度的进黑名单，每条剔除理由公开可查。也是本市场的数据来源。
+- **[DSH Desktop Pro](https://github.com/bruc3van/dsh-desktop-pro)**：让 Agent 安全常驻桌面的独立 DeepSeek Harness 客户端。官方 Web UI 原封不动，长任务常驻托盘，支持社区插件管理。桌面端预置精选插件订阅，本市场自 0.6.0 起按需自行安装。
+- **[awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro)**：30 秒为你的 DeepSeek Harness 找到合适的插件。GitHub 上所有带 `dsh-plugin` 标签的仓库每天由脚本自动抓取，再经人工逐个核实——真插件进目录，蹭热度的进黑名单，每条剔除理由公开可查。也是本市场的数据来源。
 
 **官方仓库**
 
