@@ -47,8 +47,12 @@ test('official Plugins tab waits for declaration and keeps review separate from 
   assert.equal(entry.component, MarketPluginTab)
   const injected = entry.options.inject()
   assert.equal(injected.install, undefined, 'do not collide with the owner install prop')
-  const page = MarketPluginTab({ ...injected, install: () => { throw new Error('not a review') }, openPackage: () => {} })
+  const page = MarketPluginTab({ ...injected,
+    install: () => { throw new Error('not a review') },
+    update: () => { throw new Error('not a market action') }, openPackage: () => {},
+  })
   assert.equal(page.props.children.props.install, review)
+  assert.equal(page.props.children.props.update, undefined)
   assert.equal(page.props.children.props.directInstaller, face.directInstaller)
   page.props.children.props.close()
   assert.equal(selected, null)

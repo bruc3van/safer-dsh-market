@@ -1,4 +1,4 @@
-/** Read the curated v2 feed; preserve v1 support for custom directory sources.
+/** Read the curated v2 feed.
  * Remote metadata is validated before entering the client wire contract.
  */
 import { brotliDecompressSync, gunzipSync, inflateSync } from 'node:zlib'
@@ -22,8 +22,7 @@ const MAX_REDIRECTS = 5
 /** A description longer than this is a README pasted into the field, not a summary. */
 const DESCRIPTION_LIMIT = 300
 
-/** The legacy schema remains accepted for custom sources. */
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 /**
  * The shape {@link deriveMarket} produces. A stored catalog records the
@@ -31,9 +30,10 @@ const SCHEMA_VERSION = 1
  * revalidation only asks whether the FEED changed, so after an upgrade that
  * changes the parse a 304 would keep serving the old build's reduction
  * forever. Bump this whenever the derived catalog gains or changes a field.
- * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions.
+ * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions;
+ * 4 — v2-only feeds (discard reductions previously accepted from v1).
  */
-export const CATALOG_FORMAT = 3
+export const CATALOG_FORMAT = 4
 
 /** Editorial picks are a short list; anything longer is not one. */
 const FEATURED_LIMIT = 50
@@ -91,7 +91,7 @@ export interface CatalogCache {
 
 /** Deployment-varying knobs the plugin config owns. */
 export interface CatalogOptions {
-  /** A complete JSON feed URL, or a directory containing market.json. */
+  /** A complete market-v2 JSON feed URL. */
   readonly base: string
   /** How many plugins the market shows. */
   readonly marketSize: number
@@ -200,7 +200,7 @@ function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<str
  * publisher's order IS the balance — every category places its best entry
  * before any places its second — so rows are kept in file order and truncated
  * to the requested size; nothing is re-ranked here.
- * @param body - the parsed `market.json` body.
+ * @param body - the parsed `market-v2.json` body.
  * @param marketSize - how many rows the browser shows.
  * @returns the parsed, validated, truncated catalog.
  * @throws when the body is not a market this plugin understands.
@@ -209,9 +209,9 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
   const envelope = body as {
     schema_version?: unknown; entries?: unknown; source_fetched_at?: unknown; source_repo_count?: unknown; featured?: unknown; featured_count?: unknown
   }
-  if (envelope.schema_version !== SCHEMA_VERSION && envelope.schema_version !== 2) {
+  if (envelope.schema_version !== SCHEMA_VERSION) {
     const version = envelope.schema_version === undefined ? 'absent' : String(envelope.schema_version)
-    throw new Error(`unsupported market.json schema version ${version}`)
+    throw new Error(`unsupported market-v2.json schema version ${version}; expected 2`)
   }
   const rows = Array.isArray(envelope.entries) ? envelope.entries as RawEntry[] : []
   if (rows.length === 0) throw new Error('the published market carried no entries')
@@ -358,7 +358,7 @@ export interface CatalogSource {
  * @returns the reader.
  */
 export function createCatalogSource(options: CatalogOptions): CatalogSource {
-  const primary = options.base.replace(/\/+$/, '')
+  const primary = options.base
   // The mirror stands behind the default feed only. A deployment that
   // pointed the market at its own mirror or curation gets exactly that one
   // source — silently switching datasets is not what `catalogBase` was
@@ -403,13 +403,12 @@ export function createCatalogSource(options: CatalogOptions): CatalogSource {
    * base in the chain starts from the same place.
    */
   const attempt = async (base: string): Promise<MarketCatalog> => {
-    const marketUrl = base.endsWith('.json') ? base : `${base}/market.json`
     // The stored ETag certifies one server's content; a conditional request
     // only goes to the base that issued it. An unknown serving base (legacy
     // record) can only have been the primary.
     const conditional = catalog !== null && marketEtag !== ''
       && (activeBase === '' ? base === primary : activeBase === base)
-    const response = await fetchFollowing(marketUrl, conditional ? marketEtag : '')
+    const response = await fetchFollowing(base, conditional ? marketEtag : '')
     if (response.status === 304) {
       // Only asked for when a catalog exists (see `conditional`); guard for
       // the type, since TypeScript cannot read the correlation out of the

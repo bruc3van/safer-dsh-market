@@ -40,6 +40,18 @@ test('v2 feed preserves targets and tasks on the wire without executable command
   assert.deepEqual(row.installInfo?.tasks, ['Word'])
   assert.ok(!JSON.stringify(row).includes('rm -rf'))
 })
+
+test('the current upstream Gitee target survives the catalog and wire validation', () => {
+  const spec = 'https://gitee.com/HubaKing/dsh-community-plugins.git'
+  const catalog = deriveMarket({ schema_version: 2, entries: [{
+    full_name: 'HubaKing/dsh-community-plugins', category: 'tools',
+    packages: { mode: 'command', targets: [{ profile: 'web', install: spec }] },
+  }] }, 20)
+  assert.equal(marketCatalogSchema.parse(catalog).items[0]?.installInfo?.targets[0]?.install, spec)
+  for (const invalid of ['http://gitee.com/a/b.git', 'https://gitee.com.evil.example/a/b.git', 'https://user:secret@gitee.com/a/b.git']) {
+    assert.equal(isInstallSpec(invalid), false, invalid)
+  }
+})
 test('feed rejects shell commands, flags, local paths and credential URLs', () => {
   for (const value of ['npm install demo', '--help', '/tmp/demo', 'file:../demo', 'demo;id', 'demo@$(id)', 'https://user:pass@github.com/a/b']) assert.equal(isInstallSpec(value), false, value)
   for (const value of ['demo', '@owner/demo@1.2.3', 'demo@latest', 'git+https://github.com/a/b.git', 'https://github.com/a/b#main', 'https://github.com/a/b#main&path:/packages/plugin', 'https://codeload.github.com/a/b/tar.gz/refs/heads/main', 'https://raw.githubusercontent.com/a/b/main/dist/plugin.tgz', 'https://github.com/a/b/releases/download/v1/demo.tgz']) assert.equal(isInstallSpec(value), true, value)
@@ -56,7 +68,7 @@ test('refused inspection never installs; missing host is an explicit failure', a
   assert.equal(missing.getSnapshot().phase, 'failed')
 })
 test('inspection supplies both Remote arguments before installing and enabling the selected target', async () => {
-  for (const spec of ['https://github.com/vlln/whale-girl#main', 'whale-girl@0.1.0']) {
+  for (const spec of ['https://github.com/vlln/whale-girl#main', 'whale-girl@0.1.0', 'https://gitee.com/HubaKing/dsh-community-plugins.git']) {
     const calls: unknown[] = []
     const registry = 'https://registry.npmjs.org/'
     const installer = createDirectInstaller(() => host({

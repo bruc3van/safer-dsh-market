@@ -6,6 +6,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createServer } from 'node:http'
+import { once } from 'node:events'
 import {
   createCatalogSource,
   DEFAULT_CATALOG_BASE,
@@ -47,7 +49,7 @@ function makeCatalog(items: MarketPlugin[], hoursAgo: number): MarketCatalog {
   }
 }
 
-/** One published entry (market.json row shape). */
+/** One published entry (market-v2.json row shape). */
 function entry(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 912345678,
@@ -65,10 +67,10 @@ function entry(overrides: Record<string, unknown> = {}): Record<string, unknown>
   }
 }
 
-/** A `market.json` body parsed with the default size. */
+/** A `market-v2.json` body parsed with the default size. */
 function market(entries: unknown[], overrides: Record<string, unknown> = {}): MarketCatalog {
   return deriveMarket({
-    schema_version: 1,
+    schema_version: 2,
     source_fetched_at: '2025-08-16T00:00:00Z',
     source_repo_count: entries.length,
     entries,
@@ -86,7 +88,7 @@ test('deriveMarket keeps the published order and truncates to the size', () => {
   // The upstream order is the balance; the consumer only truncates, so a
   // star-leader placed second upstream stays second here.
   assert.deepEqual(catalog.items.map(item => item.fullName), ['a/second-best', 'b/star-leader'])
-  const cut = deriveMarket({ schema_version: 1, entries: [entry({ full_name: 'a/first' }), entry({ full_name: 'b/second' })] }, 1)
+  const cut = deriveMarket({ schema_version: 2, entries: [entry({ full_name: 'a/first' }), entry({ full_name: 'b/second' })] }, 1)
   assert.deepEqual(cut.items.map(item => item.fullName), ['a/first'])
 })
 
@@ -117,9 +119,10 @@ test('deriveMarket rebuilds the url from the slug only', () => {
 
 test('deriveMarket rejects an unsupported schema version and an empty market', () => {
   assert.throws(() => deriveMarket({}, 200), /schema version/)
-  assert.throws(() => deriveMarket({ schema_version: 1, entries: [] }, 200), /no entries/)
+  assert.throws(() => deriveMarket({ schema_version: 1, entries: [entry()] }, 200), /expected 2/)
+  assert.throws(() => deriveMarket({ schema_version: 2, entries: [] }, 200), /no entries/)
   assert.throws(() => deriveMarket({ schema_version: 3, entries: [entry()] }, 200), /schema version/)
-  assert.throws(() => deriveMarket({ schema_version: '1', entries: [entry()] }, 200), /schema version/)
+  assert.throws(() => deriveMarket({ schema_version: '2', entries: [entry()] }, 200), /schema version/)
 })
 
 test('deriveMarket carries the source counts from the envelope', () => {
@@ -263,7 +266,7 @@ test('a pick past the size cut still resolves against the full file', () => {
   assert.deepEqual(catalog.categories.map(entry => [entry.key, entry.count]), [[FEATURED_CATEGORY, 1], ['dev', 1]])
 })
 
-test('a feed without picks parses exactly as before (backward compatible)', () => {
+test('a v2 feed without optional picks parses without a featured category', () => {
   const rows = [entry({ full_name: 'a/one' }), entry({ full_name: 'b/two', category: 'ai' })]
   const plain = market(rows)
   assert.equal('featured' in plain, false)
@@ -361,6 +364,30 @@ test('pick titles and reasons are cleaned and bounded like every other feed text
 
 // ——— the reader (createCatalogSource) ———
 
+test('a real HTTP feed preserves the configured URL and rejects v1 before accepting v2', async t => {
+  const requests: string[] = []
+  let schemaVersion = 1
+  const server = createServer((request, response) => {
+    requests.push(request.url!)
+    response.setHeader('content-type', 'application/json')
+    response.end(JSON.stringify({ schema_version: schemaVersion, entries: [entry()] }))
+  })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  t.after(() => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())))
+  const address = server.address() as { port: number }
+  const path = '/feed.json?channel=current'
+  const source = createCatalogSource({ base: `http://127.0.0.1:${address.port}${path}`, marketSize: 200 })
+  const retired = await source.read(false)
+  assert.equal(retired.catalog, null)
+  assert.match(retired.error, /schema version 1; expected 2/)
+  schemaVersion = 2
+  const current = await source.read(true)
+  assert.equal(current.error, '')
+  assert.equal(current.catalog?.items[0]?.fullName, 'owner/name')
+  assert.deepEqual(requests, [path, path])
+})
+
 /** Fetch stub: records every request (with its signal) and parks responses until told. */
 function stubFetch() {
   const original = globalThis.fetch
@@ -418,7 +445,7 @@ test('the durable seed is read lazily, not at construction (M1)', async () => {
     const seat = stubCache()
     const stored = makeCatalog([plugin()], 0)
     seat.set({ catalog: stored, marketEtag: '"m1"' })
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200, cache: seat.cache })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200, cache: seat.cache })
     // Construction must not touch the cache: the storage domain it answers
     // from only opens after the plugin body has constructed the source.
     assert.equal(seat.reads.length, 0)
@@ -437,11 +464,11 @@ test('a stale stored catalog revalidates with one conditional request', async ()
     const seat = stubCache()
     const stale = makeCatalog([plugin()], 7)
     seat.set({ catalog: stale, marketEtag: '"m1"' })
-    const source = createCatalogSource({ base: 'https://example.test/data', marketSize: 200, cache: seat.cache })
+    const source = createCatalogSource({ base: 'https://example.test/data/market-v2.json', marketSize: 200, cache: seat.cache })
     const pending = source.read(false)
     assert.equal(fetch.calls.length, 1)
     const [request] = fetch.calls
-    assert.equal(request!.url, 'https://example.test/data/market.json')
+    assert.equal(request!.url, 'https://example.test/data/market-v2.json')
     const headers = request!.init?.headers as Record<string, string> | undefined
     assert.equal(headers?.['if-none-match'], '"m1"')
     fetch.parked[0]!.resolve(NOT_MODIFIED())
@@ -461,11 +488,11 @@ test('a conditional 200 is consumed directly — no second fetch', async () => {
   try {
     const seat = stubCache()
     seat.set({ catalog: makeCatalog([plugin()], 7), marketEtag: '"m-old"' })
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200, cache: seat.cache })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200, cache: seat.cache })
     const pending = source.read(false)
     assert.equal(fetch.calls.length, 1)
     fetch.parked[0]!.resolve(jsonResponse(
-      { schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'fresh/row', stargazers_count: 3 })] },
+      { schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'fresh/row', stargazers_count: 3 })] },
       '"m-new"',
     ))
     const result = await pending
@@ -481,12 +508,12 @@ test('a fresh fetch parses, stores, and serves the market', async () => {
   const fetch = stubFetch()
   try {
     const seat = stubCache()
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200, cache: seat.cache })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200, cache: seat.cache })
     const pending = source.read(false)
     assert.equal(fetch.calls.length, 1)
-    assert.equal(fetch.calls[0]!.url, 'https://example.test/market.json')
+    assert.equal(fetch.calls[0]!.url, 'https://example.test/market-v2.json')
     fetch.parked[0]!.resolve(jsonResponse(
-      { schema_version: 1, source_repo_count: 2500, source_fetched_at: '2026-08-16', entries: [entry({ stargazers_count: 7 })] },
+      { schema_version: 2, source_repo_count: 2500, source_fetched_at: '2026-08-16', entries: [entry({ stargazers_count: 7 })] },
       '"m1"',
     ))
     const result = await pending
@@ -505,7 +532,7 @@ test('a failing refresh falls back to the catalog in memory, flagged stale', asy
     const seat = stubCache()
     const stale = makeCatalog([plugin()], 7)
     seat.set({ catalog: stale, marketEtag: '"m1"' })
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200, cache: seat.cache })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200, cache: seat.cache })
     const pending = source.read(false)
     fetch.parked[0]!.reject(new Error('network down'))
     const result = await pending
@@ -515,7 +542,7 @@ test('a failing refresh falls back to the catalog in memory, flagged stale', asy
 
     // With nothing in memory the same failure answers catalog: null.
     const seat2 = stubCache()
-    const source2 = createCatalogSource({ base: 'https://example.test', marketSize: 200, cache: seat2.cache })
+    const source2 = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200, cache: seat2.cache })
     const pending2 = source2.read(false)
     fetch.parked[1]!.reject(new Error('network down'))
     const result2 = await pending2
@@ -530,7 +557,7 @@ test('a failing refresh falls back to the catalog in memory, flagged stale', asy
 test('one caller aborting never kills the shared read (M3)', async () => {
   const fetch = stubFetch()
   try {
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200 })
     const controller = new AbortController()
     const first = source.read(false, controller.signal)
     const second = source.read(false)
@@ -539,7 +566,7 @@ test('one caller aborting never kills the shared read (M3)', async () => {
     // The shared fetch is bound to the timeout only — the aborted caller
     // must not have aborted it.
     assert.equal(fetch.parked[0]!.signal?.aborted, false, 'the shared request signal stays live')
-    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
+    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
     const result = await second
     assert.equal(result.catalog?.items[0]?.fullName, 'owner/name', 'the surviving caller gets the answer')
     await assert.rejects(first, /caller A cancelled/)
@@ -551,11 +578,11 @@ test('one caller aborting never kills the shared read (M3)', async () => {
 test('force merges into an already-running read instead of duplicating or dropping', async () => {
   const fetch = stubFetch()
   try {
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200 })
     const first = source.read(false)
     const forced = source.read(true)
     assert.equal(fetch.calls.length, 1, 'the forced read shares the in-flight request')
-    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
+    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
     const [a, b] = await Promise.all([first, forced])
     assert.equal(a.catalog?.items[0]?.fullName, 'owner/name')
     assert.equal(b.catalog, a.catalog)
@@ -567,7 +594,7 @@ test('force merges into an already-running read instead of duplicating or droppi
 test('an already-aborted caller rejects without starting a read', async () => {
   const fetch = stubFetch()
   try {
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200 })
     const controller = new AbortController()
     controller.abort(new Error('already gone'))
     await assert.rejects(source.read(false, controller.signal), /already gone/)
@@ -580,9 +607,9 @@ test('an already-aborted caller rejects without starting a read', async () => {
 test('the reader works memory-only when no cache seat exists', async () => {
   const fetch = stubFetch()
   try {
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200 })
     const pending = source.read(false)
-    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
+    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
     const result = await pending
     assert.equal(result.catalog?.items.length, 1)
     assert.equal(result.stale, false)
@@ -609,7 +636,7 @@ test('the default base fails over to the unpkg mirror on a network failure', asy
     assert.equal(fetch.calls.length, 2, 'the timeout moves the read to the mirror')
     assert.equal(fetch.calls[1]!.url, MIRROR_CATALOG_BASE)
     fetch.parked[1]!.resolve(jsonResponse(
-      { schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'mirror/row' })] },
+      { schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'mirror/row' })] },
       '"m-mirror"',
     ))
     const result = await pending
@@ -632,7 +659,7 @@ test('after a failover the mirror is sticky: the next read goes straight to it',
     const first = source.read(false)
     fetch.parked[0]!.reject(new Error('timeout'))
     await tick()
-    fetch.parked[1]!.resolve(jsonResponse({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m-g"'))
+    fetch.parked[1]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m-g"'))
     await first
     // A forced read bypasses the freshness gate; the sticky mirror is the
     // first attempt, and the ETag it issued is the conditional's.
@@ -710,7 +737,7 @@ test('when both bases fail the error names both hosts', async () => {
 test('a configured base keeps its single source — no mirror failover', async () => {
   const fetch = stubFetch()
   try {
-    const source = createCatalogSource({ base: 'https://mirror.example.test/data', marketSize: 200 })
+    const source = createCatalogSource({ base: 'https://mirror.example.test/data/market-v2.json', marketSize: 200 })
     const pending = source.read(false)
     fetch.parked[0]!.reject(new Error('mirror down'))
     const result = await pending
@@ -731,11 +758,11 @@ const redirect = (status: number, location: string): Response =>
 test('every request asks the CDN for an uncompressed body', async () => {
   const fetch = stubFetch()
   try {
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200 })
     const pending = source.read(false)
     const headers = fetch.calls[0]!.init?.headers as Record<string, string> | undefined
     assert.equal(headers?.['accept-encoding'], 'identity')
-    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
+    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
     assert.equal((await pending).catalog?.items.length, 1)
   } finally {
     fetch.restore()
@@ -746,9 +773,9 @@ test('a gzip body the host fetch left undecoded is still parsed', async () => {
   const { gzipSync } = await import('node:zlib')
   const fetch = stubFetch()
   try {
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200 })
     const pending = source.read(false)
-    const body = gzipSync(JSON.stringify({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'gz/row' })] }))
+    const body = gzipSync(JSON.stringify({ schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'gz/row' })] }))
     fetch.parked[0]!.resolve(new Response(body, { status: 200, headers: { etag: '"gz"', 'content-encoding': 'gzip' } }))
     const result = await pending
     assert.equal(result.error, '')
@@ -761,10 +788,10 @@ test('a gzip body the host fetch left undecoded is still parsed', async () => {
 test('an already-decoded body is not decoded twice despite its content-encoding', async () => {
   const fetch = stubFetch()
   try {
-    const source = createCatalogSource({ base: 'https://example.test', marketSize: 200 })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200 })
     const pending = source.read(false)
     fetch.parked[0]!.resolve(new Response(
-      JSON.stringify({ schema_version: 1, source_fetched_at: '2026-08-16', entries: [entry()] }),
+      JSON.stringify({ schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry()] }),
       { status: 200, headers: { 'content-encoding': 'br' } },
     ))
     assert.equal((await pending).catalog?.items.length, 1)

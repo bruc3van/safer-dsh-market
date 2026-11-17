@@ -1,4 +1,4 @@
-/** Exercise the built plugin against the published 0.2.2-rc.1 Loader and Settings. */
+/** Exercise the built plugin against the published 0.2.2-rc.3 Loader and Settings. */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, realpath, writeFile, readFile, rm } from 'node:fs/promises'
@@ -13,7 +13,7 @@ import { initialDomainState } from '../src/store.ts'
 import { SAFE_MARKET_INVOCATIONS } from '../src/contract.ts'
 
 test('built market boots, registers RPCs, and persists settings and plugin toggles across restarts', async () => {
-  assert.equal(getDshRuntimeVersion(), '0.2.2-rc.1')
+  assert.equal(getDshRuntimeVersion(), '0.2.2-rc.3')
   const home = await realpath(await mkdtemp(join(tmpdir(), 'safe-market-host-')))
   const previousHome = process.env.DSH_HOME
   process.env.DSH_HOME = home

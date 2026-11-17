@@ -32,7 +32,7 @@ If Discover is missing, check that you are running DSH V0.2.1-rc.2 or later and 
 
 Subscribing in the official Discover tab **does not require `safer-dsh-market`**. Install this plugin separately for its standalone interface, multiple-target installation, and optional post-install AI review. Custom plugin markets and this plugin's Enable Safe Market switch are separate controls.
 
-[awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) generates the index automatically; `bruc3van.com` serves JSON through Cloudflare without redirects. The index verifies npm metadata and Git bundles pinned to full commits, including bundle declarations, timestamps, and explicit host compatibility ranges. This is a subset of the repository catalog, and inclusion is not a security audit or proof of runtime compatibility.
+[awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) generates the index automatically; `bruc3van.com` serves JSON through Cloudflare without redirects. The index verifies npm metadata and Git bundles pinned to full commits, including bundle declarations, timestamps, and explicit host compatibility ranges. Up to 2000 verified plugins are selected by Star count, with categories, featured labels, and npm weekly-download sorting. This is a subset of the repository catalog, and inclusion is not a security audit or proof of runtime compatibility.
 
 [DSH Plugin Directory and subscription guide](https://bruc3van.com/dsh-plugins/#subscribe) · [Index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/safer-dsh-market)
 
@@ -59,18 +59,18 @@ This plugin connects curated community data to the official installation service
 
 ### Official Plugins page integration and development baseline
 
-The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.1` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `0.10.3`; its declared compatibility range is listed separately below.
+The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `0.11.0`; its declared compatibility range is listed separately below.
 
 - Adds a Safe Market tab to the official Plugins page, preserving standalone navigation and the right sidebar. Older hosts without `plugins.tab` do not register the tab.
 - Reads new installation rejection `requirements` and legacy `peers`; skill discovery follows the host's committed working directory.
 - Declares `engines.dsh` and removes the retired `dsh-invariants` development dependency, keeping only an optional companion export for older profiles.
 - The data-source repository `awesome-dsh-plugin` owns generation and auditing of the official Discover format-1 index; `bruc3van.com` serves it. See [host market integration](docs/host-market.md). It does not publish files or add index sources automatically.
 
-**0.10.3 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
+**0.11.0 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
 
 | DSH host version | Plugin version | npm install target |
 | --- | --- | --- |
-| `0.2.x`, `0.1.7-rc.2` (currently supported) | `0.10.3` | `safer-dsh-market@0.10.3` |
+| `0.2.x`, `0.1.7-rc.2` (currently supported) | `0.11.0` | `safer-dsh-market@0.11.0` |
 | `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -81,7 +81,7 @@ The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The cur
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-When upgrading to `0.10.3` from an older release:
+When upgrading to `0.11.0` from an older release:
 
 - upgrade DSH to `0.1.7-rc.2` or `0.2.x` first;
 - the market switch is now saved by the host in the active profile's `cordis.patch.yml`, applied live, and kept across restarts;
@@ -92,19 +92,19 @@ When upgrading to `0.10.3` from an older release:
 The CLI examples below target DSH `0.1.7-rc.2` and **do not apply to Electron’s `desktop` profile**. Replace `<profile>` with a verified CLI-managed profile. For desktop, use the current session’s official `plugin_manager` or Electron’s official plugin management UI. Use the pinned [npm](https://www.npmjs.com/package/safer-dsh-market) version:
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.10.3
+dsh plugin --profile <profile> add safer-dsh-market@0.11.0
 ```
 
 Or hand the install to your agent — copy this prompt:
 
 ```text
-Install DSH Safe Market 0.10.3: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target safer-dsh-market@0.10.3. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
+Install DSH Safe Market 0.11.0: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target safer-dsh-market@0.11.0. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
 ```
 
 To lock to the exact version this document describes, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.10.3.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.11.0.tar.gz
 ```
 
 The official manager installs the dependency and registers the bundle; do not edit package.json yourself. Follow the returned outcome: applied means active, while restart-required means installed pending a restart of the current instance. Failure or overridden configuration must not be reported as active.
@@ -229,11 +229,11 @@ The folder icon after the source directory opens that skill's own directory in t
 
 The default is [market-v2.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json), falling back to the same npm package on unpkg. ETag caching, a local cache, and manual refresh are supported.
 
-- Schema 1 and 2 are supported. v2 adds `packages` install data, which reaches the client only after Host validation; task labels are searchable too;
+- Only schema 2 is supported; the retired `market.json` / schema 1 format is no longer accepted. v2 adds `packages` install data, which reaches the client only after Host validation; task labels are searchable too;
 - the envelope's `featured` / `featured_count` supply the editor's picks: each pick is matched to a catalog plugin by `full_name`; a pick missing from the catalog is shown only if it carries its own `packages`, and skipped otherwise. A missing or malformed section hides the picks and affects nothing else;
 - after an upgrade, a local cache parsed by an older version is downloaded again in full on the first read, instead of reusing a result that lacks the new fields;
-- install targets are limited to supported npm specs and GitHub HTTPS URLs — no commands, environment variables, paths, or shell fragments;
-- a custom `catalogBase` is never replaced; it may be a complete JSON URL or a legacy directory (`/market.json` is appended).
+- install targets are limited to supported npm specs and GitHub / Gitee HTTPS URLs — no commands, environment variables, paths, or shell fragments;
+- a custom `catalogBase` must be a complete v2 JSON URL (query parameters are preserved); filenames are no longer appended. Update old directory configurations to a v2 URL.
 
 See [docs/market-json-spec.md](docs/market-json-spec.md) for the contract.
 
@@ -246,7 +246,7 @@ Use the host’s supported configuration controls. A standard CLI profile uses `
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `false` | Allow community catalog reads; page changes are saved live by the host |
-| `catalogBase` | Complete URL of the npm feed's `market-v2.json` | A JSON URL, or a directory containing `market.json` |
+| `catalogBase` | Complete URL of the npm feed's `market-v2.json` | A complete v2 JSON URL; legacy directory configuration is unsupported |
 | `marketSize` | `1000` | Maximum rows returned to the UI (the actual count comes from the upstream catalog) |
 | `profile` | `""` (auto-detect) | Explicit fallback only without host profileContext; cannot override the active instance |
 

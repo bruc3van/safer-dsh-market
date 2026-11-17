@@ -8,9 +8,10 @@ export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin
  * revalidation only asks whether the FEED changed, so after an upgrade that
  * changes the parse a 304 would keep serving the old build's reduction
  * forever. Bump this whenever the derived catalog gains or changes a field.
- * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions.
+ * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions;
+ * 4 — v2-only feeds (discard reductions previously accepted from v1).
  */
-export declare const CATALOG_FORMAT = 3;
+export declare const CATALOG_FORMAT = 4;
 /**
  * Where a parsed catalog survives a restart. The catalog source neither opens
  * nor closes this — the plugin body owns the domain's lifecycle and hands the
@@ -37,7 +38,7 @@ export interface CatalogCache {
 }
 /** Deployment-varying knobs the plugin config owns. */
 export interface CatalogOptions {
-    /** A complete JSON feed URL, or a directory containing market.json. */
+    /** A complete market-v2 JSON feed URL. */
     readonly base: string;
     /** How many plugins the market shows. */
     readonly marketSize: number;
@@ -49,7 +50,7 @@ export interface CatalogOptions {
  * publisher's order IS the balance — every category places its best entry
  * before any places its second — so rows are kept in file order and truncated
  * to the requested size; nothing is re-ranked here.
- * @param body - the parsed `market.json` body.
+ * @param body - the parsed `market-v2.json` body.
  * @param marketSize - how many rows the browser shows.
  * @returns the parsed, validated, truncated catalog.
  * @throws when the body is not a market this plugin understands.

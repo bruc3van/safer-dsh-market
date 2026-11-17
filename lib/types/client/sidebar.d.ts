@@ -16,7 +16,7 @@ type PluginTabInjected = Omit<MarketSectionInjected, 'install'> & {
     close: () => void;
 };
 /** The owner's install verb is distinct from the market's review-draft verb. */
-export declare function MarketPluginTab({ install: _install, openPackage: _openPackage, stageReview, ...props }: PropsRuntime<'plugins.tab'> & InjectFace<PluginTabInjected> & PropsLocale<typeof NS>): import("react").JSX.Element;
+export declare function MarketPluginTab({ install: _install, update: _update, openPackage: _openPackage, stageReview, ...props }: PropsRuntime<'plugins.tab'> & InjectFace<PluginTabInjected> & PropsLocale<typeof NS>): import("react").JSX.Element;
 /** Optional on older hosts: wait for the actual Plugins page slot declaration. */
 export declare function registerMarketPluginTab(ctx: Context, injectMarket: () => MarketSectionInjected): void;
 /** Publish the navigation row only while its destination slot is available. */

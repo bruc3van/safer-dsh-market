@@ -24,7 +24,7 @@ export const safeMarketDomainState = z.object({
   /** The last reduction, or null before the first successful read. */
   catalog: z.union([marketCatalogSchema, z.null()]),
   /**
-   * ETag of `market.json` when the catalog was derived.
+   * ETag of `market-v2.json` when the catalog was derived.
    *
    * Defaulted, not required, because this field REPLACED the two the catalog
    * carried before 0.2.1 (`repositoriesEtag` / `curatedEtag`, one per upstream

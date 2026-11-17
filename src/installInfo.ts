@@ -6,7 +6,7 @@ export function isInstallSpec(value: string): boolean {
   try {
     const url = new URL(value.replace(/^git\+/, ''))
     return url.protocol === 'https:' && !url.username && !url.password && !url.search
-      && ['github.com', 'codeload.github.com', 'raw.githubusercontent.com'].includes(url.hostname)
+      && ['github.com', 'codeload.github.com', 'raw.githubusercontent.com', 'gitee.com'].includes(url.hostname)
       && /^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_./-]+)?$/.test(url.pathname)
       && !url.pathname.split('/').some(p => p === '.' || p === '..')
       && (!url.hash || /^#(?:[A-Za-z0-9_./-]+)?(?:&?path:\/?[A-Za-z0-9_./-]*)?$/.test(url.hash))

@@ -1,36 +1,41 @@
 # DSH 官方发现页订阅与市场接入
 
-用户订阅配置适用于 **DSH V0.2.1-rc.2 及以上**：左侧 **插件 → 实验性插件旁的「更多」→ 自定义插件市场**，开启后在 **发现** 中添加 JSON 索引源。完整开启、配置和检索步骤见[README](../README.md#订阅到-dsh-官方发现页)；也可以先访问 [DSH 插件导航](https://bruc3van.com/dsh-plugins/) 浏览目录。
+用户订阅配置适用于 **DSH V0.2.1-rc.2 及以上**：左侧 **插件 → 实验性插件旁的「更多」→ 自定义插件市场**，开启后在 **发现** 中添加 JSON 索引源。完整步骤见 [README](../README.md#订阅到-dsh-官方发现页)；也可以先访问 [DSH 插件导航](https://bruc3van.com/dsh-plugins/) 浏览目录。
 
-`safer-dsh-market@0.10.2` 的适配依据本地 `deepseek-harness` 的 `0.2.2-rc.1` 源码和同版本官方 npm 包；开发依赖固定到 `0.2.2-rc.1`，Cordis / Loader / Schemastery 分别升级到宿主使用的 `4.1.0` / `1.1.0` / `3.19.0`。DSH peer 范围显式接纳 `0.2.2-rc.1`，保留原有版本范围。宿主的兼容检查使用 `includePrerelease: true`，现有 `engines.dsh` 已覆盖目标 RC，无需修改。
+## 宿主适配
 
-本次核对了新版 Loader 的 `commit(change)` / Include journal 持久化变化、Settings、Typert、工作区导航和插件管理 Remote。现有业务接口仍适用，因此适配集中在依赖、兼容声明和回归验证。本次适配随 `safer-dsh-market@0.10.2` 发布。
+`safer-dsh-market@0.11.0` 的开发依赖固定到 DSH `0.2.2-rc.3`，Cordis / Loader / Schemastery 使用宿主的 `4.1.0` / `1.1.0` / `3.19.0`，Zod 固定到宿主的 `4.6.6`。DSH peer 范围接纳 `0.2.2-rc.1` 起的同系列 RC；`engines.dsh` 沿用 `>=0.1.7-rc.2 <0.3.0`，宿主使用 `includePrerelease: true` 检查。
 
-## 官方插件页
+核对了 rc.1 → rc.3 的插件页、侧栏插槽、会话控制器、Loader/Settings 和安装 Remote。`plugins.tab` 新增 owner 的 `update` 回调，市场与 owner 的安装、更新回调保持隔离；侧栏仍通过 `sidebar.panellist` 注册。现有市场直接安装、审查草稿和技能列表接口继续适用。本插件的菜单使用原生 disclosure，没有使用本次改变的宿主浮层定位接口。
 
-市场通过 `plugins.tab` 注册「安全市场」标签，共享原市场的数据源、安装队列和审查功能。该插槽是可选的：旧宿主或未启用官方插件管理界面时，原独立入口仍可用。注册跟随插槽和插件生命周期销毁。
+市场通过 `plugins.tab` 注册「安全市场」标签，共享原市场的数据源、安装队列和审查功能。注册跟随插槽和插件生命周期销毁；独立入口和右侧栏仍可用。
 
-市场仍使用自己的多选安装确认框和官方 `pluginManager` Remote。官方标签 owner 的 `install` 要求精确版本和已确认的版本元数据；旧社区目录含裸 npm 包名、分支及多组件目标，不能直接冒充这种版本记录。因此这里没有把目录目标硬塞给 owner 安装框。审查草稿的回调另名注入，避免与 owner 的 `install` 冲突。
+市场使用自己的多选安装确认框和官方 `pluginManager` Remote。官方标签 owner 的安装入口要求精确版本和版本元数据；社区 v2 目录允许裸 npm 包名、分支及多组件目标，不能直接作为官方索引的版本记录。
 
-## 官方发现索引源
+## 两种数据协议
 
-生成器、回归测试、定时更新工作流、索引与审计报告已迁到数据源仓库 `awesome-dsh-plugin` 的 `scripts/host-market/` 和 `data/`。市场插件不再生成或发布第二套索引。
+- 本插件读取 npm feed 的 `market-v2.json`，仅支持 `schema_version: 2`，默认 jsDelivr、失败回退到同包的 unpkg。`catalogBase` 必须是完整 v2 JSON URL；不再支持废弃的 `market.json` / schema 1 或目录地址补文件名。升级会失效旧解析缓存并完整下载一次。安装目标新增接受上游实际提供的 Gitee HTTPS 仓库，仍先交给官方管理器 inspect。见 [消费协议](market-json-spec.md)。
+- 官方「发现」页和 `plugin_market` 工具读取 format-1 `index.json`。生成器、测试、发布流程、索引与生成报告由数据源仓库 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin/tree/main/scripts/host-market) 维护，本插件不生成或发布另一套索引，也不自动添加订阅。
 
-- 订阅地址：`https://bruc3van.com/dsh-plugins/index.json`（Bruce 的精选插件）；旧地址 `https://bruc3van.com/markets/dsh/index.json` 继续兼容，已有订阅无需更换，不要重复添加。
-- 审计地址：`https://bruc3van.com/markets/dsh/audit.json`
+订阅地址：`https://bruc3van.com/dsh-plugins/index.json`（Bruce 的精选插件）。旧订阅地址 `https://bruc3van.com/markets/dsh/index.json` 由站点继续提供相同数据，已有订阅无需重复添加。该 URL 别名与已废弃的社区 `market.json` 是不同的接口。
 
-站点只转发已生成的 JSON，不重定向；后续数据源更新无需重新构建站点。使用方法和收录边界见数据源仓库的 `scripts/host-market/README.md`。
+生成与排除报告：`https://bruc3van.com/markets/dsh/audit.json`。此报告用于追溯生成来源，不是官方安全审计认证。
 
-宿主「发现」页和 `plugin_market` 工具消费 format-1 索引；现有社区 `market-v2.json` 继续供本插件使用。兼容范围遵循官方 `dshRange`：显式 `engines.dsh` 优先，否则使用 DSH peerDependencies 的范围交集；无约束时省略 engines。无效范围或空交集仍排除。收录不等于实机兼容或安全验证。
+## 数据源当前订阅规则
+
+以下依据上游 2026-11-17 的生成器说明：
+
+- 从社区 v2 目录（含精选）和完整已批准且具备安装映射的目录选取候选，核实 npm/Git 来源、实际 manifest、bundle、完整性与官方 `dshRange`。按 Star 排序最多收录 **2000 个插件**，已核验编辑推荐保留在名额内；缺映射或手动安装不转换。
+- format-1 索引使用官方 `@deepseek-ai/dsh-plugin-market-index@0.2.2-rc.3` 校验。显式 `engines.dsh` 优先，否则求 DSH peer 范围交集；无约束时省略，不补造范围。
+- 编辑推荐保留原用途分类，额外附加「编辑推荐」标签；分类、功能和推荐标签可组合筛选。保留 npm/Git 来源、更新时间及 Star 档位标签，每类最多一个；用途与前提标签逐包审阅，每包最多三个，展示字段变化后等待复核。
+- 默认按 Star 降序，可选 GitHub Star、仓库更新时间及 npm 周下载量排序。npm 使用公共来源的 `last-week` 窗口；读取失败或 Git 来源省略该指标，真实零值保留。发布时间和最佳匹配由宿主提供。
+- 生成报告记录多宿主版本声明匹配覆盖（主目标 rc.3）、推荐来源和插件数量、展示质量与证据哈希。声明匹配不等于实机兼容或安全验收。
+- 站点从 `market-release` 的不可变发布记录读取，并核对生成任务及索引、报告摘要。读取失败时使用已校验的随站快照并通过 `X-Market-Fallback` 标注；显式指定版本不可用时返回 503。数据源成功发布后无需重新构建站点。
+
+社区 v2 feed 与官方订阅有各自的生成和分发流程；本插件不会因为官方订阅扩容而自动显示 2000 项。
 
 ## 验证边界
 
-自动化覆盖新版 Loader/Settings 启动、RPC 注册、设置重启持久化、真实用户 bundle 的禁用/启用及跨重启恢复、标签生命周期及审查回调隔离、安装失败信息、新旧技能目录路径。仍需真实 Desktop 验收插件页排版、安装交互和发现源订阅。
+自动化覆盖 rc.3 下类型检查、构建、真实 Loader/Settings 启动、RPC 注册、设置及插件启停跨重启持久化，以及插件页回调隔离、安装失败信息和技能目录路径。另用真实 HTTP 服务验证 v1 拒绝和带查询参数的 v2 地址原样请求。Electron 页面交互与实际安装仍需在真实 Desktop 中验收。
 
-## 分类、筛选与排序
-
-订阅索引使用官方 format-1 metadata：沿用社区中英文分类，并把 `featured.json` 中的条目单独归入「编辑推荐」；保留包关键词并补充安装映射的任务关键词，提供 npm/Git 来源标签、由仓库更新时间和 Star 计算的筛选标签（更新：近7天或近30天；Star：50+、100+、500+、1k+、5k+、10k+，仅显示最高一档，低于50不显示；每类最多一个标签），以及 GitHub Star 数、仓库更新时间两项排序。宿主自身提供发布时间与搜索最佳匹配。默认仍按 Star 降序。
-
-用途与使用方式标签以用户选择为导向，涵盖文档导出、图片生成、语音输入等用途，任务看板、长期记忆等工作方式，手机使用、聊天软件等入口，以及有明确依据的使用前提。每个插件最多三个此类标签，按包级展示元数据审阅分配；上游展示字段变化时等待复核，不从类别或包名猜测。
-
-每日 CI 除社区目录外，也核验完整已批准目录中有明确安装映射的候选；按 Star 选取最多 1000 个通过核验的插件。缺映射保持待核实，手动安装不转换，来源未通过核验不收录。社区 v1/v2 与现有市场展示规则保持独立。
+2026-11-17 线上取样中，jsDelivr、unpkg 和主分支 v2 文件的 SHA-256 一致；真实解析得到 1000 条目录、50 条精选，安装目标全部保留。官方订阅的 1465 个插件、1550 个版本安装目标通过 rc.3 官方校验器，索引摘要与生成报告一致，站点未使用备用快照。本机系统 HTTP 请求可下载这些数据，终端 Node 的真实目录读取仍在两个 CDN 超时，使用进程级本地代理后也未通过；Electron 网络与界面交互尚未实测。

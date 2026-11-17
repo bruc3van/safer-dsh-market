@@ -32,7 +32,7 @@ https://bruc3van.com/dsh-plugins/index.json
 
 仅订阅官方「发现」页**无需安装 `safer-dsh-market`**；如需独立市场界面、多选安装和安装后 AI 审查，可另行安装市场插件。开启「自定义插件市场」与本插件自己的「启用安全市场」开关是两个不同入口。
 
-索引由 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) 自动生成，通过 Cloudflare 上的 `bruc3van.com` 提供无重定向 JSON。收录经过核实的 npm 目标及固定完整提交的 Git 组合包，核实 bundle 声明、时间及官方宿主兼容范围规则，因此不是完整仓库目录；收录不代表安全审查或实机兼容保证。
+索引由 [awesome-dsh-plugin](https://github.com/bruc3van/awesome-dsh-plugin) 自动生成，通过 Cloudflare 上的 `bruc3van.com` 提供无重定向 JSON。收录经过核实的 npm 目标及固定完整提交的 Git 组合包，核实 bundle 声明、时间及官方宿主兼容范围规则，按 Star 选取最多 2000 项，并提供分类、推荐标签与 npm 周下载量排序，因此不是完整仓库目录；收录不代表安全审查或实机兼容保证。
 
 [DSH 插件导航与订阅指南](https://bruc3van.com/dsh-plugins/#subscribe) · [查看索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json) · [最新版市场插件](https://www.npmjs.com/package/safer-dsh-market)
 
@@ -59,18 +59,18 @@ https://bruc3van.com/dsh-plugins/index.json
 
 ### 官方插件页接入与开发基线
 
-上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.1`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `0.10.3`，具体兼容范围见下表。
+上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `0.11.0`，具体兼容范围见下表。
 
 - 增加官方「插件」页的「安全市场」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
 - 接受新版安装拒绝信息的 `requirements`，并保留旧版 `peers`；技能列表使用宿主当前工作目录。
 - 显式声明 `engines.dsh`，移除已退役 `dsh-invariants` 的开发依赖；仅为旧 profile 保留可选 companion 导出。
 - 官方「发现」页 format-1 索引由数据源仓库 `awesome-dsh-plugin` 生成和审计，通过 `bruc3van.com` 分发。使用说明见 [官方市场接入](docs/host-market.md)。它不会自动添加索引源或发布文件。
 
-**0.10.3 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+**0.11.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.10.3` | `safer-dsh-market@0.10.3` |
+| `0.2.x`、`0.1.7-rc.2`（当前适配） | `0.11.0` | `safer-dsh-market@0.11.0` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -81,7 +81,7 @@ https://bruc3van.com/dsh-plugins/index.json
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-从旧版升级到 `0.10.3` 的注意事项：
+从旧版升级到 `0.11.0` 的注意事项：
 
 - 先把 DSH 升级到 `0.1.7-rc.2` 或 `0.2.x`；
 - 市场开关现由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效、重启后保留；
@@ -92,19 +92,19 @@ dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 以下 CLI 示例仅适用于可由 CLI 管理的 profile，**不适用于 Electron 的 `desktop`**。将 `<profile>` 替换为已核实的实际名称。推荐从 [npm](https://www.npmjs.com/package/safer-dsh-market) 安装指定版本：
 
 ```sh
-dsh plugin --profile <profile> add safer-dsh-market@0.10.3
+dsh plugin --profile <profile> add safer-dsh-market@0.11.0
 ```
 
 也可以把安装交给你的 Agent，复制这段提示词发过去：
 
 ```text
-帮我安装 DSH 安全市场 0.10.3：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.10.3。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
+帮我安装 DSH 安全市场 0.11.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 safer-dsh-market@0.11.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
 ```
 
 需要锁定到本文档对应版本时，使用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.10.3.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/safer-dsh-market/archive/refs/tags/v0.11.0.tar.gz
 ```
 
 官方管理器负责安装依赖和登记插件，无需手工修改 `package.json`。按返回结果判断是否需要重启：`applied` 表示已生效，`restart-required` 表示安装完成但需重启当前实例；失败或配置覆盖不能当作已生效。
@@ -229,11 +229,11 @@ DSH 模板自带的插件不在此列。
 
 默认读取 [market-v2.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-v2.json)，失败时改用同一 npm 包的 unpkg 镜像。支持 ETag、本地缓存和手动刷新。
 
-- 支持 schema 1 和 2。v2 附带 `packages` 安装信息，经 Host 校验后才进入客户端，功能标签也参与搜索；
+- 仅支持 schema 2；已移除废弃的 `market.json` / schema 1 兼容。v2 附带 `packages` 安装信息，经 Host 校验后才进入客户端，功能标签也参与搜索；
 - 信封中的 `featured` / `featured_count` 提供编辑精选：条目按 `full_name` 匹配目录中的插件；不在目录中的精选须自带 `packages` 才会显示，否则跳过；字段缺失或格式异常时不显示精选，其余功能不受影响；
 - 升级后若本地缓存由旧版本解析，首次读取会完整重新下载一次，不会沿用缺少新字段的旧结果；
-- 安装目标只接受受支持的 npm spec 和 GitHub HTTPS 地址，不接受命令、环境变量、路径或 shell 片段；
-- 自定义 `catalogBase` 不会被替换，可填完整 JSON URL，也兼容旧的目录地址（自动追加 `/market.json`）。
+- 安装目标只接受受支持的 npm spec 和 GitHub / Gitee HTTPS 地址，不接受命令、环境变量、路径或 shell 片段；
+- 自定义 `catalogBase` 必须填写完整 v2 JSON URL（可含查询参数）；不再自动追加文件名。旧自定义源需更换为 v2 地址。
 
 协议详见 [docs/market-json-spec.md](docs/market-json-spec.md)。
 
@@ -246,7 +246,7 @@ DSH 模板自带的插件不在此列。
 | 字段 | 默认值 | 说明 |
 | --- | --- | --- |
 | `enabled` | `false` | 是否允许读取社区目录；页面上的操作由宿主即时保存 |
-| `catalogBase` | npm feed 的 `market-v2.json` 完整 URL | JSON 地址，或包含 `market.json` 的目录 |
+| `catalogBase` | npm feed 的 `market-v2.json` 完整 URL | 完整的 v2 JSON 地址，不接受旧目录配置 |
 | `marketSize` | `1000` | 返回给界面的最大条数（实际条数由上游目录决定） |
 | `profile` | `""`（自动识别） | 仅在宿主没有 `profileContext` 时作为显式后备值；不能覆盖当前实例 |
 

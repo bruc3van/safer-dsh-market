@@ -62,7 +62,7 @@ export type {
 export interface Config {
   /** Live, profile-persisted permission to fetch the community catalog. */
   enabled: Volatile<boolean>
-  /** A complete JSON feed URL, or a directory containing market.json. */
+  /** A complete market-v2 JSON feed URL. */
   catalogBase: string
   /** How many plugins the market shows. */
   marketSize: number
