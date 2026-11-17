@@ -1,6 +1,6 @@
 {
   "name": "dsh-market-pro",
-  "description": "DSH 插件市场 Pro：人工核实与精选插件，集浏览、安装、更新及安装后 AI 安全审查于一体。",
+  "description": "DSH 插件市场专业版：精选真插件，集浏览、安装、更新及安装后 AI 安全审查于一体。",
   "version": "1.0.0",
   "entry": {
     "name": "dsh-market-pro",
