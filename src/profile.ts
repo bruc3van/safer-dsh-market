@@ -519,9 +519,10 @@ function isExactDisableRow(item: unknown, id: string): boolean {
  * override), which keeps its own shape. The document round-trips through the
  * yaml CST, so comments and untouched rows keep their original text; the
  * launcher recomposes the tree on the save, which is what makes the edit live.
- * @returns true when the file changed.
+ * @returns the ids whose exact disable rows were added or removed.
  */
-export async function setEntryDisabled(file: string, ids: readonly string[], disabled: boolean): Promise<boolean> {
+export async function setEntryDisabled(file: string, ids: readonly string[], disabled: boolean): Promise<string[]> {
+  if (ids.length === 0) return []
   let content = ''
   try {
     content = await readFile(file, 'utf8')
@@ -535,16 +536,16 @@ export async function setEntryDisabled(file: string, ids: readonly string[], dis
   if (doc.contents === null) {
     // No file (or an empty one): there is nothing to remove, and rows to add
     // are the whole content — written directly, JSON-quoted ids and all.
-    if (!disabled) return false
+    if (!disabled) return []
     const rows = ids.map(id => `- id: ${JSON.stringify(id)}\n  disabled: true\n`).join('')
     await atomicWrite(file, rows)
-    return true
+    return [...ids]
   }
   const seq = doc.contents
   if (!isSeq(seq)) {
     throw new TypeError(`patch file ${file} must hold a top-level array`)
   }
-  let changed = false
+  const changed = new Set<string>()
   if (disabled) {
     // A template file's `[]` is a flow sequence; rows append in block style —
     // the file is the user's own and block rows read as the harness writes
@@ -557,20 +558,21 @@ export async function setEntryDisabled(file: string, ids: readonly string[], dis
       // The created node lacks a source range until serialized, which is all
       // it is used for — the seq types it as parsed, hence the cast.
       seq.add(node as Parameters<typeof seq.add>[0])
-      changed = true
+      changed.add(id)
     }
   } else {
     for (let index = seq.items.length - 1; index >= 0; index -= 1) {
       const item = seq.items[index]!
-      if (ids.some(id => isExactDisableRow(item, id))) {
+      const id = ids.find(id => isExactDisableRow(item, id))
+      if (id !== undefined) {
         seq.items.splice(index, 1)
-        changed = true
+        changed.add(id)
       }
     }
   }
-  if (!changed) return false
+  if (changed.size === 0) return []
   let output = doc.toString()
   if (!output.endsWith('\n')) output += '\n'
   await atomicWrite(file, output)
-  return true
+  return [...changed]
 }

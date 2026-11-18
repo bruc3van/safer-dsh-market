@@ -60,6 +60,7 @@ export type InstallOutcome =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: 'not-ready' }
   | { readonly ok: false; readonly reason: 'no-workspace' }
+  | { readonly ok: false; readonly reason: 'draft-exists' }
   | { readonly ok: false; readonly reason: 'cancelled' }
   | { readonly ok: false; readonly reason: 'failed'; readonly message: string }
 
@@ -924,7 +925,7 @@ export function MarketSection({
   useEffect(() => { if (updateState?.revision) refreshInstalled() }, [updateState?.revision, refreshInstalled])
   const checkUpdate = pluginUpdater ? (packageName: string) => {
     setUpdateOpen(true)
-    if (pluginUpdater.getSnapshot().phase !== 'updating') void pluginUpdater.check(packageName)
+    if (pluginUpdater.getSnapshot().phase === 'idle') void pluginUpdater.check(packageName)
   } : undefined
   const probeUpdates = useCallback((packageNames: readonly string[]) => {
     void pluginUpdater?.probe(packageNames)
@@ -982,7 +983,8 @@ export function MarketSection({
         })
       } else {
         report(cardKey, { status: 'error', message: outcome.reason === 'not-ready'
-          ? t('install.notReady') : t('install.failed', { reason: outcome.message }) })
+          ? t('install.notReady') : outcome.reason === 'draft-exists'
+            ? t('install.draftExists') : t('install.failed', { reason: outcome.message }) })
       }
     } catch (error) {
       report(cardKey, { status: 'error', message: t('install.failed', { reason: error instanceof Error ? error.message : String(error) }) })
@@ -1061,6 +1063,11 @@ export function MarketSection({
         </MarketMoreActions>
       </div>
       <p className="dsh_market_subtitle">{t('intro.slogan')}</p>
+      {updateState && updateState.phase !== 'idle' && (
+        <button type="button" className="dsh_market_headerAction" onClick={() => setUpdateOpen(true)}>
+          {t('update.resume')} · {updateState.packageName}
+        </button>
+      )}
       {directInstaller && <DirectInstallPanel item={directItem} installer={directInstaller} t={t}
         onClose={closeInstallPanel} onInstalled={refreshInstalled}
         onReview={reviewInstalled} onAgentInstall={directItem ? () => agentInstall(directItem) : undefined}

@@ -39,6 +39,9 @@ export type InstallOutcome = {
     readonly reason: 'no-workspace';
 } | {
     readonly ok: false;
+    readonly reason: 'draft-exists';
+} | {
+    readonly ok: false;
     readonly reason: 'cancelled';
 } | {
     readonly ok: false;

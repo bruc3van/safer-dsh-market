@@ -222,12 +222,12 @@ test('setEntryDisabled appends rows to the template file, comments intact', asyn
   const { home, profileDir } = await makeHome()
   try {
     const file = join(profileDir, 'cordis.patch.yml')
-    assert.equal(await setEntryDisabled(file, ['demo-plugin'], true), true)
+    assert.deepEqual(await setEntryDisabled(file, ['demo-plugin'], true), ['demo-plugin'])
     const after = await readFile(file, 'utf8')
     assert.equal(after.startsWith('# Your patch layer for this dsh profile'), true)
     assert.match(after, /- id: demo-plugin\n  disabled: true/)
     // Idempotent: the same disable writes nothing.
-    assert.equal(await setEntryDisabled(file, ['demo-plugin'], true), false)
+    assert.deepEqual(await setEntryDisabled(file, ['demo-plugin'], true), [])
   } finally {
     await rm(home, { recursive: true, force: true })
   }
@@ -252,8 +252,8 @@ test('enable removes only this manager\'s exact rows, never hand-written ones', 
     try {
       const file = join(profileDir, 'cordis.patch.yml')
       // The exact row already exists, so disabling writes nothing.
-      assert.equal(await setEntryDisabled(file, ['demo-plugin'], true), false)
-      assert.equal(await setEntryDisabled(file, ['demo-plugin'], false), true)
+      assert.deepEqual(await setEntryDisabled(file, ['demo-plugin'], true), [])
+      assert.deepEqual(await setEntryDisabled(file, ['demo-plugin'], false), ['demo-plugin'])
       const after = await readFile(file, 'utf8')
       assert.match(after, /^# a user comment that must survive/)
       assert.match(after, /timeout: 5/)
@@ -278,9 +278,9 @@ test('setEntryDisabled creates the file when the patch layer is missing', async 
   const { home, profileDir } = await makeHome()
   try {
     const file = join(profileDir, 'elsewhere.patch.yml')
-    assert.equal(await setEntryDisabled(file, ['a:b c"quote'], true), true)
+    assert.deepEqual(await setEntryDisabled(file, ['a:b c"quote'], true), ['a:b c"quote'])
     assert.equal(await readFile(file, 'utf8'), '- id: "a:b c\\"quote"\n  disabled: true\n')
-    assert.equal(await setEntryDisabled(file, ['a:b c"quote'], false), true)
+    assert.deepEqual(await setEntryDisabled(file, ['a:b c"quote'], false), ['a:b c"quote'])
     assert.equal((await readFile(file, 'utf8')).trim(), '[]')
   } finally {
     await rm(home, { recursive: true, force: true })
@@ -503,6 +503,31 @@ test('uninstall edits the manifest, records the rows, and stops the entries', as
   }
 })
 
+test('uninstall sweep clears only its own rows and keeps a preexisting exact disable', async () => {
+  const { home, profileDir } = await makeHome('# Keep the first entry disabled\n- id: first\n  disabled: true\n')
+  try {
+    await makeBundle(profileDir, 'demo-plugin', '- insert:\n    - id: first\n      name: demo-plugin\n    - id: second\n      name: demo-plugin\n')
+    const built = makeManager(home, stubLoader([]).loader)
+    await built.uninstall('demo-plugin')
+    assert.deepEqual((await readPending(home))[0]?.ownedEntryIds, ['second'])
+    await built.sweep()
+    const patch = await readFile(join(profileDir, 'cordis.patch.yml'), 'utf8')
+    assert.match(patch, /# Keep the first entry disabled\n- id: first\n  disabled: true/)
+    assert.doesNotMatch(patch, /second/)
+  } finally { await rm(home, { recursive: true, force: true }) }
+})
+
+test('legacy uninstall records cannot authorize removal of an existing disable row', async () => {
+  const { home, profileDir } = await makeHome('- id: old\n  disabled: true\n')
+  try {
+    const built = makeManager(home, stubLoader([]).loader)
+    await built.adoptPending([{ packageName: 'already-removed', entryIds: ['old'], at: '' }])
+    await built.sweep()
+    assert.deepEqual(await readPending(home), [])
+    assert.match(await readFile(join(profileDir, 'cordis.patch.yml'), 'utf8'), /disabled: true/)
+  } finally { await rm(home, { recursive: true, force: true }) }
+})
+
 test('uninstall of self edits the manifest only', async () => {
   const { home, profileDir } = await makeHome()
   try {
@@ -642,7 +667,7 @@ test('uninstalling a desktop seat does not run pnpm remove', async () => {
 test('sweep leaves the record alone when the edit fails', async () => {
   const { home, profileDir } = await makeHome()
   try {
-    await writePending(home, [{ packageName: 'demo-plugin', entryIds: ['demo-plugin'], at: '2026-01-01T00:00:00Z' }])
+    await writePending(home, [{ packageName: 'demo-plugin', entryIds: ['demo-plugin'], ownedEntryIds: ['demo-plugin'], at: '2026-01-01T00:00:00Z' }])
     const built = createInstalledManager({
       profile: 'web',
       selfName: 'dsh-market-pro',
@@ -1219,7 +1244,7 @@ test('failed manifest removal reports failure and keeps stop rows across sweep',
 test('sweep finishes interrupted bookkeeping when the manifest removal already landed', async () => {
   const { home, profileDir } = await makeHome('- id: old\n  disabled: true\n')
   try {
-    await writePending(home, [{ packageName: 'already-removed', entryIds: ['old'], at: '', completed: false }])
+    await writePending(home, [{ packageName: 'already-removed', entryIds: ['old'], ownedEntryIds: ['old'], at: '', completed: false }])
     await makeManager(home, stubLoader([]).loader).sweep()
     assert.deepEqual(await readPending(home), [])
     assert.doesNotMatch(await readFile(join(profileDir, 'cordis.patch.yml'), 'utf8'), /disabled/)

@@ -35,6 +35,13 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - name: Verify release tag matches package version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          node -e 'const expected = "v" + require("./package.json").version
+          const tag = process.env.GITHUB_REF_NAME
+          if (tag !== expected) throw new Error("Release tag " + tag + " must match " + expected)'
       - name: Install dependencies
         run: pnpm install
         # No --ignore-workspace: pnpm 11 reads build-script approvals

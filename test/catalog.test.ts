@@ -798,6 +798,37 @@ test('a gzip body the host fetch left undecoded is still parsed', async () => {
   }
 })
 
+test('an oversized catalog stream is cancelled and the last good catalog is retained', async () => {
+  const fetch = stubFetch()
+  try {
+    const source = createCatalogSource({ base: 'https://catalog.test/feed', marketSize: 1000 })
+    const initial = source.read(false)
+    fetch.parked[0]!.resolve(jsonResponse({ schema_version: 2, entries: [entry()] }, '"initial"'))
+    const { catalog } = await initial
+    let cancelled = false
+    const chunk = new Uint8Array(4 * 1024 * 1024)
+    const oversized = source.read(true)
+    fetch.parked[1]!.resolve(new Response(new ReadableStream({
+      pull(controller) { controller.enqueue(chunk) },
+      cancel() { cancelled = true },
+    })))
+    assert.deepEqual(await oversized, { catalog, stale: true, error: 'catalog exceeds the 64 MiB size limit' })
+    assert.equal(cancelled, true)
+  } finally { fetch.restore() }
+})
+
+test('the catalog decompression limit also applies to compressed responses', async () => {
+  const { gzipSync } = await import('node:zlib')
+  const fetch = stubFetch()
+  try {
+    const source = createCatalogSource({ base: 'https://catalog.test/feed', marketSize: 1000 })
+    const pending = source.read(false)
+    const body = gzipSync(Buffer.alloc(64 * 1024 * 1024 + 1, 0x61))
+    fetch.parked[0]!.resolve(new Response(body, { headers: { 'content-encoding': 'gzip' } }))
+    assert.deepEqual(await pending, { catalog: null, stale: false, error: 'catalog exceeds the 64 MiB size limit' })
+  } finally { fetch.restore() }
+})
+
 test('an already-decoded body is not decoded twice despite its content-encoding', async () => {
   const fetch = stubFetch()
   try {

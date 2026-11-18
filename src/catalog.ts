@@ -17,6 +17,9 @@ const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1_000
 /** One attempt against one base; a chain of two costs at most twice this. */
 const FETCH_TIMEOUT_MS = 20_000
 
+/** Bound both the response stream and decompression. The full feed is about 19 MiB. */
+const MAX_CATALOG_BYTES = 64 * 1024 * 1024
+
 /** unpkg answers every `@latest` path with one 302; a few more hops is already a loop. */
 const MAX_REDIRECTS = 5
 
@@ -396,15 +399,44 @@ async function fetchFollowing(url: string, etag: string): Promise<Response> {
  * @returns the parsed body.
  */
 async function readJson(response: Response): Promise<unknown> {
-  let bytes: Uint8Array = new Uint8Array(await response.arrayBuffer())
+  const tooLarge = 'catalog exceeds the 64 MiB size limit'
+  if (Number(response.headers.get('content-length')) > MAX_CATALOG_BYTES) {
+    void response.body?.cancel().catch(() => undefined)
+    throw new Error(tooLarge)
+  }
+  if (response.body === null) throw new Error('catalog response is empty')
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let length = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      length += value.byteLength
+      if (length > MAX_CATALOG_BYTES) {
+        void reader.cancel().catch(() => undefined)
+        throw new Error(tooLarge)
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  let bytes = chunks.length === 1 ? chunks[0]! : Buffer.concat(chunks, length)
   let start = 0
   while (start < bytes.length && (bytes[start] === 0x20 || bytes[start] === 0x09 || bytes[start] === 0x0a || bytes[start] === 0x0d)) start += 1
   const plain = bytes[start] === 0x7b || bytes[start] === 0x5b || (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)
   if (!plain) {
     const encoding = (response.headers.get('content-encoding') ?? '').trim().toLowerCase()
-    if (bytes[0] === 0x1f && bytes[1] === 0x8b) bytes = gunzipSync(bytes)
-    else if (encoding === 'br') bytes = brotliDecompressSync(bytes)
-    else if (encoding === 'deflate') bytes = inflateSync(bytes)
+    const options = { maxOutputLength: MAX_CATALOG_BYTES }
+    try {
+      if (bytes[0] === 0x1f && bytes[1] === 0x8b) bytes = gunzipSync(bytes, options)
+      else if (encoding === 'br') bytes = brotliDecompressSync(bytes, options)
+      else if (encoding === 'deflate') bytes = inflateSync(bytes, options)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ERR_BUFFER_TOO_LARGE') throw new Error(tooLarge)
+      throw error
+    }
   }
   return JSON.parse(new TextDecoder().decode(bytes))
 }

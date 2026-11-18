@@ -118,6 +118,29 @@ test('lost reply prevents duplicate installation and can recover the original re
   await installer.recover()
   assert.equal(installer.getSnapshot().application, 'restart-required')
 })
+
+test('an unavailable install result stops its queue and allows a new install after dismissal', async () => {
+  const calls: string[] = []
+  const installer = createDirectInstaller(() => host({
+    installBundle: async spec => {
+      calls.push(spec)
+      if (spec === 'demo') throw new Error('Disconnected')
+      return { ok: true, value: { application: 'applied' } }
+    },
+    waitForInstall: async () => ({ ok: true, value: null }),
+  }))
+  await installer.start(['demo', 'queued'])
+  installer.reset()
+  assert.equal(installer.getSnapshot().phase, 'unknown')
+  await installer.recover()
+  assert.equal(installer.getSnapshot().phase, 'unavailable')
+  assert.equal(installer.getSnapshot().queue[1]?.phase, 'idle')
+  await installer.retry()
+  installer.reset()
+  await installer.start('other')
+  assert.equal(installer.getSnapshot().application, 'applied')
+  assert.deepEqual(calls, ['demo', 'other'])
+})
 test('concurrent clicks share one operation and cancellation waits for host settlement', async () => {
   let finish!: (value: any) => void
   const installer = createDirectInstaller(() => host({ installBundle: () => new Promise(resolve => { finish = resolve }) }))

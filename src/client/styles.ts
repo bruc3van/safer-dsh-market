@@ -270,6 +270,10 @@ export const cssText = `
 .dsh_market_backToTop:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 .dsh_market_backToTop:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
 .dsh_market_skillSource { overflow-wrap: anywhere; }
+/* Hide the host composer on the Skills tab while keeping pending reviews visible. */
+[data-conversation-scroll]:has(.dsh_market_projectSkills) > [data-composer-seat]:not(:has([data-approval-key], [data-plan-review-key])) {
+  display: none;
+}
 .dsh_market_projectSkills {
   container-type: inline-size;
   width: min(100%, 796px);

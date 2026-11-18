@@ -27,7 +27,7 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
   }, [open])
   const busy = ['checking', 'installing', 'cancelling', 'unknown'].includes(state.phase)
   useEffect(() => { setSelected([0]); setSubmitted(false); if (item) setDismissed(false) }, [item])
-  useEffect(() => { if (state.phase === 'done') onInstalled() }, [state, onInstalled])
+  useEffect(() => { if (state.phase === 'done' || state.phase === 'unavailable') onInstalled() }, [state, onInstalled])
   const visibleItem = busy && !submitted ? null : item
   const dismiss = () => { setDismissed(true); installer.reset(); onClose() }
   const info = visibleItem?.installInfo
@@ -36,7 +36,7 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
   const available = info?.mode === 'command' && targets.length > 0
   const manual = available ? '' : info?.manual
   const showDetails = chosen.length > 0 || Boolean(info?.requirements.length || info?.note || manual)
-  const showResult = submitted || busy || !item
+  const showResult = submitted || busy || state.phase === 'unavailable' || !item
   const needsApproval = showResult && state.phase === 'failed' && state.pendingBuilds.length > 0
   const finished = showResult && state.phase === 'done'
   const canDismiss = !busy || state.phase === 'unknown'
@@ -111,6 +111,7 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
         <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t('direct.decline')}</button>
         <button type="button" className="dsh_market_primary" onClick={() => { void installer.approve() }}>{t('direct.allowContinue')}</button>
       </> : finished ? <button type="button" className="dsh_market_primary" onClick={dismiss}>{t('direct.finish')}</button>
+        : state.phase === 'unavailable' ? <button type="button" className="dsh_market_primary" onClick={dismiss}>{t('direct.finishUnconfirmed')}</button>
         : state.phase === 'unknown' ? <button type="button" className="dsh_market_primary" onClick={() => { void installer.recover() }}>{t('direct.recover')}</button>
         : busy ? <button type="button" className="dsh_market_ghost" disabled={state.phase !== 'installing'} onClick={() => { void installer.cancel() }}>{t('direct.cancel')}</button>
         : (available || (showResult && state.phase === 'failed')) ? <>

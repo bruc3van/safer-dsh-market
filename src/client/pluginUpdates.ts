@@ -47,6 +47,47 @@ function defaultCandidate(choices: readonly UpdateChoice[]): string {
   return choices.find(version => !version.blocked && !version.prerelease && version.deprecated === undefined)?.version ?? ''
 }
 
+async function gitUpdateChoices(
+  indexes: UpdateMarketHost,
+  sources: readonly MarketIndexSummary[],
+  packageName: string,
+  isCurrent: () => boolean,
+): Promise<{ choices: UpdateChoice[]; warnings: string[] }> {
+  const warnings: string[] = []
+  let fallback: UpdateChoice[] = []
+  for (const source of sources) {
+    let offset: number | null = 0
+    let fetchedAt: number | undefined
+    while (offset !== null) {
+      const answer = await indexes.search(source.url, { text: packageName, sort: { kind: 'index' }, offset, limit: 100,
+        ...(fetchedAt === undefined ? { refresh: true } : { fetchedAt }) })
+      if (!isCurrent()) return { choices: [], warnings: [] }
+      if (!answer.ok) { warnings.push(`${source.url}: ${answer.error.message}`); break }
+      const page = answer.value
+      const entry = page.entries.find(item => item.name === packageName)
+      if (entry) {
+        const choices = entry.versions.filter(version => version.update).map(version => ({
+          version: version.version, prerelease: version.version.split('+')[0]!.includes('-'),
+          ...(!version.compatibility.compatible && !version.compatibility.exempted
+            ? { blocked: requirementsText(version.compatibility.requirements) || 'Incompatible with this DSH host.' } : {}),
+          source: { spec: version.install.spec, index: source.url },
+        }))
+        if (defaultCandidate(choices)) return { choices, warnings }
+        // Keep the first compatible prerelease in source order, or the first
+        // blocked list for diagnostics when no compatible version exists.
+        if (choices.length && (!fallback.length ||
+          (!fallback.some(choice => !choice.blocked) && choices.some(choice => !choice.blocked)))) {
+          fallback = choices
+        }
+        break
+      }
+      offset = page.nextOffset
+      fetchedAt = page.fetchedAt
+    }
+  }
+  return { choices: fallback, warnings }
+}
+
 function withAvailable(current: Readonly<Record<string, string>>, packageName: string, version: string): Readonly<Record<string, string>> {
   const clean = version.replace(/^v/i, '')
   if (clean !== '') return current[packageName] === clean ? current : { ...current, [packageName]: clean }
@@ -95,29 +136,9 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
               if (currentProbe !== probeSeq) return
               gitSources = listed.ok ? listed.value : []
             }
-            let found = ''
-            for (const source of gitSources) {
-              let offset: number | null = 0
-              let fetchedAt: number | undefined
-              while (offset !== null) {
-                const answer = await indexes.search(source.url, { text: bundle.name, sort: { kind: 'index' }, offset, limit: 100,
-                  ...(fetchedAt === undefined ? { refresh: true } : { fetchedAt }) })
-                if (currentProbe !== probeSeq) return
-                if (!answer.ok) break
-                const entry = answer.value.entries.find(item => item.name === bundle.name)
-                if (entry) {
-                  const candidate = entry.versions.find(version =>
-                    version.update && !version.version.split('+')[0]!.includes('-')
-                    && (version.compatibility.compatible || version.compatibility.exempted))
-                  found = candidate?.version ?? ''
-                  break
-                }
-                offset = answer.value.nextOffset
-                fetchedAt = answer.value.fetchedAt
-              }
-              if (found !== '') break
-            }
-            set({ available: withAvailable(state.available, bundle.name, found) })
+            const { choices } = await gitUpdateChoices(indexes, gitSources, bundle.name, () => currentProbe === probeSeq)
+            if (currentProbe !== probeSeq) return
+            set({ available: withAvailable(state.available, bundle.name, defaultCandidate(choices)) })
           }
         }
       } catch {
@@ -138,7 +159,7 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
         if (!bundle?.update) throw new Error('The official manager does not allow this installation to be updated. Built-in, local and unpinned Git copies may require their original installer.')
         set({ installed: bundle.version ?? '', kind: bundle.update })
         let choices: UpdateChoice[] = []
-        const warnings: string[] = []
+        let warnings: string[] = []
         let omitted = 0
         if (bundle.update === 'registry') {
           // Supply every business argument: the strict Remote does not omit optional options.
@@ -163,30 +184,10 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
           if (current !== generation) return
           if (!sources.ok) throw new Error(sources.error.message)
           if (!sources.value.length) throw new Error('Add a subscription index in the official Discover page before checking Git updates.')
-          // Preserve configured source order. Only exact package matches and Host-approved same-origin Git updates count.
-          for (const source of sources.value) {
-            let offset: number | null = 0
-            let fetchedAt: number | undefined
-            while (offset !== null) {
-              const answer = await indexes.search(source.url, { text: packageName, sort: { kind: 'index' }, offset, limit: 100,
-                ...(fetchedAt === undefined ? { refresh: true } : { fetchedAt }) })
-              if (current !== generation) return
-              if (!answer.ok) { warnings.push(`${source.url}: ${answer.error.message}`); break }
-              const page = answer.value
-              const entry = page.entries.find(item => item.name === packageName)
-              if (entry) {
-                choices = entry.versions.filter(version => version.update).map(version => ({
-                  version: version.version, prerelease: version.version.split('+')[0]!.includes('-'),
-                  ...(!version.compatibility.compatible && !version.compatibility.exempted ? { blocked: requirementsText(version.compatibility.requirements) } : {}),
-                  source: { spec: version.install.spec, index: source.url },
-                }))
-                break
-              }
-              offset = page.nextOffset
-              fetchedAt = page.fetchedAt
-            }
-            if (choices.length) break
-          }
+          const found = await gitUpdateChoices(indexes, sources.value, packageName, () => current === generation)
+          if (current !== generation) return
+          choices = found.choices
+          warnings = found.warnings
           if (!choices.length && warnings.length) throw new Error(warnings.join('\n'))
         }
         if (current !== generation) return

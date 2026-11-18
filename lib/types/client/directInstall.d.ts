@@ -49,7 +49,7 @@ export interface InstallHost {
     waitForInstall(requestId: string): Promise<Reply<InstallResult | null>>;
 }
 export interface DirectState {
-    phase: 'idle' | 'checking' | 'installing' | 'cancelling' | 'unknown' | 'done' | 'failed';
+    phase: 'idle' | 'checking' | 'installing' | 'cancelling' | 'unknown' | 'unavailable' | 'done' | 'failed';
     spec: string;
     message: string;
     application?: string;

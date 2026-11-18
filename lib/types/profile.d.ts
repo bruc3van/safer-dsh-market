@@ -191,6 +191,6 @@ export declare function readBundleInfo(profileDir: string, packageName: string):
  * override), which keeps its own shape. The document round-trips through the
  * yaml CST, so comments and untouched rows keep their original text; the
  * launcher recomposes the tree on the save, which is what makes the edit live.
- * @returns true when the file changed.
+ * @returns the ids whose exact disable rows were added or removed.
  */
-export declare function setEntryDisabled(file: string, ids: readonly string[], disabled: boolean): Promise<boolean>;
+export declare function setEntryDisabled(file: string, ids: readonly string[], disabled: boolean): Promise<string[]>;

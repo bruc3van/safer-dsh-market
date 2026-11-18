@@ -26,7 +26,7 @@ export interface InstallHost {
   waitForInstall(requestId: string): Promise<Reply<InstallResult | null>>
 }
 export interface DirectState {
-  phase: 'idle' | 'checking' | 'installing' | 'cancelling' | 'unknown' | 'done' | 'failed'
+  phase: 'idle' | 'checking' | 'installing' | 'cancelling' | 'unknown' | 'unavailable' | 'done' | 'failed'
   spec: string
   message: string
   application?: string
@@ -117,7 +117,7 @@ export function createDirectInstaller(host: () => InstallHost | undefined) {
         const result = await manager().waitForInstall(requestId)
         if (!result.ok) set({ message: result.error.message })
         else if (result.value !== null) await settle({ ok: true, value: result.value })
-        else set({ message: 'Installation result is unavailable. Check the official Plugins page before retrying.' })
+        else set({ phase: 'unavailable' })
       } catch (e) { set({ message: String(e) }) } finally { recovering = false }
     },
   }

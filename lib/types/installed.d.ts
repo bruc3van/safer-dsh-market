@@ -42,6 +42,8 @@ import { type MarketInstalledResult } from './contract.ts';
 export interface PendingUninstall {
     readonly packageName: string;
     readonly entryIds: readonly string[];
+    /** Exact rows added by uninstall. Legacy records did not track ownership. */
+    readonly ownedEntryIds?: readonly string[];
     readonly at: string;
     /** False until removal from the manifest has been verified; absent in legacy records. */
     readonly completed?: boolean;

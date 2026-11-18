@@ -72,6 +72,8 @@ const FIBER_PHASE = ['pending', 'loading', 'active', 'failed', 'disposed', 'unlo
 export interface PendingUninstall {
   readonly packageName: string
   readonly entryIds: readonly string[]
+  /** Exact rows added by uninstall. Legacy records did not track ownership. */
+  readonly ownedEntryIds?: readonly string[]
   readonly at: string
   /** False until removal from the manifest has been verified; absent in legacy records. */
   readonly completed?: boolean
@@ -168,6 +170,7 @@ async function readPendingFile(file: string): Promise<PendingUninstall[]> {
         packageName: String((row as { packageName?: unknown }).packageName ?? ''),
         entryIds: (Array.isArray((row as { entryIds?: unknown }).entryIds) ? (row as { entryIds: unknown[] }).entryIds : [])
           .map(id => String(id)),
+        ownedEntryIds: Array.isArray(row.ownedEntryIds) ? row.ownedEntryIds.filter((id: unknown) => typeof id === 'string') : undefined,
         at: String((row as { at?: unknown }).at ?? ''),
         completed: (row as { completed?: unknown }).completed !== false,
       }))
@@ -345,7 +348,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
     // run yet): surface it so the panel can explain the disabled state.
     const pending = await readPending()
     const heldDown = (packageName: string): boolean =>
-      pending.some(record => record.packageName === packageName && record.entryIds.length > 0)
+      pending.some(record => record.packageName === packageName && (record.ownedEntryIds ?? record.entryIds).length > 0)
     const live = liveEntries()
     const packages: MarketInstalledPackage[] = []
     const seen = new Set<string>()
@@ -455,18 +458,24 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
     // what makes `pnpm remove` fail EBUSY. Self-uninstall skips the stop —
     // this fiber is the one answering the call.
     if (!self && ids.length > 0) {
-      let rowsWritten = false
+      let addedIds: string[] | undefined
       try {
-        await setEntryDisabled(patchPath, ids, true)
-        rowsWritten = true
+        addedIds = await setEntryDisabled(patchPath, ids, true)
       } catch (error) {
         faults.push('stop rows: ' + messageOf(error))
         console.warn('[dsh-market-pro] uninstall stop rows failed:', error)
       }
-      if (rowsWritten) {
+      if (addedIds !== undefined) {
         try {
-          const pending = (await readPending()).filter(record => record.packageName !== packageName)
-          await writePending([...pending, { packageName, entryIds: ids, at: new Date().toISOString(), completed: false }])
+          const pending = await readPending()
+          const previous = pending.find(record => record.packageName === packageName)
+          const ownedEntryIds = [...new Set([...(previous?.ownedEntryIds ?? []), ...addedIds])]
+          if (ownedEntryIds.length > 0 || previous !== undefined) {
+            await writePending([
+              ...pending.filter(record => record.packageName !== packageName),
+              { packageName, entryIds: ids, ownedEntryIds, at: new Date().toISOString(), completed: false },
+            ])
+          }
         } catch (error) {
           faults.push('sweep record: ' + messageOf(error))
           console.warn('[dsh-market-pro] uninstall sweep record failed:', error)
@@ -564,7 +573,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
       // Completed removals may release their stop rows, including after a reinstall.
       // An interrupted removal may only release them once the manifest no longer
       // references the package; otherwise it must stay disabled.
-      await setEntryDisabled(patchPath, [...new Set(pending.flatMap(record => [...record.entryIds]))], false)
+      await setEntryDisabled(patchPath, [...new Set(pending.flatMap(record => record.ownedEntryIds ?? []))], false)
       await writePending(all.filter(record => !pending.includes(record)))
     } catch (error) {
       console.warn('[dsh-market-pro] uninstall sweep failed:', error)

@@ -134,6 +134,25 @@ test('Git source failures remain visible when another source offers an update; a
   assert.equal(allFailed.getSnapshot().phase, 'error')
 })
 
+test('Git badge and dialog skip earlier indexes with only incompatible versions', async () => {
+  const manager = host({ listBundles: async () => ok([{ name: 'demo', version: '1.0.0', installed: true, update: 'git' }]) })
+  const first = 'https://first.test/index.json'
+  const second = 'https://second.test/index.json'
+  const updater = createPluginUpdater(() => manager, () => ({
+    listIndexes: async () => ok([{ url: first }, { url: second }]),
+    search: async url => ok(page(url === first ? [gitEntry('demo', {
+      version: '3.0.0', compatibility: { compatible: false, requirements: { 'engines.dsh': '>=1' } },
+    })] : [gitEntry()])),
+  }))
+  await updater.probe(['demo'])
+  assert.equal(updater.getSnapshot().available.demo, '2.0.0')
+  await updater.check('demo')
+  const state = updater.getSnapshot()
+  assert.equal(state.available.demo, '2.0.0')
+  assert.equal(state.selected, '2.0.0')
+  assert.deepEqual(state.choices.map(choice => choice.source), [{ index: second, spec: gitSpec }])
+})
+
 test('updates serialize confirmation, match progress ids, and retain restoration outcomes', async () => {
   let finish!: (value: ReturnType<typeof ok<PluginUpdateResult>>) => void
   let options!: Parameters<UpdateHost['updateBundle']>[2]
