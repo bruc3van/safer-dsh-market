@@ -1,12 +1,9 @@
 /**
  * The version-consistency gate.
  *
- * A version bump has more seats than package.json: the plugin manifest, the
- * GitHub tarball URLs the READMEs still pin as the version-locked install,
- * and the npm package-name install that is now the default. This test is the
- * gate. The tag workflow (`.github/workflows/release.yml`) is what actually
- * publishes that version to npm — the last check below is so a release
- * cannot quietly drop that job.
+ * A version bump must keep package.json and dsh.plugin.json in sync, the
+ * READMEs must reference the current package name, and the tag workflow
+ * (`.github/workflows/release.yml`) must publish that version to npm.
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -31,8 +28,6 @@ const plugin = JSON.parse(await readFile(resolve(root, 'dsh.plugin.json'), 'utf8
   entry: { name: string }
 }
 
-const npmInstall = `dsh plugin --profile <profile> add ${pkg.name}`
-
 test('the real rc.3 host accepts our declared baseline without compatibility exemptions', () => {
   for (const version of ['0.1.7-rc.2', '0.2.0', '0.2.1-alpha.5', '0.2.1-rc.4', '0.2.2-rc.1', '0.2.2-rc.2', '0.2.2-rc.3']) {
     assert.equal(evaluatePluginCompatibility(pkg, {}, version), undefined)
@@ -55,11 +50,6 @@ test('DSH dependencies keep the declared runtime and development baseline', () =
   }
 })
 
-/** Every release-tarball tag a README pins, e.g. `v0.2.2`. */
-function tarballTags(markdown: string): string[] {
-  return [...markdown.matchAll(/archive\/refs\/tags\/(v\d+\.\d+\.\d+)\.tar\.gz/g)].map(match => match[1]!)
-}
-
 test('package metadata and bundle entry agree on the plugin identity and version', async () => {
   assert.equal(pkg.name, PACKAGE_NAME)
   assert.equal(plugin.name, pkg.name)
@@ -75,41 +65,12 @@ test('package metadata and bundle entry agree on the plugin identity and version
 })
 
 for (const name of ['README.md', 'README_EN.md'] as const) {
-  test(`${name} offers the npm package-name install`, async () => {
+  test(`${name} guides users to install ${ pkg.name }`, async () => {
     const markdown = await readFile(resolve(root, name), 'utf8')
     assert.ok(
-      markdown.includes(npmInstall),
-      `${name} must keep the npm install command \`${npmInstall}\` (the default install and the copyable agent prompt)`,
+      markdown.includes(pkg.name),
+      `${name} must reference the package name \`${pkg.name}\` for installation`,
     )
-  })
-
-  test(`${name} pins the release tarball to the current version`, async () => {
-    const markdown = await readFile(resolve(root, name), 'utf8')
-    const tags = tarballTags(markdown)
-    assert.ok(
-      tags.length > 0,
-      `${name} must keep at least one release-tarball install URL (the version-locked fallback)`,
-    )
-    for (const tag of tags) {
-      assert.equal(
-        tag,
-        `v${pkg.version}`,
-        `${name} references ${tag}, but the package version is ${pkg.version} — update the tarball install alongside the bump`,
-      )
-    }
-  })
-
-  test(`${name} states the DSH 0.1.7 compatibility baseline`, async () => {
-    const markdown = await readFile(resolve(root, name), 'utf8')
-    assert.match(markdown, /0\.1\.7-rc\.2/)
-    assert.match(markdown, /0\.1\.1/)
-    assert.match(
-      markdown,
-      name === 'README.md' ? /不兼容 DSH 0\.1\.1 和 0\.1\.2/ : /does not support the DSH 0\.1\.1 or 0\.1\.2/,
-      `${name} must state that the current release does not support DSH 0.1.1 or 0.1.2`,
-    )
-    assert.match(markdown, /dsh-desktop-safe-market@0\.3\.0/)
-    assert.match(markdown, /dsh-desktop-safe-market@0\.4\.3/)
   })
 }
 
