@@ -110,6 +110,10 @@ export interface MarketSkill {
   readonly whenToUse: string
   /** The provider that owns the skill body (`filesystem`, `runtime`, …). */
   readonly provider: string
+  /** Discovery source reported by the winning provider. */
+  readonly source?: string
+  /** Instruction file reported by the provider, when it has a file preview. */
+  readonly instructionPath?: string
   /** Actual resource directory, relative to the workspace or home when possible. */
   readonly sourceDirectory?: string
   /**
@@ -129,6 +133,8 @@ export const sessionIdSchema = z.string().min(1)
 /** A skills read: the answer, or the reason there is none. */
 export interface MarketSkillsResult {
   readonly skills: readonly MarketSkill[]
+  readonly cwd?: string
+  readonly preset?: string
   /** False when a provider failed or reported incomplete discovery. */
   readonly complete: boolean
   readonly error: string
@@ -331,6 +337,8 @@ export const marketSkillSchema = z.object({
   description: z.string(),
   whenToUse: z.string(),
   provider: z.string(),
+  source: z.string().optional(),
+  instructionPath: z.string().min(1).max(4096).optional(),
   sourceDirectory: z.string().optional(),
   sourcePath: z.string().min(1).max(4096).optional(),
   modelInvocable: z.boolean(),
@@ -340,6 +348,8 @@ export const marketSkillSchema = z.object({
 /** Strict wire codec for one skills read. */
 export const marketSkillsResultSchema = z.object({
   skills: z.array(marketSkillSchema).readonly(),
+  cwd: z.string().optional(),
+  preset: z.string().optional(),
   complete: z.boolean(),
   error: z.string(),
 }).readonly()

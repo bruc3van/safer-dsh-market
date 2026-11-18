@@ -26,6 +26,8 @@ interface SkillRegistryFace {
       description?: string
       whenToUse?: string
       provider: string
+      source?: string
+      path?: string
       resourceBase?: { kind: 'directory'; path: string } | { kind: 'url'; url: string } | { kind: 'opaque'; description: string }
       invocation: { modelInvocable: boolean; userInvocable: boolean }
     }[]
@@ -66,9 +68,8 @@ export function skillDirectory(directory: string, cwd?: string, home = homedir()
  * may legitimately hold runs of spaces), but only in a shape the wire codec
  * and the Host's opener can take.
  */
-function folderPath(value: unknown): { sourcePath?: string } {
-  if (typeof value !== 'string' || value === '' || value.length > 4096) return {}
-  return /[\u0000-\u001f]/.test(value) ? {} : { sourcePath: value }
+function validPath(value: unknown): value is string {
+  return typeof value === 'string' && value !== '' && value.length <= 4096 && !/[\u0000-\u001f]/.test(value)
 }
 
 /** The addressed agent, structurally: its scope key and its workspace. */
@@ -103,17 +104,19 @@ export async function readSkills(
       description: text(entry.description, 400),
       whenToUse: text(entry.whenToUse, 400),
       provider: text(entry.provider, 60),
+      ...(entry.source === undefined ? {} : { source: text(entry.source, 60) }),
+      ...(validPath(entry.path) ? { instructionPath: entry.path } : {}),
       ...(entry.resourceBase?.kind === 'directory'
         ? {
             sourceDirectory: skillDirectory(entry.resourceBase.path, cwd),
-            ...folderPath(entry.resourceBase.path),
+            ...(validPath(entry.resourceBase.path) ? { sourcePath: entry.resourceBase.path } : {}),
           }
         : {}),
       modelInvocable: entry.invocation.modelInvocable,
       userInvocable: entry.invocation.userInvocable,
     }))
     skills.sort((a, b) => a.name.localeCompare(b.name))
-    return { skills, complete: observation.complete, error: '' }
+    return { skills, ...(cwd === undefined ? {} : { cwd }), complete: observation.complete, error: '' }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return { skills: [], complete: false, error: message === '' ? 'unknown error' : message }

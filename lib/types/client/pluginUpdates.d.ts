@@ -48,11 +48,14 @@ export interface UpdateState {
     result?: PluginUpdateResult;
     /** Every settled update invalidates installed facts, including a failed update with restoration. */
     revision: number;
+    /** Newest compatible stable version detected per installed package name. */
+    available: Readonly<Record<string, string>>;
 }
 /** One shared operation survives switching between the market's three entry points. */
 export declare function createPluginUpdater(host: () => UpdateHost | undefined, market: () => UpdateMarketHost | undefined): {
     getSnapshot: () => UpdateState;
     subscribe: (listener: () => void) => () => void;
+    probe(packageNames?: readonly string[]): Promise<void>;
     check(packageName: string): Promise<void>;
     select(version: string): void;
     confirm(): Promise<void>;

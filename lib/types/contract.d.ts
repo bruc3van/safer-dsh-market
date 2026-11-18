@@ -100,6 +100,10 @@ export interface MarketSkill {
     readonly whenToUse: string;
     /** The provider that owns the skill body (`filesystem`, `runtime`, …). */
     readonly provider: string;
+    /** Discovery source reported by the winning provider. */
+    readonly source?: string;
+    /** Instruction file reported by the provider, when it has a file preview. */
+    readonly instructionPath?: string;
     /** Actual resource directory, relative to the workspace or home when possible. */
     readonly sourceDirectory?: string;
     /**
@@ -117,6 +121,8 @@ export declare const sessionIdSchema: z.ZodString;
 /** A skills read: the answer, or the reason there is none. */
 export interface MarketSkillsResult {
     readonly skills: readonly MarketSkill[];
+    readonly cwd?: string;
+    readonly preset?: string;
     /** False when a provider failed or reported incomplete discovery. */
     readonly complete: boolean;
     readonly error: string;
@@ -555,6 +561,8 @@ export declare const marketSkillSchema: z.ZodReadonly<z.ZodObject<{
     description: z.ZodString;
     whenToUse: z.ZodString;
     provider: z.ZodString;
+    source: z.ZodOptional<z.ZodString>;
+    instructionPath: z.ZodOptional<z.ZodString>;
     sourceDirectory: z.ZodOptional<z.ZodString>;
     sourcePath: z.ZodOptional<z.ZodString>;
     modelInvocable: z.ZodBoolean;
@@ -567,11 +575,15 @@ export declare const marketSkillsResultSchema: z.ZodReadonly<z.ZodObject<{
         description: z.ZodString;
         whenToUse: z.ZodString;
         provider: z.ZodString;
+        source: z.ZodOptional<z.ZodString>;
+        instructionPath: z.ZodOptional<z.ZodString>;
         sourceDirectory: z.ZodOptional<z.ZodString>;
         sourcePath: z.ZodOptional<z.ZodString>;
         modelInvocable: z.ZodBoolean;
         userInvocable: z.ZodBoolean;
     }, z.core.$strip>>>>;
+    cwd: z.ZodOptional<z.ZodString>;
+    preset: z.ZodOptional<z.ZodString>;
     complete: z.ZodBoolean;
     error: z.ZodString;
 }, z.core.$strip>>;

@@ -391,6 +391,13 @@ export const cssText = `
 .dsh_market_filterBar {
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
 }
+.dsh_market_filterActions {
+  display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;
+  flex: 1 1 220px; gap: 8px; min-width: 0; margin-left: auto;
+}
+.dsh_market_filterSearch {
+  flex: 0 1 240px; min-width: 160px; height: 34px;
+}
 .dsh_market_scope {
   display: inline-flex; flex: none; gap: 2px; padding: 3px; border-radius: 9px;
   background: var(--dsw-alias-interactive-bg-hover);
@@ -808,6 +815,7 @@ export const cssText = `
 }
 .dsh_market_foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;

@@ -35,16 +35,31 @@ export interface UpdateState {
   result?: PluginUpdateResult
   /** Every settled update invalidates installed facts, including a failed update with restoration. */
   revision: number
+  /** Newest compatible stable version detected per installed package name. */
+  available: Readonly<Record<string, string>>
 }
 
 function requirementsText(requirements: Readonly<Record<string, string>>): string {
   return Object.entries(requirements).map(([name, range]) => `${name === 'engines.dsh' ? 'DSH' : name} ${range}`).join(', ')
 }
 
+function defaultCandidate(choices: readonly UpdateChoice[]): string {
+  return choices.find(version => !version.blocked && !version.prerelease && version.deprecated === undefined)?.version ?? ''
+}
+
+function withAvailable(current: Readonly<Record<string, string>>, packageName: string, version: string): Readonly<Record<string, string>> {
+  const clean = version.replace(/^v/i, '')
+  if (clean !== '') return current[packageName] === clean ? current : { ...current, [packageName]: clean }
+  if (!(packageName in current)) return current
+  const { [packageName]: _removed, ...rest } = current
+  return rest
+}
+
 /** One shared operation survives switching between the market's three entry points. */
 export function createPluginUpdater(host: () => UpdateHost | undefined, market: () => UpdateMarketHost | undefined) {
-  let state: UpdateState = { phase: 'idle', packageName: '', installed: '', choices: [], selected: '', message: '', warnings: [], omitted: 0, revision: 0 }
+  let state: UpdateState = { phase: 'idle', packageName: '', installed: '', choices: [], selected: '', message: '', warnings: [], omitted: 0, revision: 0, available: {} }
   let generation = 0
+  let probeSeq = 0
   let requestId: PluginInstallRequestId | undefined
   const listeners = new Set<() => void>()
   const set = (patch: Partial<UpdateState>) => {
@@ -54,6 +69,61 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
   return {
     getSnapshot: () => state,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+    async probe(packageNames?: readonly string[]) {
+      const api = host()
+      if (!api?.listVersions || !api.updateBundle) return
+      const currentProbe = ++probeSeq
+      try {
+        const inventory = await api.listBundles()
+        if (currentProbe !== probeSeq || !inventory.ok) return
+        const wanted = packageNames === undefined ? undefined : new Set(packageNames)
+        const targets = inventory.value.filter(item => item.installed && item.update !== undefined && (wanted === undefined || wanted.has(item.name)))
+        const indexes = market()
+        let gitSources: readonly MarketIndexSummary[] | undefined
+        for (const bundle of targets) {
+          if (currentProbe !== probeSeq) return
+          if (bundle.update === 'registry') {
+            const answer = await api.listVersions(bundle.name, {})
+            if (currentProbe !== probeSeq) return
+            if (!answer.ok || answer.value.status === 'refused') continue
+            const candidate = answer.value.versions.find(version =>
+              version.bundle && version.incompatible === undefined && !version.prerelease && version.deprecated === undefined)
+            set({ available: withAvailable(state.available, bundle.name, candidate?.version ?? '') })
+          } else if (bundle.update === 'git' && indexes) {
+            if (gitSources === undefined) {
+              const listed = await indexes.listIndexes()
+              if (currentProbe !== probeSeq) return
+              gitSources = listed.ok ? listed.value : []
+            }
+            let found = ''
+            for (const source of gitSources) {
+              let offset: number | null = 0
+              let fetchedAt: number | undefined
+              while (offset !== null) {
+                const answer = await indexes.search(source.url, { text: bundle.name, sort: { kind: 'index' }, offset, limit: 100,
+                  ...(fetchedAt === undefined ? { refresh: true } : { fetchedAt }) })
+                if (currentProbe !== probeSeq) return
+                if (!answer.ok) break
+                const entry = answer.value.entries.find(item => item.name === bundle.name)
+                if (entry) {
+                  const candidate = entry.versions.find(version =>
+                    version.update && !version.version.split('+')[0]!.includes('-')
+                    && (version.compatibility.compatible || version.compatibility.exempted))
+                  found = candidate?.version ?? ''
+                  break
+                }
+                offset = answer.value.nextOffset
+                fetchedAt = answer.value.fetchedAt
+              }
+              if (found !== '') break
+            }
+            set({ available: withAvailable(state.available, bundle.name, found) })
+          }
+        }
+      } catch {
+        // Silent background probe: errors surface only when the user opens the update dialog.
+      }
+    },
     async check(packageName: string) {
       if (state.phase === 'updating') return
       const current = ++generation
@@ -120,7 +190,8 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
           if (!choices.length && warnings.length) throw new Error(warnings.join('\n'))
         }
         if (current !== generation) return
-        set({ phase: 'ready', choices, selected: choices.find(version => !version.blocked && !version.prerelease && version.deprecated === undefined)?.version ?? '', warnings, omitted })
+        const selected = defaultCandidate(choices)
+        set({ phase: 'ready', choices, selected, warnings, omitted, available: withAvailable(state.available, packageName, selected) })
       } catch (error) {
         if (current === generation) set({ phase: 'error', message: error instanceof Error ? error.message : String(error) })
       }
@@ -140,8 +211,13 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
         const source = choice.source
         const answer = await api.updateBundle(state.packageName, choice.version,
           { ...('registry' in source ? { registry: source.registry } : { spec: source.spec }), requestId })
-        set(answer.ok ? { phase: 'done', result: answer.value, revision: state.revision + 1 }
-          : { phase: 'unknown', message: answer.error.message, revision: state.revision + 1 })
+        const applied = answer.ok && (answer.value.result.application === 'applied' || answer.value.result.application === 'restart-required')
+        set(answer.ok ? {
+          phase: 'done',
+          result: answer.value,
+          revision: state.revision + 1,
+          ...(applied ? { available: withAvailable(state.available, state.packageName, '') } : {}),
+        } : { phase: 'unknown', message: answer.error.message, revision: state.revision + 1 })
       } catch (error) {
         set({ phase: 'unknown', message: error instanceof Error ? error.message : String(error), revision: state.revision + 1 })
       } finally { requestId = undefined }

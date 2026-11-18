@@ -3,6 +3,7 @@ import { reviewChannelZh, reviewChannelEn } from './reviewPolicy.ts'
 /** Localized UI copy and read-only installed-artifact review requests. */
 export const zh = {
   'update.check': "检查更新",
+  'update.to': "更新到 v{version}",
   'update.title': "插件更新",
   'update.installed': "当前安装：{version}",
   'update.transition': "本次更新：{from} → {to}",
@@ -85,7 +86,7 @@ export const zh = {
   'tabs.aria': '插件市场Pro分区',
 
   'intro.title': '插件市场Pro',
-  'intro.slogan': "发现插件，安装后可选 AI 审查。",
+  'intro.slogan': "精选真插件，一站式浏览、安装、更新与 AI 审查。",
   'intro.body': "默认联网加载社区插件目录，通过官方通道安装。安装后可选择 AI 审查已安装版本。插件可能已执行，事后审查不能代替安装前的安全判断；目录收录不代表安全或兼容保证。",
   'intro.disabled': '社区插件目录已在宿主配置中停用。',
 
@@ -195,6 +196,7 @@ export const zh = {
 /** English dictionary. */
 export const en: Record<SafeMarketLocaleKey, string> = {
   'update.check': "Check for updates",
+  'update.to': "Update to v{version}",
   'update.title': "Plugin update",
   'update.installed': "Installed: {version}",
   'update.transition': "Update: {from} → {to}",
@@ -277,7 +279,7 @@ export const en: Record<SafeMarketLocaleKey, string> = {
   'tabs.aria': 'DSH Market Pro pages',
 
   'intro.title': 'DSH Market Pro',
-  'intro.slogan': "Discover plugins, with optional AI review after installation.",
+  'intro.slogan': "Curated plugins: browse, install, update, and review with AI in one place.",
   'intro.body': "Load the community catalog online by default and install through the official manager. Optionally review the installed version with AI. Plugins may already have executed; a later review cannot provide pre-install protection. Listing is no guarantee of safety or compatibility.",
   'intro.disabled': 'The community catalog is disabled in the host configuration.',
 

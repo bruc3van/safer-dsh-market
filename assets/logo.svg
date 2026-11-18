@@ -1,11 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 36 36" fill="none">
   <title>DSH Market Pro</title>
-  <path fill="#061A4D" d="M128 20C156 36 186 46 216 54Q232 58 232 76V132C232 178 202 211 128 240C54 211 24 178 24 132V76Q24 58 40 54C70 46 100 36 128 20Z"/>
-  <g fill="#E8EEF8">
-    <rect x="66" y="72" width="56" height="56" rx="12"/>
-    <rect x="134" y="72" width="56" height="56" rx="12"/>
-    <rect x="66" y="140" width="56" height="56" rx="12"/>
-  </g>
-  <rect x="134" y="140" width="56" height="56" rx="12" fill="#2864DC"/>
-  <path d="M147 168L157 178L178 157" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="9" y="9" width="7.5" height="7.5" rx="2" fill="url(#dsh_market_pro_blue)"/>
+  <rect x="19.5" y="9" width="7.5" height="7.5" rx="2" fill="url(#dsh_market_pro_blue)" fill-opacity="0.88"/>
+  <rect x="9" y="19.5" width="7.5" height="7.5" rx="2" fill="url(#dsh_market_pro_blue)" fill-opacity="0.88"/>
+  <path d="M23.25 18.2C23.48 18.2 23.68 18.36 23.74 18.58L24.38 20.92C24.57 21.62 25.12 22.17 25.82 22.36L28.16 23C28.38 23.06 28.54 23.26 28.54 23.5C28.54 23.74 28.38 23.94 28.16 24L25.82 24.64C25.12 24.83 24.57 25.38 24.38 26.08L23.74 28.42C23.68 28.64 23.48 28.8 23.25 28.8C23.02 28.8 22.82 28.64 22.76 28.42L22.12 26.08C21.93 25.38 21.38 24.83 20.68 24.64L18.34 24C18.12 23.94 17.96 23.74 17.96 23.5C17.96 23.26 18.12 23.06 18.34 23L20.68 22.36C21.38 22.17 21.93 21.62 22.12 20.92L22.76 18.58C22.82 18.36 23.02 18.2 23.25 18.2Z" fill="url(#dsh_market_pro_teal)"/>
+  <defs>
+    <linearGradient id="dsh_market_pro_blue" x1="18" y1="9" x2="18" y2="27" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#69B9FF"/>
+      <stop offset="1" stop-color="#324DE2"/>
+    </linearGradient>
+    <linearGradient id="dsh_market_pro_teal" x1="23.25" y1="18.2" x2="23.25" y2="28.8" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#45E7A4"/>
+      <stop offset="1" stop-color="#05909D"/>
+    </linearGradient>
+  </defs>
 </svg>

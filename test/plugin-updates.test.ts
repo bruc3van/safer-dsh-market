@@ -183,3 +183,25 @@ test('closing a check discards its late response', async () => {
   assert.equal(updater.getSnapshot().phase, 'idle')
   assert.equal(updater.getSnapshot().choices.length, 0)
 })
+
+test('probe records available updates from registry and Git sources and clears after confirm', async () => {
+  const manager = host({
+    listBundles: async () => ok([
+      { name: 'demo', version: '1.0.0', installed: true, update: 'registry' },
+      { name: 'git-demo', version: '1.0.0', installed: true, update: 'git' },
+      { name: 'fresh', version: '1.0.0', installed: true, update: 'registry' },
+    ]),
+    listVersions: async name => ok(listed(name === 'demo' ? [version('2.1.0-beta.1', { prerelease: true }), version('2.0.0')] : [])),
+    updateBundle: async () => ok(outcome),
+  })
+  const market: UpdateMarketHost = {
+    listIndexes: async () => ok([{ url: 'https://example.test/index.json' }]),
+    search: async () => ok(page([gitEntry('git-demo')])),
+  }
+  const updater = createPluginUpdater(() => manager, () => market)
+  await updater.probe(['demo', 'git-demo', 'fresh'])
+  assert.deepEqual(updater.getSnapshot().available, { demo: '2.0.0', 'git-demo': '2.0.0' })
+  await updater.check('demo')
+  await updater.confirm()
+  assert.deepEqual(updater.getSnapshot().available, { 'git-demo': '2.0.0' })
+})

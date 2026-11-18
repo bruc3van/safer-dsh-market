@@ -290,7 +290,7 @@ function useInstalled({ t, active, listInstalled, setInstalledEnabled, uninstall
  * stays one grid and the eye does not have to re-learn the layout when the
  * filter changes.
  */
-function InstalledCard({ t, item, installed, snapshot, card, installBusy, readiness, onReview, onCheckUpdate }: {
+function InstalledCard({ t, item, installed, snapshot, card, installBusy, readiness, onReview, onCheckUpdate, availableVersion }: {
   t: MarketLocale
   item: MarketInstalledPackage
   installed: ReturnType<typeof useInstalled>
@@ -300,6 +300,7 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
   readiness: WorkspaceReadiness
   onReview: (item: MarketInstalledPackage, viaNewWorkspace: boolean) => void
   onCheckUpdate?: (packageName: string) => void
+  availableVersion?: string
 }): ReactElement {
   const { busy, confirming, setConfirming, toggle, uninstall } = installed
   const uninstalling = busy === `${item.packageName}:uninstall`
@@ -411,12 +412,14 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
             )
           : (
             <>
-              {onCheckUpdate && <button type="button" className="dsh_market_ghost"
+              {onCheckUpdate && <button type="button" className={availableVersion ? 'dsh_market_install' : 'dsh_market_ghost'}
                 disabled={busy !== null || installBusy || item.error !== ''}
-                onClick={() => onCheckUpdate(item.packageName)}>{t('update.check')}</button>}
+                onClick={() => onCheckUpdate(item.packageName)}>
+                {availableVersion ? t('update.to', { version: availableVersion }) : t('update.check')}
+              </button>}
               <button
                 type="button"
-                className="dsh_market_install"
+                className="dsh_market_ghost"
                 disabled={reviewDisabled}
                 title={reviewTitle}
                 onClick={() => { onReview(item, reviewNeedsWorkspace) }}
@@ -455,17 +458,29 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
 }
 
 /** The installed set as a card grid, with its own status lines above it. */
-function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness, onReview, onCheckUpdate }: {
+function InstalledCards({ t, installed, needle, snapshot, cards, installBusy, readiness, onReview, onCheckUpdate, availableUpdates }: {
   t: MarketLocale
   installed: ReturnType<typeof useInstalled>
+  needle: string
   snapshot: SafeMarketSnapshot
   cards: Readonly<Record<string, CardState>>
   installBusy: boolean
   readiness: WorkspaceReadiness
   onReview: (item: MarketInstalledPackage, viaNewWorkspace: boolean) => void
   onCheckUpdate?: (packageName: string) => void
+  availableUpdates?: Readonly<Record<string, string>>
 }): ReactElement {
   const { state, notice, actionError, reload } = installed
+  const shown = state.status === 'ready' && state.result.error === ''
+    ? (needle === ''
+      ? state.result.packages
+      : state.result.packages.filter(item => [
+        item.packageName,
+        shortName(item.packageName),
+        item.description,
+        item.repository,
+      ].some(text => text.toLocaleLowerCase().includes(needle))))
+    : []
   return (
     <>
       <p className="dsh_market_installedBody">{t('installed.body')}</p>
@@ -488,9 +503,12 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
       {state.status === 'ready' && state.result.error === '' && state.result.packages.length === 0 && (
         <p className="dsh_market_status">{t('installed.empty')}</p>
       )}
-      {state.status === 'ready' && state.result.packages.length > 0 && (
+      {state.status === 'ready' && state.result.error === '' && state.result.packages.length > 0 && shown.length === 0 && (
+        <p className="dsh_market_status">{t('empty')}</p>
+      )}
+      {shown.length > 0 && (
         <ul className="dsh_market_cards dsh_market_cardsUniform">
-          {state.result.packages.map(item => (
+          {shown.map(item => (
             <InstalledCard
               key={item.packageName}
               t={t}
@@ -502,6 +520,7 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
               readiness={readiness}
               onReview={onReview}
               onCheckUpdate={onCheckUpdate}
+              availableVersion={availableUpdates?.[item.packageName]}
             />
           ))}
         </ul>
@@ -511,10 +530,12 @@ function InstalledCards({ t, installed, snapshot, cards, installBusy, readiness,
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, onCheckUpdate }: {
+function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
   setDirectItem: (item: MarketPlugin) => void
   installedRevision: number
   onCheckUpdate?: (packageName: string) => void
+  availableUpdates?: Readonly<Record<string, string>>
+  onProbeUpdates?: (packageNames: readonly string[]) => void
   t: MarketLocale
   english: boolean
   snapshot: SafeMarketSnapshot
@@ -543,6 +564,11 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
   const resultsRef = useRef<HTMLDivElement>(null)
   const installed = useInstalled({ t, active: enabled, listInstalled, setInstalledEnabled, uninstallInstalled })
   useEffect(() => { if (installedRevision > 0) installed.reload() }, [installedRevision, installed.reload])
+  useEffect(() => {
+    if (installed.state.status === 'ready' && installed.state.result.error === '' && installed.state.result.packages.length > 0) {
+      onProbeUpdates?.(installed.state.result.packages.map(pkg => pkg.packageName))
+    }
+  }, [installed.state, onProbeUpdates])
   const installedSelected = category === INSTALLED_FILTER
   // Rebuilt only when the installed set itself changes — every enable,
   // disable and uninstall answers with the whole list, so the catalog's
@@ -689,25 +715,12 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
           </button>
         </div>
       )}
-      {/* Docks beside the tabs while the list scrolls down, as on the Skills
-          page (see useSearchDock). */}
-      <div className="dsh_market_bar dsh_market_dockable">
-        <input
-          className="dsh_market_search"
-          type="search"
-          spellCheck={false}
-          aria-label={t('search')}
-          placeholder={t('search')}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </div>
         <button
           type="button"
           className="dsh_market_headerAction dsh_market_refreshMarket"
           disabled={state.status === 'loading' || refreshing}
           aria-busy={refreshing}
-          onClick={() => { load(true) }}
+          onClick={() => { load(true); if (installedSelected) installed.reload() }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
@@ -732,10 +745,21 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
             {t('all')} {catalog !== null && <span>{catalog.items.length}</span>}
           </button>
         </div>
-        {!installedSelected && filterCategories.length > 0 && <MarketSelector
-          value={scope} onChange={setFilterCategory} label={t('filter.category')} className="dsh_market_category"
-          options={[{ value: '', label: t('filter.allCategories') }, ...filterCategories
-            .map(entry => ({ value: entry.key, label: english ? entry.en : entry.zh, count: entry.count }))]} />}
+        <div className="dsh_market_filterActions">
+          <input
+            className="dsh_market_search dsh_market_filterSearch"
+            type="search"
+            spellCheck={false}
+            aria-label={t('search')}
+            placeholder={t('search')}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          {!installedSelected && filterCategories.length > 0 && <MarketSelector
+            value={scope} onChange={setFilterCategory} label={t('filter.category')} className="dsh_market_category"
+            options={[{ value: '', label: t('filter.allCategories') }, ...filterCategories
+              .map(entry => ({ value: entry.key, label: english ? entry.en : entry.zh, count: entry.count }))]} />}
+        </div>
 
       </div>
 
@@ -746,12 +770,14 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
           <InstalledCards
             t={t}
             installed={installed}
+            needle={needle}
             snapshot={snapshot}
             cards={cards}
             installBusy={installBusy}
             readiness={readiness}
             onReview={reviewInstalledPackage}
             onCheckUpdate={onCheckUpdate}
+            availableUpdates={availableUpdates}
           />
           )
         : state.status === 'error'
@@ -899,6 +925,9 @@ export function MarketSection({
     setUpdateOpen(true)
     if (pluginUpdater.getSnapshot().phase !== 'updating') void pluginUpdater.check(packageName)
   } : undefined
+  const probeUpdates = useCallback((packageNames: readonly string[]) => {
+    void pluginUpdater?.probe(packageNames)
+  }, [pluginUpdater])
   const searchDock = useSearchDock(page)
   const [cards, setCards] = useState<Readonly<Record<string, CardState>>>({})
   const tabsId = useId()
@@ -1061,6 +1090,8 @@ export function MarketSection({
           setDirectItem={setDirectItem}
           installedRevision={installedRevision}
           onCheckUpdate={checkUpdate}
+          availableUpdates={updateState?.available}
+          onProbeUpdates={probeUpdates}
           t={t}
           english={english}
           snapshot={snapshot}
