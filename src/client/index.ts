@@ -35,7 +35,7 @@ import {
   type MarketSectionInjected,
   type WorkspaceReadiness,
 } from './MarketSection.tsx'
-import { NO_SESSION, SESSIONS_PENDING } from './SkillsView.tsx'
+import { NO_SESSION, SESSIONS_PENDING, ProjectSkillsView } from './SkillsView.tsx'
 import { en, zh, type SafeMarketLocaleKey } from './locales.ts'
 import { adoptStyles } from './styles.ts'
 import { registerMarketNavigation, registerMarketSidebar, registerMarketPluginTab } from './sidebar.tsx'
@@ -204,37 +204,45 @@ export function apply(ctx: ClientContext): void {
     void loadEnvironment()
   })
 
-  /**
-   * The skills read is addressed by the current session, not by the plugin's
-   * root context. The registry is host+per-scope layered and the web
-   * deployment leaves local discovery to whichever agent preset a session
-   * runs, so only a session's scope chain can answer what the user actually
-   * has. With no session open there is nothing to address, and saying so is
-   * the honest answer.
-   */
-  const listSkills = async (): Promise<MarketSkillsResult> => {
-    const remote = market
-    if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
-    const sessions = ctx.get('sessions') as ISessions
-    const snapshot = sessions.list.getSnapshot()
-    // "Pending" means the first list pull has not landed yet — telling the
-    // user "open a session first" while the list is still loading would be
-    // a wrong answer, not the honest one.
-    if (snapshot.phase !== 'ready') return { skills: [], complete: true, error: SESSIONS_PENDING }
-    const current = currentSessionOf(snapshot)
-    if (current === undefined) return { skills: [], complete: true, error: NO_SESSION }
-    const result = await remote.listSkills(current)
-    if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
-    return result.value
-  }
+  // Invalidate both entry points when installed providers change.
+  const skillRevision = createMarketStore(0)
+  const refreshSkills = () => skillRevision.set(skillRevision.getSnapshot() + 1)
+  ctx.effect(() => ctx.remote.$on('plugin-manager/changed', refreshSkills), 'dsh-market-pro: skill providers changed')
+  ctx.effect(() => {
+    window.addEventListener('focus', refreshSkills)
+    return () => window.removeEventListener('focus', refreshSkills)
+  }, 'dsh-market-pro: refresh skills on focus')
 
-  const skillsSession = {
-    getSnapshot: (): string => {
-      const state = (ctx.get('sessions') as ISessions).list.getSnapshot()
-      return JSON.stringify([state.phase, currentSessionOf(state) ?? null])
-    },
-    subscribe: (listener: () => void): (() => void) =>
-      (ctx.get('sessions') as ISessions).list.subscribe(listener),
+  const skillsFor = (sessionId?: NonNullable<ReturnType<typeof currentSessionOf>>) => {
+    const selection = () => {
+      const state = sessions.list.getSnapshot()
+      const id = sessionId ?? currentSessionOf(state)
+      const row = id === undefined ? undefined : state.byId[id]
+      const projected = row?.projectionValues as { agentPreset?: string; workingDirectory?: string | null } | undefined
+      return { phase: state.phase, id, preset: projected?.agentPreset, cwd: projected?.workingDirectory ?? row?.cwd }
+    }
+    return {
+      listSkills: async (): Promise<MarketSkillsResult> => {
+        const { phase, id } = selection()
+        if (phase !== 'ready') return { skills: [], complete: true, error: SESSIONS_PENDING }
+        if (id === undefined) return { skills: [], complete: true, error: NO_SESSION }
+        if (market === undefined) throw new Error('the dshMarketPro Remote is not mounted')
+        const result = await market.listSkills(id)
+        if (!result.ok) throw new Error(result.error.code + ': ' + result.error.message)
+        return result.value
+      },
+      skillsSession: {
+        getSnapshot: () => {
+          const { phase, id, preset, cwd } = selection()
+          return JSON.stringify([phase, id, preset, cwd, skillRevision.getSnapshot()])
+        },
+        subscribe: (listener: () => void) => {
+          const disposeList = sessions.list.subscribe(listener)
+          const disposeRevision = skillRevision.subscribe(listener)
+          return () => { disposeList(); disposeRevision() }
+        },
+      },
+    }
   }
 
   const loadCatalog = async (force: boolean): Promise<MarketCatalogResult> => {
@@ -388,13 +396,13 @@ export function apply(ctx: ClientContext): void {
     if (!result.ok) throw new Error(result.error.message)
   }
 
+  const globalSkills = skillsFor()
   const injectMarket = (): MarketSectionInjected => ({
     hooks: { scope },
     directInstaller,
     pluginUpdater,
     loadCatalog,
-    listSkills,
-    skillsSession,
+    ...globalSkills,
     canOpenFolder,
     openFolder,
     install,
@@ -409,5 +417,14 @@ export function apply(ctx: ClientContext): void {
   registerMarketSidebar(ctx, injectMarket)
   registerMarketNavigation(ctx, injectMarket)
   registerMarketPluginTab(ctx, injectMarket)
+  const t = ctx.locale.bind(NS)
+  ctx.effect(() => ctx.slots.inject('conversation.view', () => ctx.slots.register({
+    name: 'conversation.view',
+    id: 'dsh-market-pro-skills',
+    order: 30,
+    locale: NS,
+    label: () => t('tab.skills'),
+    inject: (sessionId) => ({ ...skillsFor(sessionId), canOpenFolder, openFolder }),
+  }, ProjectSkillsView)), 'dsh-market-pro: conversation skills tab')
 
 }

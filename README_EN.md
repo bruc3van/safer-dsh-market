@@ -6,13 +6,13 @@
 
 [中文](./README.md) | English
 
-A third-party plugin marketplace for DeepSeek Harness (DSH), built on the maintainer-reviewed community catalog [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro). Curated picks, browsing, installation, updates, and optional post-install AI review in one interface.
+A third-party plugin marketplace for DeepSeek Harness (DSH), built on the verified community catalog [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro). Curated picks, browsing, installation, updates, and optional post-install AI review in one interface.
 
 ## Why Pro?
 
 A `dsh-plugin` topic is a discovery signal, not an admission ticket. We verify that a repository is a DSH plugin, exclude unrelated projects and repositories using the topic for exposure, and connect discovery with everyday management:
 
-- **Curated picks**: the complete catalog is reviewed by maintainers. Subscription picks undergo additional checks of install targets, bundle declarations, and host version ranges, with a public [index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json).
+- **Curated picks**: the complete catalog has been verified. Subscription picks undergo additional checks of install targets, bundle declarations, and host version ranges, with a public [index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json).
 - **Practical browsing**: Featured, All, and Installed views, with categories, keyword and package search, plugin icons, pagination, and an offline cache.
 - **Managed installation**: the host's official plugin manager inspects, installs, and enables plugins, with multiple selections, component choices, permission requests, and visible outcomes.
 - **Managed updates**: check installed plugins for newer versions, inspect compatibility, and confirm an update while retaining enabled state and seeing progress, restart requirements, and restoration results.
@@ -49,7 +49,7 @@ Subscribing in the official Discover tab **does not require `dsh-market-pro`**. 
 [DSH Plugin Directory and subscription guide](https://bruc3van.com/dsh-plugins/#subscribe) · [Index generation and exclusions report](https://bruc3van.com/markets/dsh/audit.json) · [Latest market plugin](https://www.npmjs.com/package/dsh-market-pro)
 
 > [!IMPORTANT]
-> **Starting with 1.0.0, the plugin is DSH Market Pro and its package is `dsh-market-pro`**, with repository links pointing to [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro). Previous package names were `safer-dsh-market` and, before that, `dsh-desktop-safe-market`; neither upgrades to the new package automatically. To migrate: disable the old plugin → install and enable `dsh-market-pro@1.0.3` → reapply your configuration as needed. Cache and pending-removal records retain their original storage identifiers.
+> **Starting with 1.0.0, the plugin is DSH Market Pro and its package is `dsh-market-pro`**, with repository links pointing to [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro). Previous package names were `safer-dsh-market` and, before that, `dsh-desktop-safe-market`; neither upgrades to the new package automatically. To migrate: disable the old plugin → install and enable `dsh-market-pro@1.0.4` → reapply your configuration as needed. Cache and pending-removal records retain their original storage identifiers.
 
 ![DSH Market Pro](./assets/screenshots/marketplace.png)
 
@@ -58,25 +58,25 @@ Subscribing in the official Discover tab **does not require `dsh-market-pro`**. 
 - **Plugin market**: opens on the editor's picks; browse, search, and filter curated plugins by category, with manual data refresh and an offline cache.
 - **Direct installation with optional review**: install through the official `pluginManager`, then stage a read-only audit from the result or an Installed card.
 - **Installed panel**: see this profile's plugins, check for updates, disable/enable them instantly, or uninstall.
-- **Skills page**: list the skills the current session can use, with their source and invocation policy, and open a skill's folder in one click.
+- **Skills page**: see the current session's skills, their sources, and how they can be invoked. Filter cards by source or open the Skills tab below the conversation title.
 - **Automatic catalog access**: opening the market loads the community catalog by default; host configuration can disable it. This does not control networking by the host or other plugins.
 
 ## DSH version compatibility
 
 ### Official Plugins page integration and development baseline
 
-The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `1.0.3`; its declared compatibility range is listed separately below.
+The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The current source uses DSH `0.2.2-rc.3` as its development baseline, with DSH dependencies pinned to that version and the matching Cordis `4.1.0` / Loader `1.1.0`. Type checking, builds, and settings and plugin toggle persistence across restarts under the real Loader have passed; Electron UI interactions have not been tested. The commands below install plugin version `1.0.4`; its declared compatibility range is listed separately below.
 
 - Adds a DSH Market Pro tab to the official Plugins page, preserving standalone navigation and the right sidebar. Older hosts without `plugins.tab` do not register the tab.
 - Reads new installation rejection `requirements` and legacy `peers`; skill discovery follows the host's committed working directory.
 - Declares `engines.dsh` and removes the retired `dsh-invariants` development dependency, keeping only an optional companion export for older profiles.
 - The data-source repository `awesome-dsh-plugin-pro` owns generation and auditing of the official Discover format-1 index; `bruc3van.com` serves it. See [host market integration](docs/host-market.md). It does not publish files or add index sources automatically.
 
-**1.0.3 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
+**1.0.4 supports DSH `0.1.7-rc.2` and `0.2.x`, requires at least `0.1.7-rc.2`, and is not backward compatible with older hosts.** This release moved to the new host APIs without a legacy fallback: it does not support the DSH 0.1.1 or 0.1.2 lines, nor the 0.1.5 line. Check your host version before choosing a plugin version.
 
 | DSH host version | Plugin version | npm install target |
 | --- | --- | --- |
-| `0.2.x`, `0.1.7-rc.2` (currently supported) | `1.0.3` | `dsh-market-pro@1.0.3` |
+| `0.2.x`, `0.1.7-rc.2` (currently supported) | `1.0.4` | `dsh-market-pro@1.0.4` |
 | `0.1.5` line, at least `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` line, at least `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` line | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -87,7 +87,7 @@ The subscription instructions above target **DSH V0.2.1-rc.2 or later**. The cur
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-When upgrading to `1.0.3` from an older release:
+When upgrading to `1.0.4` from an older release:
 
 - upgrade DSH to `0.1.7-rc.2` or `0.2.x` first;
 - the market switch is now saved by the host in the active profile's `cordis.patch.yml`, applied live, and kept across restarts;
@@ -98,19 +98,19 @@ When upgrading to `1.0.3` from an older release:
 The CLI examples below target DSH `0.1.7-rc.2` and **do not apply to Electron’s `desktop` profile**. Replace `<profile>` with a verified CLI-managed profile. For desktop, use the current session’s official `plugin_manager` or Electron’s official plugin management UI. Use the pinned [npm](https://www.npmjs.com/package/dsh-market-pro) version:
 
 ```sh
-dsh plugin --profile <profile> add dsh-market-pro@1.0.3
+dsh plugin --profile <profile> add dsh-market-pro@1.0.4
 ```
 
 Or hand the install to your agent — copy this prompt:
 
 ```text
-Install DSH Market Pro 1.0.3: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target dsh-market-pro@1.0.3. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
+Install DSH Market Pro 1.0.4: confirm compatibility with DSH 0.1.7-rc.2 or 0.2.x and identify the current instance’s profile. Prefer the official plugin_manager tool with install_bundle and target dsh-market-pro@1.0.4. Never use CLI for desktop; if the tool is absent, hand off to me in Electron’s official plugin manager. Other profiles may use CLI with explicit --profile only if the tool is absent and ownership of the same instance is verified. Do not change the target profile. Report whether the official result requires restart.
 ```
 
 To lock to the exact version this document describes, use the GitHub release tarball:
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.0.3.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.0.4.tar.gz
 ```
 
 The official manager installs the dependency and registers the bundle; do not edit package.json yourself. Follow the returned outcome: applied means active, while restart-required means installed pending a restart of the current instance. Failure or overridden configuration must not be reported as active.
@@ -144,7 +144,7 @@ Both entries share the switch and all operations; Settings no longer carries a d
 - **Plugin cards**: show category, author, and last update date; cards in a list share one height with their buttons aligned along the bottom. An installed plugin is marked **Installed vX** and its button reads **Manage**, which opens the Installed view.
 - **Refresh data**: the upper-right action fetches the latest catalog and blocks repeat clicks while it runs.
 - **More actions (⋯)**: [GitHub repository](https://github.com/bruc3van/dsh-market-pro), [contact the author](https://x.com/bruc3van).
-- **Scrolling**: the heading, tabs, search, and filters stay fixed while cards scroll. In panels at least 440px wide, scrolling down on the Plugins or Skills page docks the search box beside the tabs; scrolling back up or reaching the top restores it.
+- **Scrolling**: the heading, tabs, search, and filters stay in place while cards scroll within the marketplace panel.
 - **Back to top**: after roughly half a screen (at least 240px) a button appears in the lower right; reduced-motion preferences are respected.
 
 ## Installing plugins
@@ -224,13 +224,23 @@ With the market off, the Plugins page shows a disabled notice instead of install
 
 ## Skills page
 
-Lists the skills the **current session** resolves — name, description, source directory, and invocation policy (available to AI / available through `/name`) — with search.
+The Skills page shows what the **current session** can use. The screenshots below were captured in the DSH `0.2.2-rc.3` Web host.
 
-Skills are read from the current session’s agent scope and refreshed when the session changes. With no open session, the page asks you to open one; partial source failures are reported as an incomplete list. Source directories may be workspace-relative, home-relative, or absolute.
+### Global entry
 
-The folder icon after the source directory opens that skill's own directory in the system file manager through the host's official path opener (hover to see the full path). The host first verifies the path exists on this machine; the icon is hidden when the host has no desktop, such as a headless or remote deployment.
+Open **DSH Market Pro → Skills** from the left navigation. It starts with all skills available to the current session. Use the source tabs to filter by Project, User, Custom directories, Bundled, or Other sources. The search box is on the right.
 
-![Skills page](./assets/screenshots/marketplace-skills.png)
+![Global Skills page with cards grouped by source](./assets/screenshots/marketplace-skills.png)
+
+### Conversation tab
+
+Open a conversation and select **Skills** below the conversation title. It starts with project skills available to that conversation. Select **All** to include the other sources.
+
+![Skills tab below the conversation title, with Project selected](./assets/screenshots/conversation-skills.png)
+
+Each card shows the name, description, source, and invocation labels. The labels indicate whether AI can invoke a skill and whether users can invoke it with `/name`. When the host can open local folders, the folder icon opens the skill directory.
+
+The list refreshes when the conversation changes or the browser window regains focus. Select **Refresh** to reload it manually. The page asks you to open a conversation when none is active and warns when some sources could not be read.
 
 ## Check and update installed plugins
 
@@ -321,7 +331,7 @@ The first publication of a new package requires a maintainer login and `npm publ
 **Maintained by the author**
 
 - **[DSH Desktop Pro](https://github.com/bruc3van/dsh-desktop-pro)**: a standalone DeepSeek Harness client that keeps an agent safely resident on your desktop — the official Web UI untouched, long-running tasks in the tray, community plugin management. The client offers a preset curated subscription; since 0.6.0 this standalone market is installed on demand.
-- **[awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro)**: find the right plugin for your DeepSeek Harness in 30 seconds. Every GitHub repository tagged `dsh-plugin` is crawled daily and then verified by hand — genuine plugins enter the catalog, topic riders land on the blacklist, and every exclusion reason is public. It is also this market's data source.
+- **[awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro)**: find the right plugin for your DeepSeek Harness in 30 seconds. Every GitHub repository tagged `dsh-plugin` is crawled daily and then checked individually — genuine plugins enter the catalog, topic riders land on the blacklist, and every exclusion reason is public. It is also this market's data source.
 
 **Official repositories**
 

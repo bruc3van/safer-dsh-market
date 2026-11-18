@@ -1,45 +1,52 @@
-/**
- * The Skills page of the marketplace section: what the current session can
- * actually resolve right now.
- *
- * Read-only, and it needs neither the market switch nor the network. It is
- * addressed by the open session because skill discovery is layered by the
- * agent preset that session runs — a deployment-wide read would report "none"
- * to a user with plenty. Incomplete discovery is shown rather than smoothed
- * over: a short list that looks whole is a wrong answer, not a tidy one.
- */
 import { useEffect, useState, type ReactElement } from 'react'
-import type { MarketSkillsResult } from '../contract.ts'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import type { MarketSkill, MarketSkillsResult } from '../contract.ts'
 import { watchSkills, type SkillsSessionSource } from './skillsSubscription.ts'
 import type { MarketLocale } from './copy.ts'
 import { matchesSkill } from './rows.ts'
 
-/** The reader's sentinel for "nothing to address" (see client/index.ts). */
 export const NO_SESSION = 'no-session'
-
-/** The reader's sentinel for "the session list has not landed yet". */
 export const SESSIONS_PENDING = 'sessions-pending'
 
-/** Loading, failed, or answered. */
 type SkillsState =
   | { readonly status: 'loading' }
   | { readonly status: 'ready'; readonly result: MarketSkillsResult }
   | { readonly status: 'error'; readonly message: string }
 
-/** The Skills page. */
-export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFolder }: {
-  t: MarketLocale
+interface SkillsActions {
   listSkills: () => Promise<MarketSkillsResult>
   skillsSession: SkillsSessionSource
   canOpenFolder: () => Promise<boolean>
   openFolder: (path: string) => Promise<void>
-}): ReactElement {
+}
+
+const origins = ['project', 'user', 'custom', 'bundled', 'other'] as const
+type Origin = typeof origins[number]
+
+function originOf(skill: MarketSkill): Origin {
+  switch (skill.source) {
+    case 'project-dsh':
+    case 'project-agents': return 'project'
+    case 'user-dsh':
+    case 'user-agents': return 'user'
+    case 'custom': return 'custom'
+    case 'bundled': return 'bundled'
+    default: return 'other'
+  }
+}
+
+export function ProjectSkillsView(props: SkillsActions & PropsLocale<'settings.dshMarketPro'>): ReactElement {
+  return <SkillsView {...props} project />
+}
+
+export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFolder, project = false }:
+  SkillsActions & { t: MarketLocale; project?: boolean }): ReactElement {
   const [state, setState] = useState<SkillsState>({ status: 'loading' })
   const [query, setQuery] = useState('')
-  // A deployment without a desktop (a headless or remote Host) has nowhere to
-  // open a folder, so the icon only appears once the Host says it can.
+  const [origin, setOrigin] = useState<Origin | 'all'>(project ? 'project' : 'all')
+  const [refresh, setRefresh] = useState(0)
   const [folderAvailable, setFolderAvailable] = useState(false)
-  const [folderError, setFolderError] = useState('')
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     let live = true
@@ -47,103 +54,120 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
     return () => { live = false }
   }, [canOpenFolder])
 
-  const open = (path: string): void => {
-    setFolderError('')
-    void openFolder(path).catch((error: unknown) => {
-      setFolderError(t('skills.openFailed', { reason: error instanceof Error ? error.message : String(error) }))
-    })
-  }
-
   useEffect(() => watchSkills(skillsSession, listSkills, {
-    loading: () => setState({ status: 'loading' }),
+    loading: () => {
+      setActionError('')
+      setState({ status: 'loading' })
+    },
     result: result => setState({ status: 'ready', result }),
     error: error => setState({ status: 'error', message: error instanceof Error ? error.message : String(error) }),
-  }), [listSkills, skillsSession])
+  }), [listSkills, skillsSession, refresh])
 
   const result = state.status === 'ready' ? state.result : null
-  // Normalised once, not once per skill.
+  const busy = state.status === 'loading' || result?.error === SESSIONS_PENDING
+  const available = result?.error === ''
   const needle = query.trim().toLocaleLowerCase()
-  const shown = result === null
-    ? []
-    : result.skills.filter(skill => matchesSkill(skill, needle))
+  const groups = origins.map(id => ({ id, items: [] as MarketSkill[], total: 0 }))
+  for (const skill of result?.skills ?? []) {
+    const group = groups[origins.indexOf(originOf(skill))]
+    group.total += 1
+    if (origin !== 'all' && origin !== group.id) continue
+    if (matchesSkill(skill, needle)) group.items.push(skill)
+  }
+  const count = groups.reduce((sum, group) => sum + group.items.length, 0)
+
+  const openSkillFolder = async (path: string) => {
+    setActionError('')
+    try {
+      await openFolder(path)
+    } catch (error) {
+      setActionError(t('skills.openFailed', { reason: error instanceof Error ? error.message : String(error) }))
+    }
+  }
 
   return (
-    <div className="dsh_market_page dsh_market_fixedPage">
-      <div className="dsh_market_controls">
-      <p className="dsh_market_skillsTitle">{t('skills.title')}</p>
-
-      {result !== null && result.skills.length > 0 && (
-        <div className="dsh_market_bar dsh_market_dockable">
-          <input
-            className="dsh_market_search"
-            type="search"
-            spellCheck={false}
-            placeholder={t('skills.search')}
-            value={query}
-            onChange={(event) => { setQuery(event.target.value) }}
-          />
+    <div className={project ? 'dsh_market_projectSkills' : 'dsh_market_page dsh_market_fixedPage'}>
+      <div className="dsh_market_controls dsh_market_skillsControls">
+        <div className="dsh_market_skillsHeading">
+          <h2>{t('skills.title')}</h2>
+          <button className="dsh_market_headerAction" type="button" disabled={busy} onClick={() => setRefresh(value => value + 1)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
+            </svg>
+            {t('skills.refresh')}
+          </button>
         </div>
-      )}
-
-      </div>
-      <div className="dsh_market_results">
-      {state.status === 'loading' || (result !== null && result.error === SESSIONS_PENDING)
-        ? (
-          <div className="dsh_market_notice" aria-busy="true" aria-live="polite">
-            <p className="dsh_market_noticeBody">{t('skills.loading')}</p>
+        {(available || busy) && (
+          <div className="dsh_market_filterBar">
+            <div className="dsh_market_scope dsh_market_skillsOrigins" role="group" aria-label={t('skills.origin')}>
+              <button className="dsh_market_scopeButton" type="button" aria-pressed={origin === 'all'} onClick={() => setOrigin('all')}>
+                {t('skills.origin.all')} {available && <span>{result.skills.length}</span>}
+              </button>
+              {groups.map(group => (
+                <button key={group.id} className="dsh_market_scopeButton" type="button"
+                  aria-pressed={origin === group.id} onClick={() => setOrigin(group.id)}>
+                  {t(`skills.origin.${group.id}`)} {available && <span>{group.total}</span>}
+                </button>
+              ))}
+            </div>
+            <input className="dsh_market_search dsh_market_skillSearch" type="search" spellCheck={false} value={query}
+              aria-label={t('skills.search')} placeholder={t('skills.search')} onChange={event => setQuery(event.target.value)} />
           </div>
-          )
-        : (
-          <p className="dsh_market_status" data-error={state.status === 'error' || (result !== null && result.error !== '' && result.error !== NO_SESSION) ? 'true' : undefined}>
-            {state.status === 'error'
-              ? t('skills.failed', { reason: state.message })
-              : result !== null && result.error === NO_SESSION
-                ? t('skills.noSession')
-                : result !== null && result.error !== ''
-                  ? t('skills.failed', { reason: result.error })
-                  : shown.length === 0
-                    ? t('skills.empty')
-                    : t('skills.count', { count: String(shown.length) })}
+        )}
+      </div>
+      <div className={project ? 'dsh_market_projectSkillsResults' : 'dsh_market_results'} aria-busy={busy}>
+        {busy && <p className="dsh_market_status" role="status">{t('skills.loading')}</p>}
+        {state.status === 'error' && <p className="dsh_market_status" role="alert" data-error="true">{t('skills.failed', { reason: state.message })}</p>}
+        {result?.error === NO_SESSION && <p className="dsh_market_status">{t('skills.noSession')}</p>}
+        {result?.error && !busy && result.error !== NO_SESSION && (
+          <p className="dsh_market_status" role="alert" data-error="true">{t('skills.failed', { reason: result.error })}</p>
+        )}
+        {available && !result.complete && <p className="dsh_market_status" role="status" data-error="true">{t('skills.incomplete')}</p>}
+        {actionError && <p className="dsh_market_status" role="alert" data-error="true">{actionError}</p>}
+        {available && (
+          <p className="dsh_market_status" role="status">
+            {count > 0 ? t('skills.count', { count: String(count) })
+              : origin === 'project' && groups[0].total === 0 && result.complete ? t('skills.noProject')
+                : result.skills.length === 0 && result.complete ? t('skills.empty') : t('skills.noMatches')}
           </p>
-          )}
-
-      {folderError !== '' && <p className="dsh_market_status" data-error="true">{folderError}</p>}
-
-      {result !== null && !result.complete && result.error === '' && (
-        <p className="dsh_market_status" data-error="true">{t('skills.incomplete')}</p>
-      )}
-
-      {shown.length > 0 && (
-        <ul className="dsh_market_cards">
-          {shown.map(skill => (
-            <li key={skill.name} className="dsh_market_card">
-              <div className="dsh_market_head">
-                <span className="dsh_market_name" title={skill.name}>{skill.name}</span>
-              </div>
-              <p className="dsh_market_meta dsh_market_skillSource" title={skill.sourceDirectory}>
-                {skill.sourceDirectory
-                  ? t('skills.provider', { provider: skill.sourceDirectory })
-                  : t('skills.sourceUnavailable')}
-                {folderAvailable && skill.sourcePath !== undefined && (
-                  <button
-                    type="button"
-                    className="dsh_market_folderButton"
-                    aria-label={`${t('skills.openFolder')}: ${skill.sourcePath}`}
-                    title={`${t('skills.openFolder')}: ${skill.sourcePath}`}
-                    onClick={() => { open(skill.sourcePath!) }}
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.3l2 2.2h8.7A1.5 1.5 0 0 1 21 8.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
-                    </svg>
-                  </button>
-                )}
-              </p>
-              {skill.description !== '' && <p className="dsh_market_desc">{skill.description}</p>}
-              {skill.whenToUse !== '' && <p className="dsh_market_meta">{skill.whenToUse}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
+        )}
+        {groups.filter(group => group.items.length > 0).map(group => (
+          <section key={group.id} className="dsh_market_skillGroup" aria-label={t(`skills.origin.${group.id}`)}>
+            <h3>{t(`skills.origin.${group.id}`)}</h3>
+            <ul className="dsh_market_cards dsh_market_skillCards">
+              {group.items.map(skill => {
+                const { sourcePath } = skill
+                const source = skill.sourceDirectory ?? skill.provider
+                return (
+                  <li key={skill.name} className="dsh_market_card dsh_market_skillCard">
+                    <div className="dsh_market_head">
+                      <span className="dsh_market_name">{skill.name}</span>
+                    </div>
+                    <div className="dsh_market_meta dsh_market_skillBadges">
+                      {skill.modelInvocable && <span className="dsh_market_categoryTag">{t('skills.model')}</span>}
+                      {skill.userInvocable && <span className="dsh_market_categoryTag" title={'/' + skill.name}>{t('skills.user')}</span>}
+                      {!skill.modelInvocable && !skill.userInvocable && <span className="dsh_market_categoryTag">{t('skills.invocation.restricted')}</span>}
+                    </div>
+                    {skill.description && <p className="dsh_market_desc" title={skill.description}>{skill.description}</p>}
+                    {skill.whenToUse && <p className="dsh_market_meta">{skill.whenToUse}</p>}
+                    <div className="dsh_market_foot dsh_market_skillFooter">
+                      <span className="dsh_market_meta dsh_market_skillSource" title={sourcePath ?? source}>{source}</span>
+                      {folderAvailable && sourcePath && (
+                        <button type="button" className="dsh_market_folderButton" aria-label={t('skills.openFolder') + ' ' + skill.name}
+                          title={t('skills.openFolder') + ' · ' + sourcePath}
+                          onClick={() => void openSkillFolder(sourcePath)}>
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.3l2 2.2h8.7A1.5 1.5 0 0 1 21 8.7v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.7z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        ))}
       </div>
     </div>
   )

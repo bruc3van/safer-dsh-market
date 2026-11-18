@@ -182,6 +182,17 @@ export declare const zh: {
     readonly 'skills.sourceUnavailable': "未提供来源目录";
     readonly 'skills.openFolder': "打开文件夹";
     readonly 'skills.openFailed': "打开文件夹失败：{reason}";
+    readonly 'skills.refresh': "刷新";
+    readonly 'skills.origin': "按来源筛选";
+    readonly 'skills.origin.all': "全部";
+    readonly 'skills.origin.project': "项目";
+    readonly 'skills.origin.user': "用户";
+    readonly 'skills.origin.custom': "自定义目录";
+    readonly 'skills.origin.bundled': "随包提供";
+    readonly 'skills.origin.other': "其他来源";
+    readonly 'skills.invocation.restricted': "仅供内部读取";
+    readonly 'skills.noProject': "当前会话没有可用的项目技能。可切换到「全部」查看其他来源。";
+    readonly 'skills.noMatches': "没有符合当前筛选条件的技能。";
 };
 /** English dictionary. */
 export declare const en: Record<SafeMarketLocaleKey, string>;

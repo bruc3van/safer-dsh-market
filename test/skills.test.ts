@@ -22,6 +22,8 @@ interface Row {
   description?: string
   whenToUse?: string
   provider: string
+  source?: string
+  path?: string
   resourceBase?: { kind: 'directory'; path: string } | { kind: 'url'; url: string }
   invocation: { modelInvocable: boolean; userInvocable: boolean }
 }
@@ -178,11 +180,17 @@ test('directory labels preserve workspace, home, custom and Windows provenance',
 
 test('skill reads carry actual resource directories without guessing from provider names', async () => {
   const result = await readSkills(ctxWith({complete: true, skills: [
-    row('disk', {provider: 'local', resourceBase: {kind: 'directory', path: '/work/.agents/skills/disk'}}),
+    row('disk', {provider: 'local', source: 'project-agents', path: '/work/.agents/skills/disk/SKILL.md',
+      resourceBase: {kind: 'directory', path: '/work/.agents/skills/disk'}}),
     row('remote', {resourceBase: {kind: 'url', url: 'https://example.com/skill'}}),
     row('runtime'),
   ]}), agent('/work'), new AbortController().signal)
   assert.equal(result.skills[0]!.sourceDirectory, '.agents/skills')
+  assert.equal(result.cwd, '/work')
+  const [disk, remote] = marketSkillsResultSchema.parse(result).skills
+  assert.equal(disk!.source, 'project-agents')
+  assert.equal(disk!.instructionPath, '/work/.agents/skills/disk/SKILL.md')
+  assert.equal(remote!.instructionPath, undefined)
   assert.equal(result.skills[1]!.sourceDirectory, undefined)
   assert.equal(result.skills[2]!.sourceDirectory, undefined)
   // The folder action opens the skill's own directory, verbatim; a skill

@@ -6,13 +6,13 @@
 
 中文 | [English](./README_EN.md)
 
-DeepSeek Harness（DSH）的第三方插件市场。基于人工核实的社区目录 [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro)，把插件精选、浏览、安装、更新和安装后 AI 审查放在同一个界面。
+DeepSeek Harness（DSH）的第三方插件市场。基于经过核实的社区目录 [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro)，把插件精选、浏览、安装、更新和安装后 AI 审查放在同一个界面。
 
 ## 为什么是 Pro？
 
 给仓库打上 `dsh-plugin` 标签只是发现线索，不能直接成为收录资格。我们先核实它是不是 DSH 插件，剔除蹭标签和非插件仓库，再把发现与日常管理接起来：
 
-- **精选有依据**：完整目录经过人工核实；精选订阅进一步核实安装目标、bundle 声明和宿主版本范围，并公开[索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json)。
+- **精选有依据**：完整目录经过核实；精选订阅进一步核实安装目标、bundle 声明和宿主版本范围，并公开[索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json)。
 - **浏览更省事**：精选、全部、已安装分区，支持分类、关键词、包名搜索、插件图标、分页和离线缓存。
 - **安装有流程**：通过宿主官方插件管理器检查、安装和启用，支持多选与多组件安装，显示授权要求和执行结果。
 - **更新有管理**：检查已安装插件的新版本，查看兼容性并确认更新，保留启用状态，展示进度、重启要求和失败恢复结果。
@@ -49,7 +49,7 @@ https://bruc3van.com/dsh-plugins/index.json
 [DSH 插件导航与订阅指南](https://bruc3van.com/dsh-plugins/#subscribe) · [查看索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json) · [最新版市场插件](https://www.npmjs.com/package/dsh-market-pro)
 
 > [!IMPORTANT]
-> **从 1.0.0 起，插件名为 DSH Market Pro，包名为 `dsh-market-pro`**，仓库地址使用 [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro)。此前的包名为 `safer-dsh-market`，更早为 `dsh-desktop-safe-market`；旧包不会自动升级为新包。迁移步骤：停用旧插件 → 安装并启用 `dsh-market-pro@1.0.3` → 按需重新设置原来的配置。缓存和待卸载记录沿用原存储标识。
+> **从 1.0.0 起，插件名为 DSH Market Pro，包名为 `dsh-market-pro`**，仓库地址使用 [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro)。此前的包名为 `safer-dsh-market`，更早为 `dsh-desktop-safe-market`；旧包不会自动升级为新包。迁移步骤：停用旧插件 → 安装并启用 `dsh-market-pro@1.0.4` → 按需重新设置原来的配置。缓存和待卸载记录沿用原存储标识。
 
 ![DSH Market Pro](./assets/screenshots/marketplace.png)
 
@@ -58,25 +58,25 @@ https://bruc3van.com/dsh-plugins/index.json
 - **插件市场**：打开即展示订阅源全部精选；浏览、搜索、按分类筛选完整收录目录，支持手动刷新数据与离线缓存。
 - **直接安装与可选审查**：安装统一调用官方 `pluginManager`；安装成功后或已安装卡片上可生成只读审查草稿，由你发送。
 - **已安装面板**：查看当前 profile 的插件，检查更新、一键停用/启用（即时生效）或卸载。
-- **技能页**：列出当前会话可用的技能及其来源、调用方式，可一键打开技能所在文件夹。
+- **技能页**：查看当前会话可用的技能、来源和调用方式。支持按来源筛选卡片，并在对话标题下方提供「技能」入口。
 - **自动加载目录**：打开市场即加载社区目录；可通过宿主配置关闭，这不控制宿主或其他插件的网络活动。
 
 ## DSH 版本兼容
 
 ### 官方插件页接入与开发基线
 
-上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `1.0.3`，具体兼容范围见下表。
+上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `1.0.4`，具体兼容范围见下表。
 
 - 增加官方「插件」页的「插件市场Pro」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
 - 接受新版安装拒绝信息的 `requirements`，并保留旧版 `peers`；技能列表使用宿主当前工作目录。
 - 显式声明 `engines.dsh`，移除已退役 `dsh-invariants` 的开发依赖；仅为旧 profile 保留可选 companion 导出。
 - 官方「发现」页 format-1 索引由数据源仓库 `awesome-dsh-plugin-pro` 生成和审计，通过 `bruc3van.com` 分发。使用说明见 [官方市场接入](docs/host-market.md)。它不会自动添加索引源或发布文件。
 
-**1.0.3 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+**1.0.4 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.2.x`、`0.1.7-rc.2`（当前适配） | `1.0.3` | `dsh-market-pro@1.0.3` |
+| `0.2.x`、`0.1.7-rc.2`（当前适配） | `1.0.4` | `dsh-market-pro@1.0.4` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -87,7 +87,7 @@ https://bruc3van.com/dsh-plugins/index.json
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-从旧版升级到 `1.0.3` 的注意事项：
+从旧版升级到 `1.0.4` 的注意事项：
 
 - 先把 DSH 升级到 `0.1.7-rc.2` 或 `0.2.x`；
 - 市场开关现由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效、重启后保留；
@@ -98,19 +98,19 @@ dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 以下 CLI 示例仅适用于可由 CLI 管理的 profile，**不适用于 Electron 的 `desktop`**。将 `<profile>` 替换为已核实的实际名称。推荐从 [npm](https://www.npmjs.com/package/dsh-market-pro) 安装指定版本：
 
 ```sh
-dsh plugin --profile <profile> add dsh-market-pro@1.0.3
+dsh plugin --profile <profile> add dsh-market-pro@1.0.4
 ```
 
 也可以把安装交给你的 Agent，复制这段提示词发过去：
 
 ```text
-帮我安装 DSH Market Pro 1.0.3：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 dsh-market-pro@1.0.3。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
+帮我安装 DSH Market Pro 1.0.4：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 dsh-market-pro@1.0.4。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
 ```
 
 需要锁定到本文档对应版本时，使用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.0.3.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.0.4.tar.gz
 ```
 
 官方管理器负责安装依赖和登记插件，无需手工修改 `package.json`。按返回结果判断是否需要重启：`applied` 表示已生效，`restart-required` 表示安装完成但需重启当前实例；失败或配置覆盖不能当作已生效。
@@ -144,7 +144,7 @@ dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/ar
 - **插件卡片**：显示分类、作者和最近更新日期，同一列表中的卡片等高、按钮底部对齐。已安装的插件标出「已安装 vX」，按钮显示「管理」，点击跳转到「已安装」。
 - **刷新数据**：右上角按钮读取最新目录，刷新中禁止重复点击。
 - **更多操作（⋯）**：[GitHub 仓库](https://github.com/bruc3van/dsh-market-pro)、[联系作者](https://x.com/bruc3van)。
-- **滚动**：标题、页签、搜索和筛选栏固定，卡片列表独立滚动。宽度足够时（至少 440px），插件页和技能页向下滚动都会把搜索框收起到页签右侧，回滚或回到顶部时复原。
+- **滚动**：在市场面板中，标题、页签、搜索和筛选栏固定，卡片区域独立滚动。
 - **回到顶部**：滚动超过约半屏（至少 240px）后右下角出现按钮；遵循系统「减少动效」偏好。
 
 ## 安装插件
@@ -224,13 +224,23 @@ DSH 模板自带的插件不在此列。
 
 ## 技能页
 
-列出**当前会话**能解析到的技能，包括名称、说明、来源目录和调用方式（AI 可调用 / 可通过 `/名称` 调用），支持搜索。
+技能页列出 **当前会话**能使用的技能。以下截图来自 DSH `0.2.2-rc.3` Web 宿主。
 
-技能来自当前会话所属 Agent 的可见范围，切换会话后会重新读取。没有打开会话时显示引导；部分来源加载失败时提示列表可能不完整。来源目录可能显示为工作区相对路径、用户目录相对路径或完整路径。
+### 全局入口
 
-来源目录后的文件夹图标会通过宿主官方的路径打开能力，在系统文件管理器中打开该技能自己的目录（鼠标悬停可看到完整路径）。宿主会先核实路径确实存在于本机；宿主没有桌面环境（如无界面或远程部署）时不显示图标。
+从左侧导航打开 **插件市场 Pro → 技能**，默认显示当前会话可用的全部技能。按项目、用户、自定义目录、随包提供或其他来源筛选，或用右侧搜索框查找技能。
 
-![技能页](./assets/screenshots/marketplace-skills.png)
+![全局技能页，按来源分组展示技能卡片](./assets/screenshots/marketplace-skills.png)
+
+### 对话入口
+
+打开对话，在标题下方选中 **技能**，默认显示该会话可用的项目技能。选「全部」可查看同一会话的其他来源。
+
+![对话标题下方的技能页，默认筛选项目技能](./assets/screenshots/conversation-skills.png)
+
+卡片显示名称、说明、来源及调用标签。支持 AI 调用和通过 `/名称` 调用的技能分别标注。宿主提供打开目录的能力时，可点击文件夹图标打开技能所在目录。
+
+切换会话或浏览器窗口重新获得焦点时，页面会重新读取列表，也可以手动点击「刷新」。没有打开会话时会提示先打开对话，部分来源读取失败时会提示列表可能不完整。
 
 ## 检查与更新已安装插件
 
@@ -321,7 +331,7 @@ pnpm run check      # 依次进行类型检查、构建、测试；部分测试�
 **作者维护**
 
 - **[DSH Desktop Pro](https://github.com/bruc3van/dsh-desktop-pro)**：让 Agent 安全常驻桌面的独立 DeepSeek Harness 客户端。官方 Web UI 原封不动，长任务常驻托盘，支持社区插件管理。桌面端预置精选插件订阅，本市场自 0.6.0 起按需自行安装。
-- **[awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro)**：30 秒为你的 DeepSeek Harness 找到合适的插件。GitHub 上所有带 `dsh-plugin` 标签的仓库每天由脚本自动抓取，再经人工逐个核实——真插件进目录，蹭热度的进黑名单，每条剔除理由公开可查。也是本市场的数据来源。
+- **[awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro)**：30 秒为你的 DeepSeek Harness 找到合适的插件。GitHub 上所有带 `dsh-plugin` 标签的仓库每天由脚本自动抓取，再逐个核实——真插件进目录，蹭热度的进黑名单，每条剔除理由公开可查。也是本市场的数据来源。
 
 **官方仓库**
 

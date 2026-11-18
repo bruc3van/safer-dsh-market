@@ -270,6 +270,42 @@ export const cssText = `
 .dsh_market_backToTop:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 .dsh_market_backToTop:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
 .dsh_market_skillSource { overflow-wrap: anywhere; }
+.dsh_market_projectSkills {
+  container-type: inline-size;
+  width: min(100%, 796px);
+  margin: 0 auto;
+  padding: 18px 24px 24px;
+  box-sizing: border-box;
+  color: var(--dsw-alias-label-primary);
+}
+.dsh_market_projectSkillsResults { margin-top: 18px; }
+.dsh_market_skillsControls { max-height: none; overflow: visible; }
+.dsh_market_skillsHeading {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.dsh_market_skillsHeading h2 {
+  margin: 0; font-size: 17px; font-weight: 600; line-height: 24px;
+}
+.dsh_market_scope.dsh_market_skillsOrigins { flex-wrap: wrap; max-width: 100%; box-sizing: border-box; }
+.dsh_market_skillsOrigins .dsh_market_scopeButton:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px;
+}
+.dsh_market_search.dsh_market_skillSearch {
+  flex: 0 1 220px; min-width: min(100%, 180px); margin-left: auto;
+}
+.dsh_market_skillGroup { margin: 0 0 12px; }
+.dsh_market_skillGroup h3 {
+  margin: 0 0 8px;
+  font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary);
+}
+.dsh_market_cards.dsh_market_skillCards { align-items: stretch; }
+.dsh_market_card.dsh_market_skillCard { overflow-wrap: anywhere; }
+.dsh_market_skillCard .dsh_market_name { white-space: normal; }
+.dsh_market_foot.dsh_market_skillFooter { flex-wrap: nowrap; justify-content: space-between; }
+.dsh_market_skillFooter .dsh_market_folderButton {
+  flex: none; align-items: center; justify-content: center; width: 28px; height: 28px;
+}
+.dsh_market_skillBadges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 /* Sits on the path's own line, in its tone, like the repository icon beside
    an installed version. */
 .dsh_market_folderButton {
@@ -285,8 +321,7 @@ export const cssText = `
   color: var(--dsw-alias-label-primary);
   outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; border-radius: 3px;
 }
-.dsh_market_subtitle,
-.dsh_market_skillsTitle {
+.dsh_market_subtitle {
   margin: 0;
   font-size: 13px;
   font-weight: 400;
@@ -395,9 +430,9 @@ export const cssText = `
   display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;
   flex: 1 1 220px; gap: 8px; min-width: 0; margin-left: auto;
 }
-.dsh_market_filterSearch {
-  flex: 0 1 240px; min-width: 160px; height: 34px;
-}
+.dsh_market_search.dsh_market_filterSearch,
+.dsh_market_search.dsh_market_skillSearch,
+.dsh_market_category .dsh_market_modeTrigger { height: 36px; }
 .dsh_market_scope {
   display: inline-flex; flex: none; gap: 2px; padding: 3px; border-radius: 9px;
   background: var(--dsw-alias-interactive-bg-hover);
@@ -422,7 +457,7 @@ export const cssText = `
   clip-path: inset(50%); white-space: nowrap;
 }
 .dsh_market_category .dsh_market_modeControl { min-width: 0; }
-.dsh_market_category .dsh_market_modeTrigger { height: 34px; width: 200px; }
+.dsh_market_category .dsh_market_modeTrigger { width: 200px; }
 .dsh_market_selectLabel { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dsh_market_modeMenu { max-height: min(320px, 45vh); overflow-y: auto; overscroll-behavior: contain; }
 .dsh_market_modeMenu button { gap: 10px; }
@@ -1012,6 +1047,7 @@ export const cssText = `
 }
 @container (max-width: 440px) {
   .dsh_market_cards { grid-template-columns: minmax(0, 1fr); }
+  .dsh_market_search.dsh_market_skillSearch { flex-basis: 100%; }
 }
 `
 

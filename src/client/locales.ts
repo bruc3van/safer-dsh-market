@@ -191,6 +191,17 @@ export const zh = {
   'skills.sourceUnavailable': '未提供来源目录',
   'skills.openFolder': '打开文件夹',
   'skills.openFailed': '打开文件夹失败：{reason}',
+  'skills.refresh': "刷新",
+  'skills.origin': "按来源筛选",
+  'skills.origin.all': "全部",
+  'skills.origin.project': "项目",
+  'skills.origin.user': "用户",
+  'skills.origin.custom': "自定义目录",
+  'skills.origin.bundled': "随包提供",
+  'skills.origin.other': "其他来源",
+  'skills.invocation.restricted': "仅供内部读取",
+  'skills.noProject': "当前会话没有可用的项目技能。可切换到「全部」查看其他来源。",
+  'skills.noMatches': "没有符合当前筛选条件的技能。",
 } as const
 
 /** English dictionary. */
@@ -384,6 +395,17 @@ export const en: Record<SafeMarketLocaleKey, string> = {
   'skills.sourceUnavailable': 'Source directory unavailable',
   'skills.openFolder': 'Open folder',
   'skills.openFailed': 'Could not open the folder: {reason}',
+  'skills.refresh': "Refresh",
+  'skills.origin': "Filter by source",
+  'skills.origin.all': "All",
+  'skills.origin.project': "Project",
+  'skills.origin.user': "User",
+  'skills.origin.custom': "Custom directories",
+  'skills.origin.bundled': "Bundled",
+  'skills.origin.other': "Other sources",
+  'skills.invocation.restricted': "Internal access only",
+  'skills.noProject': "No project skills are available in this conversation. Select All to see other sources.",
+  'skills.noMatches': "No skills match the current filters.",
 }
 
 /** The dictionary's key set. */

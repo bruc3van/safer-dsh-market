@@ -78,7 +78,7 @@ export function pageOf<T>(items: readonly T[], requested: number, size = 50) {
 /** Whether one skill survives the current query. */
 export function matchesSkill(skill: MarketSkill, query: string): boolean {
   if (query === '') return true
-  const haystack = `${skill.name} ${skill.description} ${skill.whenToUse} ${skill.provider} ${skill.sourceDirectory ?? ''}`.toLocaleLowerCase()
+  const haystack = `${skill.name} ${skill.description} ${skill.whenToUse} ${skill.provider} ${skill.source ?? ''} ${skill.sourceDirectory ?? ''}`.toLocaleLowerCase()
   return query.split(/\s+/).every(word => haystack.includes(word))
 }
 
