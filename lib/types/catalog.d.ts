@@ -9,9 +9,10 @@ export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin
  * changes the parse a 304 would keep serving the old build's reduction
  * forever. Bump this whenever the derived catalog gains or changes a field.
  * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions;
- * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions.
+ * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions;
+ * 6 — up to 100 editorial picks with their own category totals.
  */
-export declare const CATALOG_FORMAT = 5;
+export declare const CATALOG_FORMAT = 6;
 /**
  * Where a parsed catalog survives a restart. The catalog source neither opens
  * nor closes this — the plugin body owns the domain's lifecycle and hands the

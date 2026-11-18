@@ -91,8 +91,6 @@ export declare const zh: {
     readonly all: "全部";
     readonly 'featured.chip': "精选";
     readonly 'featured.summary': "{count} 个编辑精选插件";
-    readonly 'subscription.chip': "订阅";
-    readonly 'subscription.summary': "{count} 个订阅插件";
     readonly refresh: "刷新数据";
     readonly refreshing: "刷新中…";
     readonly loading: "正在加载插件…";
@@ -177,7 +175,12 @@ export declare const zh: {
     readonly 'skills.noSession': "请先打开一个会话，查看该会话可用的技能。";
     readonly 'skills.loading': "正在加载技能…";
     readonly 'skills.empty': "没有找到可用的技能";
-    readonly 'skills.failed': "读取技能失败：{reason}";
+    readonly 'skills.failed': "暂时无法读取技能";
+    readonly 'skills.failedHint': "请重试。若问题持续，可展开技术详情查看原因。";
+    readonly 'skills.writerHeld': "当前会话正在被占用";
+    readonly 'skills.writerHeldHint': "如果在另一个 DSH 实例中打开了此会话，请在那里关闭会话后重试。也可以在当前实例中切换到其他会话。";
+    readonly 'skills.retry': "重试";
+    readonly 'skills.diagnostic': "技术详情";
     readonly 'skills.incomplete': "部分技能未能加载，列表可能不完整。";
     readonly 'skills.count': "共 {count} 个";
     readonly 'skills.search': "搜索技能名称或说明";

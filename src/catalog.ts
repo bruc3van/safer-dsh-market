@@ -35,12 +35,13 @@ const SCHEMA_VERSION = 2
  * changes the parse a 304 would keep serving the old build's reduction
  * forever. Bump this whenever the derived catalog gains or changes a field.
  * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions;
- * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions.
+ * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions;
+ * 6 — up to 100 editorial picks with their own category totals.
  */
-export const CATALOG_FORMAT = 5
+export const CATALOG_FORMAT = 6
 
-/** Legacy schema-2 editorial cap; schema-3 subscription picks are not capped. */
-const FEATURED_LIMIT = 50
+/** The editorial list is capped. Published subscription packages are not. */
+const FEATURED_LIMIT = 100
 
 /** A pick's reason is one sentence, not a second description. */
 const REASON_LIMIT = 200
@@ -205,7 +206,10 @@ function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<str
     })
   }
   if (entries.length === 0) return undefined
-  return { titleZh, titleEn, updatedAt: text(raw.updated_at, 30), count: count(declared) || entries.length, entries }
+  return {
+    titleZh, titleEn, updatedAt: text(raw.updated_at, 30), count: count(declared) || entries.length, entries,
+    categories: categoriesOf(entries.map(entry => entry.item)),
+  }
 }
 
 /**
@@ -284,10 +288,8 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
   let subscription: MarketFeatured | undefined
   if (envelope.schema_version === 3) {
     subscription = deriveSubscription(envelope.subscription, text(envelope.subscription_updated_at, 40), byName)
-    // A feed that carries the editorial shortlist gets two scopes: 精选 is the
-    // hand-picked list, 订阅 is the published subscription. Picks resolve to the
-    // subscription's plugin card first (monorepo identity + install target),
-    // then to the repository row; the pick's own description wins.
+    // Editorial picks prefer the published plugin card and its install target,
+    // then fall back to the repository row. The editorial description wins.
     const editorial = envelope.featured !== undefined && envelope.featured !== null
     if (editorial) {
       const rowsForPicks = new Map(byName)

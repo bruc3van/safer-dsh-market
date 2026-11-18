@@ -66,6 +66,10 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
   const result = state.status === 'ready' ? state.result : null
   const busy = state.status === 'loading' || result?.error === SESSIONS_PENDING
   const available = result?.error === ''
+  const failure = state.status === 'error' ? state.message
+    : !busy && result?.error !== NO_SESSION ? result?.error : undefined
+  const writerHeld = failure?.startsWith('session/writer-held:')
+  const retry = () => setRefresh(value => value + 1)
   const needle = query.trim().toLocaleLowerCase()
   const groups = origins.map(id => ({ id, items: [] as MarketSkill[], total: 0 }))
   for (const skill of result?.skills ?? []) {
@@ -90,12 +94,12 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
       <div className="dsh_market_controls dsh_market_skillsControls">
         <div className="dsh_market_skillsHeading">
           <h2>{t('skills.title')}</h2>
-          <button className="dsh_market_headerAction" type="button" disabled={busy} onClick={() => setRefresh(value => value + 1)}>
+          {!failure && <button className="dsh_market_headerAction" type="button" disabled={busy} onClick={retry}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
             </svg>
             {t('skills.refresh')}
-          </button>
+          </button>}
         </div>
         {(available || busy) && (
           <div className="dsh_market_filterBar">
@@ -117,10 +121,19 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
       </div>
       <div className={project ? 'dsh_market_projectSkillsResults' : 'dsh_market_results'} aria-busy={busy}>
         {busy && <p className="dsh_market_status" role="status">{t('skills.loading')}</p>}
-        {state.status === 'error' && <p className="dsh_market_status" role="alert" data-error="true">{t('skills.failed', { reason: state.message })}</p>}
         {result?.error === NO_SESSION && <p className="dsh_market_status">{t('skills.noSession')}</p>}
-        {result?.error && !busy && result.error !== NO_SESSION && (
-          <p className="dsh_market_status" role="alert" data-error="true">{t('skills.failed', { reason: result.error })}</p>
+        {failure && (
+          <div className="dsh_market_notice dsh_market_skillsNotice">
+            <div role="alert">
+              <h3>{t(writerHeld ? 'skills.writerHeld' : 'skills.failed')}</h3>
+              <p className="dsh_market_noticeBody">{t(writerHeld ? 'skills.writerHeldHint' : 'skills.failedHint')}</p>
+            </div>
+            <button className="dsh_market_primary" type="button" onClick={retry}>{t('skills.retry')}</button>
+            <details className="dsh_market_installDetails" key={failure}>
+              <summary>{t('skills.diagnostic')}<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg></summary>
+              <pre className="dsh_market_directMessage">{failure}</pre>
+            </details>
+          </div>
         )}
         {available && !result.complete && <p className="dsh_market_status" role="status" data-error="true">{t('skills.incomplete')}</p>}
         {actionError && <p className="dsh_market_status" role="alert" data-error="true">{actionError}</p>}

@@ -87,10 +87,8 @@ export interface MarketCatalog {
      */
     readonly featured?: MarketFeatured;
     /**
-     * The published subscription (all verified plugins), present when the feed
-     * also carries the editorial `featured` block so the two lists get their own
-     * scopes. Absent on older schema-3 feeds, where `featured` still carries the
-     * subscription itself.
+     * The published subscription (all verified plugins) supplied alongside the
+     * editorial list. On older schema-3 feeds, `featured` carries the subscription.
      */
     readonly subscription?: MarketFeatured;
     /** When the upstream crawl ran (the snapshot's own timestamp). */

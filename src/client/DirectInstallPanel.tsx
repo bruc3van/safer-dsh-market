@@ -34,6 +34,8 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
   const targets = installChoices(info?.targets ?? [])
   const chosen = targets.filter((_, i) => selected.includes(i))
   const available = info?.mode === 'command' && targets.length > 0
+  const manual = available ? '' : info?.manual
+  const showDetails = chosen.length > 0 || Boolean(info?.requirements.length || info?.note || manual)
   const showResult = submitted || busy || !item
   const needsApproval = showResult && state.phase === 'failed' && state.pendingBuilds.length > 0
   const finished = showResult && state.phase === 'done'
@@ -77,10 +79,6 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
       <p>{t('direct.noTarget')}</p>
       <p>{t('direct.agentHint')}</p>
       {reviewMessage && <p role="status">{reviewMessage}</p>}
-      {info?.manual && <details className="dsh_market_installDetails">
-        <summary>{t('direct.more')}</summary>
-        <p>{info.manual}</p>
-      </details>}
     </div>}
     {visibleItem && available && !showResult && targets.length > 1 && <fieldset className="dsh_market_installChoices" disabled={busy || showResult}>
       <legend>{t('direct.target')}</legend><p>{t('direct.multiHint')}</p>
@@ -90,12 +88,13 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
         <span>{installLabel(entry.install)}</span>
       </label>)}
     </fieldset>}
-    {visibleItem && <details className="dsh_market_installDetails" key={visibleItem.packageName || visibleItem.fullName} open>
+    {visibleItem && showDetails && <details className="dsh_market_installDetails" key={visibleItem.packageName || visibleItem.fullName} open={available}>
       <summary>{t('direct.more')}<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg></summary>
       <div className="dsh_market_installDetailsBody">
         {chosen.map(target => <div key={target.install} className="dsh_market_installTarget"><code>{target.install}</code>{target.note && <p>{target.note}</p>}</div>)}
         {info?.requirements.length ? <ul className="dsh_market_installRequirements">{info.requirements.map((r, i) => <li key={i}>{r}</li>)}</ul> : null}
         {info?.note && <p>{info.note}</p>}
+        {manual && <p>{manual}</p>}
       </div>
     </details>}
     {reviewTargets.length > 0 && <div className="dsh_market_installStatus">

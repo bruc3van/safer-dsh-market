@@ -286,6 +286,9 @@ export const cssText = `
 .dsh_market_skillsHeading h2 {
   margin: 0; font-size: 17px; font-weight: 600; line-height: 24px;
 }
+.dsh_market_skillsNotice { max-width: 560px; gap: 12px; }
+.dsh_market_skillsNotice h3 { margin: 0 0 4px; font-size: 14px; line-height: 20px; }
+.dsh_market_skillsNotice .dsh_market_installDetails { margin: 0; max-width: 100%; }
 .dsh_market_scope.dsh_market_skillsOrigins { flex-wrap: wrap; max-width: 100%; box-sizing: border-box; }
 .dsh_market_skillsOrigins .dsh_market_scopeButton:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px;

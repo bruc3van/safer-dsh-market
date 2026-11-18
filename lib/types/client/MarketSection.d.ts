@@ -4,7 +4,7 @@ import type { SkillsSessionSource } from './skillsSubscription.ts';
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
  *
- * **Plugins** offers subscription picks and the full repository catalog by
+ * **Plugins** offers editorial picks and the full repository catalog by
  * default. The host configuration can disable catalog access. Cards use
  * official Host installation, with optional read-only review of installed artifacts.
  *

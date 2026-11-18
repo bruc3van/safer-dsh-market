@@ -74,7 +74,10 @@ export function registerMarketNavigation(ctx: Context, injectMarket: () => Marke
 function MarketIcon({ size = 24, className }: { size?: number; className?: string }) {
   return <svg width={size} height={size} className={className} viewBox="0 0 24 24"
     fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M4 10v10h16V10M3 10l2-6h14l2 6M3 10c0 3 4 3 4 0 0 3 5 3 5 0 0 3 5 3 5 0 0 3 4 3 4 0M9 20v-6h6v6" />
+    <rect x="4" y="4" width="6" height="6" rx="1.4" />
+    <rect x="14" y="4" width="6" height="6" rx="1.4" />
+    <rect x="4" y="14" width="6" height="6" rx="1.4" />
+    <path d="M17 12.5 18.3 15.7 21.5 17 18.3 18.3 17 21.5 15.7 18.3 12.5 17 15.7 15.7Z" fill="currentColor" stroke="none" />
   </svg>
 }
 

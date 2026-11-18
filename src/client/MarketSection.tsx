@@ -7,7 +7,7 @@ import type { SkillsSessionSource } from './skillsSubscription.ts'
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
  *
- * **Plugins** offers subscription picks and the full repository catalog by
+ * **Plugins** offers editorial picks and the full repository catalog by
  * default. The host configuration can disable catalog access. Cards use
  * official Host installation, with optional read-only review of installed artifacts.
  *
@@ -635,25 +635,20 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
   const catalog = state.status === 'ready' ? state.catalog : null
   const needle = query.trim().toLocaleLowerCase()
   const featuredSelected = category === FEATURED_CATEGORY && catalog?.featured !== undefined
-  const subscriptionSelected = category === SUBSCRIPTION_CATEGORY && catalog?.subscription !== undefined
-  const allSelected = !installedSelected && !featuredSelected && !subscriptionSelected
+  const allSelected = !installedSelected && !featuredSelected
     && !(catalog === null && category === FEATURED_CATEGORY)
   const filterCategories = featuredSelected
     ? catalog.featured?.categories ?? []
-    : subscriptionSelected
-      ? catalog.subscription?.categories ?? []
-      : catalog?.categories.filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY) ?? []
+    : catalog?.categories.filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY) ?? []
   const scope = filterCategories.some(entry => entry.key === filterCategory) ? filterCategory : ''
   const shown = useMemo<readonly { item: MarketPlugin; reason?: string }[]>(() => catalog === null || installedSelected
     ? []
     : featuredSelected
       ? featuredRows(catalog.featured, needle, english, scope)
-      : subscriptionSelected
-        ? featuredRows(catalog.subscription, needle, english, scope)
-        : marketRows(catalog.items, catalog.featured, needle)
-          .filter(item => matches(item, needle, scope, english))
-          .sort((a, b) => b.stars - a.stars)
-          .map(item => ({ item })), [catalog, installedSelected, featuredSelected, subscriptionSelected, needle, english, scope])
+      : marketRows(catalog.items, catalog.featured, needle)
+        .filter(item => matches(item, needle, scope, english))
+        .sort((a, b) => b.stars - a.stars)
+        .map(item => ({ item })), [catalog, installedSelected, featuredSelected, needle, english, scope])
   const paged = pageOf(shown, page)
   useEffect(() => {
     setPage(0)
@@ -742,12 +737,6 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
               {t('featured.chip')} <span>{catalog.featured.count}</span>
             </button>
           )}
-          {catalog?.subscription !== undefined && (
-            <button type="button" className="dsh_market_scopeButton" aria-pressed={subscriptionSelected}
-              onClick={() => { setQuery(''); setFilterCategory(''); setCategory(SUBSCRIPTION_CATEGORY) }}>
-              {t('subscription.chip')} <span>{catalog.subscription.count}</span>
-            </button>
-          )}
           <button type="button" className="dsh_market_scopeButton" aria-pressed={installedSelected}
             onClick={() => setCategory(INSTALLED_FILTER)}>
             {t('installed.chip')} <span>{installed.count}</span>
@@ -815,12 +804,10 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
                         ? t('filter.results', { shown: String(shown.length) })
                       : featuredSelected && catalog.featured !== undefined
                         ? t('featured.summary', { count: String(catalog.featured.count) })
-                        : subscriptionSelected && catalog.subscription !== undefined
-                          ? t('subscription.summary', { count: String(catalog.subscription.count) })
-                          : t('summary', {
-                            total: String(catalog.items.length),
-                            categories: String(catalog.categories.filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY).length),
-                          })}
+                        : t('summary', {
+                          total: String(catalog.items.length),
+                          categories: String(catalog.categories.filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY).length),
+                        })}
                 {(query.trim() !== '' || scope !== '') && <button type="button" className="dsh_market_clearFilters"
                   onClick={() => { setQuery(''); setFilterCategory('') }}>{t('filter.clear')}</button>}
               </p>

@@ -49,13 +49,13 @@ https://bruc3van.com/dsh-plugins/index.json
 [DSH 插件导航与订阅指南](https://bruc3van.com/dsh-plugins/#subscribe) · [查看索引生成与排除报告](https://bruc3van.com/markets/dsh/audit.json) · [最新版市场插件](https://www.npmjs.com/package/dsh-market-pro)
 
 > [!IMPORTANT]
-> **从 1.0.0 起，插件名为 DSH Market Pro，包名为 `dsh-market-pro`**，仓库地址使用 [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro)。此前的包名为 `safer-dsh-market`，更早为 `dsh-desktop-safe-market`；旧包不会自动升级为新包。迁移步骤：停用旧插件 → 安装并启用 `dsh-market-pro@1.1.0` → 按需重新设置原来的配置。缓存和待卸载记录沿用原存储标识。
+> **从 1.0.0 起，插件名为 DSH Market Pro，包名为 `dsh-market-pro`**，仓库地址使用 [`bruc3van/dsh-market-pro`](https://github.com/bruc3van/dsh-market-pro)。此前的包名为 `safer-dsh-market`，更早为 `dsh-desktop-safe-market`；旧包不会自动升级为新包。迁移步骤：停用旧插件 → 安装并启用 `dsh-market-pro@1.2.0` → 按需重新设置原来的配置。缓存和待卸载记录沿用原存储标识。
 
 ![DSH Market Pro](./assets/screenshots/marketplace.png)
 
 ## 功能一览
 
-- **插件市场**：打开即展示订阅源全部精选；浏览、搜索、按分类筛选完整收录目录，支持手动刷新数据与离线缓存。
+- **插件市场**：打开即展示编辑精选；浏览、搜索、按分类筛选完整收录目录，支持手动刷新数据与离线缓存。
 - **直接安装与可选审查**：安装统一调用官方 `pluginManager`；安装成功后或已安装卡片上可生成只读审查草稿，由你发送。
 - **已安装面板**：查看当前 profile 的插件，检查更新、一键停用/启用（即时生效）或卸载。
 - **技能页**：查看当前会话可用的技能、来源和调用方式。支持按来源筛选卡片，并在对话标题下方提供「技能」入口。
@@ -65,18 +65,18 @@ https://bruc3van.com/dsh-plugins/index.json
 
 ### 官方插件页接入与开发基线
 
-上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `1.1.0`，具体兼容范围见下表。
+上面的订阅配置指引面向 **DSH V0.2.1-rc.2 及以上**。当前源码的开发适配基线已升级到 DSH `0.2.2-rc.3`，开发依赖固定到同版本，并使用宿主对应的 Cordis `4.1.0` / Loader `1.1.0`。已通过类型检查、构建及真实 Loader 下的设置与插件启停重启持久化验证；Electron 界面交互尚未实测。下表安装命令指向本插件版本 `1.2.0`，具体兼容范围见下表。
 
 - 增加官方「插件」页的「插件市场Pro」标签；原独立导航与右侧栏入口继续可用。旧宿主没有 `plugins.tab` 时不会注册该标签。
 - 接受新版安装拒绝信息的 `requirements`，并保留旧版 `peers`；技能列表使用宿主当前工作目录。
 - 显式声明 `engines.dsh`，移除已退役 `dsh-invariants` 的开发依赖；仅为旧 profile 保留可选 companion 导出。
 - 官方「发现」页 format-1 索引由数据源仓库 `awesome-dsh-plugin-pro` 生成和审计，通过 `bruc3van.com` 分发。使用说明见 [官方市场接入](docs/host-market.md)。它不会自动添加索引源或发布文件。
 
-**1.1.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
+**1.2.0 支持 DSH `0.1.7-rc.2` 与 `0.2.x`，最低要求 `0.1.7-rc.2`，不兼容旧版宿主。** 新版已迁移到新接口且没有保留旧版回退路径：不兼容 DSH 0.1.1 和 0.1.2 系列，也不兼容 0.1.5 系列。请先确认宿主版本，再选择对应的插件版本。
 
 | DSH 宿主版本 | 插件版本 | npm 安装目标 |
 | --- | --- | --- |
-| `0.2.x`、`0.1.7-rc.2`（当前适配） | `1.1.0` | `dsh-market-pro@1.1.0` |
+| `0.2.x`、`0.1.7-rc.2`（当前适配） | `1.2.0` | `dsh-market-pro@1.2.0` |
 | `0.1.5` 系列，最低 `0.1.5-rc.1` | `0.5.2` | `dsh-desktop-safe-market@0.5.2` |
 | `0.1.2` 系列，最低 `0.1.2-alpha.3` | `0.4.3` | `dsh-desktop-safe-market@0.4.3` |
 | `0.1.1` 系列 | `0.3.0` | `dsh-desktop-safe-market@0.3.0` |
@@ -87,7 +87,7 @@ https://bruc3van.com/dsh-plugins/index.json
 dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 ```
 
-从旧版升级到 `1.1.0` 的注意事项：
+从旧版升级到 `1.2.0` 的注意事项：
 
 - 先把 DSH 升级到 `0.1.7-rc.2` 或 `0.2.x`；
 - 市场开关现由宿主保存在当前 profile 的 `cordis.patch.yml` 中，即时生效、重启后保留；
@@ -98,19 +98,19 @@ dsh plugin --profile <profile> add dsh-desktop-safe-market@0.5.2
 以下 CLI 示例仅适用于可由 CLI 管理的 profile，**不适用于 Electron 的 `desktop`**。将 `<profile>` 替换为已核实的实际名称。推荐从 [npm](https://www.npmjs.com/package/dsh-market-pro) 安装指定版本：
 
 ```sh
-dsh plugin --profile <profile> add dsh-market-pro@1.1.0
+dsh plugin --profile <profile> add dsh-market-pro@1.2.0
 ```
 
 也可以把安装交给你的 Agent，复制这段提示词发过去：
 
 ```text
-帮我安装 DSH Market Pro 1.1.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 dsh-market-pro@1.1.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
+帮我安装 DSH Market Pro 1.2.0：确认宿主兼容 DSH 0.1.7-rc.2 或 0.2.x，并核实当前实例的 profile。优先使用官方 plugin_manager 的 install_bundle，target 为 dsh-market-pro@1.2.0。desktop 禁止用 CLI；没有工具时交接我使用 Electron 官方插件管理界面。其他 profile 仅在工具不可用且确认 CLI 管理同一实例时使用显式 --profile 命令。不要改装到其他 profile，按官方结果说明是否需要重启。
 ```
 
 需要锁定到本文档对应版本时，使用 GitHub release tarball：
 
 ```sh
-dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.1.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/archive/refs/tags/v1.2.0.tar.gz
 ```
 
 官方管理器负责安装依赖和登记插件，无需手工修改 `package.json`。按返回结果判断是否需要重启：`applied` 表示已生效，`restart-required` 表示安装完成但需重启当前实例；失败或配置覆盖不能当作已生效。
@@ -138,10 +138,9 @@ dsh plugin --profile <profile> add https://github.com/bruc3van/dsh-market-pro/ar
 
 ### 3. 浏览与搜索
 
-- **查找插件**：「精选 / 订阅 / 已安装 / 全部」切换编辑精选、官方订阅、本机管理与已收录目录，默认打开精选。各范围都支持分类下拉筛选，以及名称、包名、功能、关键词和分类搜索；搜索保留当前范围。筛选覆盖全部数据，每页显示 50 条，数量随上游发布自动更新。
+- **查找插件**：「精选 / 已安装 / 全部」切换编辑精选、本机管理与已收录目录，默认打开精选。各范围都支持分类下拉筛选，以及名称、包名、功能、关键词和分类搜索；搜索保留当前范围。筛选覆盖全部数据，每页显示 50 条，数量随上游发布自动更新。
 - **完整目录 + 两种安装路径**：「全部」展示完整已审核目录（约 2.7 万个仓库，不截断、不隐藏）。每张卡片都能点「安装」：目录已收录安装目标的，由官方插件管理器直接安装；尚未收录目标的，弹窗说明后生成一段「AI 核对安装」提示词并填入会话草稿（不自动发送），由 AI 核实仓库、确认 npm 包归属或子目录，再走官方管理器安装。长尾映射仍由上游 CI 每日自动补齐。
 - **精选**：上游 `data/featured.json` 的人工推荐（顺序 + 推荐语），与官方订阅索引里的「编辑推荐」标签同源；卡片优先采用订阅插件的身份与安装目标，推荐语用编辑文案，没有一键目标时走 AI 核对安装。
-- **订阅**：与 awesome-dsh-plugin-pro 发布的官方订阅插件集合和顺序一致，沿用其名称、描述、分类和关键词；按包名区分同仓库的多个插件。安装使用订阅首个版本的固定 npm 版本或 Git 提交及子目录，宿主仍执行安装检查。
 - **插件 Logo**：精选使用订阅里插件自己的 Logo，关联仓库卡片复用图标；图片懒加载，无图或加载失败显示首字母。标题、包名和分类分层显示。仓库若有官方订阅插件，卡片改用该插件的标题与简介，而不是仓库自己的介绍。
 - **插件卡片**：显示分类、作者和最近更新日期，同一列表中的卡片等高、按钮底部对齐。已安装的插件标出「已安装 vX」，按钮显示「管理」，点击跳转到「已安装」。
 - **刷新数据**：右上角按钮读取最新目录，刷新中禁止重复点击。
@@ -256,7 +255,7 @@ DSH 模板自带的插件不在此列。
 
 默认读取 [market-catalog.json](https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json)，失败时改用同一 npm 包的 unpkg 镜像。支持 ETag、本地缓存和手动刷新。
 
-- schema 3 同时下发完整的已审核仓库目录和官方订阅发布结果；「全部」按仓库计数，「精选」按订阅插件包计数，不硬编码数量；
+- schema 3 同时下发完整的已审核仓库目录和官方订阅发布结果；「全部」按仓库计数，「精选」按编辑清单实际匹配的条目计数；
 - 分类名称与订阅一致，精选保留订阅的插件级分类和关键词；全量仓库也能按关联订阅包名、名称和关键词检索；
 - 完整目录保留已归档或禁用仓库，并显示对应状态；没有安装映射的条目提供详情和仓库链接；
 - 旧内置 `market-v2.json` 地址自动迁移到新地址，旧解析缓存失效后完整下载一次；自定义 schema 2 数据源继续兼容；
