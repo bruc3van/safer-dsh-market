@@ -25,6 +25,14 @@ export interface MarketPlugin {
   readonly titleZh?: string
   readonly titleEn?: string
   readonly descriptionEn?: string
+  /**
+   * The publisher's installability signal for this row: a paste-ready
+   * `command` target, a hand-written `manual` note, or `none` (catalog-only —
+   * the repository reaches the market but has no install target yet). Absent
+   * on legacy schema-2 feeds, where {@link MarketPlugin.installInfo} is the
+   * only source of truth.
+   */
+  readonly installStatus?: 'command' | 'manual' | 'none'
   readonly keywords?: readonly string[]
   readonly archived?: boolean
   readonly disabled?: boolean
@@ -86,6 +94,13 @@ export interface MarketCatalog {
    * and in every catalog cached before the feed had them.
    */
   readonly featured?: MarketFeatured
+  /**
+   * The published subscription (all verified plugins), present when the feed
+   * also carries the editorial `featured` block so the two lists get their own
+   * scopes. Absent on older schema-3 feeds, where `featured` still carries the
+   * subscription itself.
+   */
+  readonly subscription?: MarketFeatured
   /** When the upstream crawl ran (the snapshot's own timestamp). */
   readonly fetchedAt: string
   /** When this Host last read the snapshot. */
@@ -276,6 +291,7 @@ export const marketPluginSchema = z.object({
   icon: z.string().refine(isMarketIcon).optional(),
   packageName: z.string().regex(PACKAGE_NAME_PATTERN).optional(),
   titleZh: z.string().optional(), titleEn: z.string().optional(), descriptionEn: z.string().optional(),
+  installStatus: z.enum(['command', 'manual', 'none']).optional(),
   keywords: z.array(z.string()).readonly().optional(),
   archived: z.boolean().optional(), disabled: z.boolean().optional(),
   installInfo: installInfoSchema.optional(),
@@ -319,6 +335,7 @@ export const marketCatalogSchema = z.object({
   items: z.array(marketPluginSchema).readonly(),
   categories: z.array(marketCategorySchema).readonly(),
   featured: marketFeaturedSchema.optional(),
+  subscription: marketFeaturedSchema.optional(),
   fetchedAt: z.string(),
   refreshedAt: z.string(),
   scanned: z.number().int().min(0),

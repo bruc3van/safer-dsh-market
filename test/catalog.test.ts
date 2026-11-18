@@ -774,7 +774,7 @@ test('every request asks the CDN for an uncompressed body', async () => {
     const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200 })
     const pending = source.read(false)
     const headers = fetch.calls[0]!.init?.headers as Record<string, string> | undefined
-    assert.equal(headers?.['accept-encoding'], 'identity')
+    assert.equal(headers?.['accept-encoding'], 'gzip', 'the feed is large enough that identity downloads hurt')
     fetch.parked[0]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry()] }, '"m1"'))
     assert.equal((await pending).catalog?.items.length, 1)
   } finally {

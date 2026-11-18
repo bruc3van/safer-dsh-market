@@ -30,7 +30,7 @@ import type {
   MarketSkillsResult,
   SafeMarketSettings,
 } from '../contract.ts'
-import { FEATURED_CATEGORY, isSafeVersion } from '../shapes.ts'
+import { FEATURED_CATEGORY, SUBSCRIPTION_CATEGORY, isSafeVersion } from '../shapes.ts'
 import type { MarketLocale } from './copy.ts'
 import { ownedBy, ownedIndexOf, shortName } from './owned.ts'
 import {
@@ -40,7 +40,7 @@ import { SkillsView } from './SkillsView.tsx'
 import { MarketMoreActions } from './MarketMoreActions.tsx'
 import { BackToTop } from './BackToTop.tsx'
 import { PluginLogo } from './PluginLogo.tsx'
-import { buildReviewPrompt, type ReviewTarget } from './reviewPrompt.ts'
+import { buildInstallPrompt, buildReviewPrompt, type ReviewTarget } from './reviewPrompt.ts'
 import { useSearchDock } from './useSearchDock.ts'
 
 /** The live snapshot the section renders from: the switch plus the deployment facts. */
@@ -635,19 +635,25 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
   const catalog = state.status === 'ready' ? state.catalog : null
   const needle = query.trim().toLocaleLowerCase()
   const featuredSelected = category === FEATURED_CATEGORY && catalog?.featured !== undefined
-  const allSelected = !installedSelected && !featuredSelected && !(catalog === null && category === FEATURED_CATEGORY)
+  const subscriptionSelected = category === SUBSCRIPTION_CATEGORY && catalog?.subscription !== undefined
+  const allSelected = !installedSelected && !featuredSelected && !subscriptionSelected
+    && !(catalog === null && category === FEATURED_CATEGORY)
   const filterCategories = featuredSelected
     ? catalog.featured?.categories ?? []
-    : catalog?.categories.filter(entry => entry.key !== FEATURED_CATEGORY) ?? []
+    : subscriptionSelected
+      ? catalog.subscription?.categories ?? []
+      : catalog?.categories.filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY) ?? []
   const scope = filterCategories.some(entry => entry.key === filterCategory) ? filterCategory : ''
   const shown = useMemo<readonly { item: MarketPlugin; reason?: string }[]>(() => catalog === null || installedSelected
     ? []
     : featuredSelected
       ? featuredRows(catalog.featured, needle, english, scope)
-      : marketRows(catalog.items, catalog.featured, needle)
-        .filter(item => matches(item, needle, scope, english))
-        .sort((a, b) => b.stars - a.stars)
-        .map(item => ({ item })), [catalog, installedSelected, featuredSelected, needle, english, scope])
+      : subscriptionSelected
+        ? featuredRows(catalog.subscription, needle, english, scope)
+        : marketRows(catalog.items, catalog.featured, needle)
+          .filter(item => matches(item, needle, scope, english))
+          .sort((a, b) => b.stars - a.stars)
+          .map(item => ({ item })), [catalog, installedSelected, featuredSelected, subscriptionSelected, needle, english, scope])
   const paged = pageOf(shown, page)
   useEffect(() => {
     setPage(0)
@@ -736,6 +742,12 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
               {t('featured.chip')} <span>{catalog.featured.count}</span>
             </button>
           )}
+          {catalog?.subscription !== undefined && (
+            <button type="button" className="dsh_market_scopeButton" aria-pressed={subscriptionSelected}
+              onClick={() => { setQuery(''); setFilterCategory(''); setCategory(SUBSCRIPTION_CATEGORY) }}>
+              {t('subscription.chip')} <span>{catalog.subscription.count}</span>
+            </button>
+          )}
           <button type="button" className="dsh_market_scopeButton" aria-pressed={installedSelected}
             onClick={() => setCategory(INSTALLED_FILTER)}>
             {t('installed.chip')} <span>{installed.count}</span>
@@ -803,10 +815,12 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
                         ? t('filter.results', { shown: String(shown.length) })
                       : featuredSelected && catalog.featured !== undefined
                         ? t('featured.summary', { count: String(catalog.featured.count) })
-                        : t('summary', {
-                          total: String(catalog.items.length),
-                          categories: String(catalog.categories.filter(entry => entry.key !== FEATURED_CATEGORY).length),
-                        })}
+                        : subscriptionSelected && catalog.subscription !== undefined
+                          ? t('subscription.summary', { count: String(catalog.subscription.count) })
+                          : t('summary', {
+                            total: String(catalog.items.length),
+                            categories: String(catalog.categories.filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY).length),
+                          })}
                 {(query.trim() !== '' || scope !== '') && <button type="button" className="dsh_market_clearFilters"
                   onClick={() => { setQuery(''); setFilterCategory('') }}>{t('filter.clear')}</button>}
               </p>
@@ -839,7 +853,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
                       their cards do not show a count that suggests a ranking;
                       a card built from a pick's install block (found by a
                       search in All) has no count to show at all. */}
-                  {reason === undefined && item.category !== FEATURED_CATEGORY && (
+                  {reason === undefined && item.category !== FEATURED_CATEGORY && item.category !== SUBSCRIPTION_CATEGORY && (
                     <span className="dsh_market_stars" title={`${String(item.stars)} ${t('stars')}`}>
                       {`★ ${starCount(item.stars)}`}
                     </span>
@@ -868,7 +882,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
                       )
                     : (
                       <button type="button" className="dsh_market_install" disabled={!directInstaller || installBusy}
-                        onClick={() => setDirectItem(item)}>{t(item.installInfo?.mode === 'command' && item.installInfo.targets.length ? 'direct.install' : 'direct.details')}</button>
+                        onClick={() => setDirectItem(item)}>{t('direct.install')}</button>
                       )}
                 </div>
               </li>
@@ -1018,6 +1032,18 @@ export function MarketSection({
     return runReview(SELF_CARD_KEY, buildReviewPrompt(t, { profile, targets }),
       workspaceReadiness.getSnapshot() === 'none')
   }
+  /**
+   * A catalog repository with no recorded install target is handed to the
+   * agent instead of dead-ending the card: the prompt asks it to verify the
+   * repository, resolve a package or subdirectory, then install through the
+   * official manager. Staged as a draft the user sends.
+   */
+  const agentInstall = (item: MarketPlugin): void => {
+    const profile = snapshot.profile
+    if (profile === null || !item.fullName) return
+    void runReview(SELF_CARD_KEY, buildInstallPrompt(t, { profile, repo: item.fullName, name: item.name }),
+      workspaceReadiness.getSnapshot() === 'none').then(ok => { if (ok) closeInstallPanel() })
+  }
 
   return (
     <div className="dsh_market_section" ref={searchDock.root} data-search-compact={searchDock.compact ? 'true' : undefined}>
@@ -1050,7 +1076,8 @@ export function MarketSection({
       <p className="dsh_market_subtitle">{t('intro.slogan')}</p>
       {directInstaller && <DirectInstallPanel item={directItem} installer={directInstaller} t={t}
         onClose={closeInstallPanel} onInstalled={refreshInstalled}
-        onReview={reviewInstalled} reviewBusy={installBusy} reviewAvailable={snapshot.profile !== null}
+        onReview={reviewInstalled} onAgentInstall={directItem ? () => agentInstall(directItem) : undefined}
+        reviewBusy={installBusy} reviewAvailable={snapshot.profile !== null}
         reviewMessage={reviewResult?.status === 'error' || reviewResult?.status === 'needs-workspace' ? reviewResult.message : ''} />}
       {pluginUpdater && updateState && <PluginUpdatePanel open={updateOpen} state={updateState} updater={pluginUpdater} t={t}
         onClose={() => setUpdateOpen(false)} />}

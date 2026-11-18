@@ -21,6 +21,14 @@ export interface MarketPlugin {
     readonly titleZh?: string;
     readonly titleEn?: string;
     readonly descriptionEn?: string;
+    /**
+     * The publisher's installability signal for this row: a paste-ready
+     * `command` target, a hand-written `manual` note, or `none` (catalog-only —
+     * the repository reaches the market but has no install target yet). Absent
+     * on legacy schema-2 feeds, where {@link MarketPlugin.installInfo} is the
+     * only source of truth.
+     */
+    readonly installStatus?: 'command' | 'manual' | 'none';
     readonly keywords?: readonly string[];
     readonly archived?: boolean;
     readonly disabled?: boolean;
@@ -78,6 +86,13 @@ export interface MarketCatalog {
      * and in every catalog cached before the feed had them.
      */
     readonly featured?: MarketFeatured;
+    /**
+     * The published subscription (all verified plugins), present when the feed
+     * also carries the editorial `featured` block so the two lists get their own
+     * scopes. Absent on older schema-3 feeds, where `featured` still carries the
+     * subscription itself.
+     */
+    readonly subscription?: MarketFeatured;
     /** When the upstream crawl ran (the snapshot's own timestamp). */
     readonly fetchedAt: string;
     /** When this Host last read the snapshot. */
@@ -252,6 +267,11 @@ export declare const marketPluginSchema: z.ZodReadonly<z.ZodObject<{
     titleZh: z.ZodOptional<z.ZodString>;
     titleEn: z.ZodOptional<z.ZodString>;
     descriptionEn: z.ZodOptional<z.ZodString>;
+    installStatus: z.ZodOptional<z.ZodEnum<{
+        command: "command";
+        manual: "manual";
+        none: "none";
+    }>>;
     keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
     archived: z.ZodOptional<z.ZodBoolean>;
     disabled: z.ZodOptional<z.ZodBoolean>;
@@ -310,6 +330,11 @@ export declare const marketFeaturedSchema: z.ZodReadonly<z.ZodObject<{
             titleZh: z.ZodOptional<z.ZodString>;
             titleEn: z.ZodOptional<z.ZodString>;
             descriptionEn: z.ZodOptional<z.ZodString>;
+            installStatus: z.ZodOptional<z.ZodEnum<{
+                command: "command";
+                manual: "manual";
+                none: "none";
+            }>>;
             keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
             archived: z.ZodOptional<z.ZodBoolean>;
             disabled: z.ZodOptional<z.ZodBoolean>;
@@ -353,6 +378,11 @@ export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
         titleZh: z.ZodOptional<z.ZodString>;
         titleEn: z.ZodOptional<z.ZodString>;
         descriptionEn: z.ZodOptional<z.ZodString>;
+        installStatus: z.ZodOptional<z.ZodEnum<{
+            command: "command";
+            manual: "manual";
+            none: "none";
+        }>>;
         keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
         archived: z.ZodOptional<z.ZodBoolean>;
         disabled: z.ZodOptional<z.ZodBoolean>;
@@ -409,6 +439,69 @@ export declare const marketCatalogSchema: z.ZodReadonly<z.ZodObject<{
                 titleZh: z.ZodOptional<z.ZodString>;
                 titleEn: z.ZodOptional<z.ZodString>;
                 descriptionEn: z.ZodOptional<z.ZodString>;
+                installStatus: z.ZodOptional<z.ZodEnum<{
+                    command: "command";
+                    manual: "manual";
+                    none: "none";
+                }>>;
+                keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+                archived: z.ZodOptional<z.ZodBoolean>;
+                disabled: z.ZodOptional<z.ZodBoolean>;
+                installInfo: z.ZodOptional<z.ZodObject<{
+                    mode: z.ZodEnum<{
+                        command: "command";
+                        manual: "manual";
+                    }>;
+                    targets: z.ZodArray<z.ZodObject<{
+                        install: z.ZodString;
+                        profile: z.ZodString;
+                        note: z.ZodString;
+                    }, z.core.$strip>>;
+                    tasks: z.ZodArray<z.ZodString>;
+                    requirements: z.ZodArray<z.ZodString>;
+                    note: z.ZodString;
+                    manual: z.ZodString;
+                }, z.core.$strip>>;
+                fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
+                owner: z.ZodString;
+                name: z.ZodString;
+                url: z.ZodString;
+                description: z.ZodString;
+                stars: z.ZodNumber;
+                language: z.ZodString;
+                license: z.ZodString;
+                pushedAt: z.ZodString;
+                defaultBranch: z.ZodString;
+                category: z.ZodString;
+                categoryZh: z.ZodString;
+                categoryEn: z.ZodString;
+            }, z.core.$strip>>;
+            reason: z.ZodString;
+        }, z.core.$strip>>>>;
+    }, z.core.$strip>>>;
+    subscription: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+        categories: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+            key: z.ZodString;
+            zh: z.ZodString;
+            en: z.ZodString;
+            count: z.ZodNumber;
+        }, z.core.$strip>>>>>;
+        titleZh: z.ZodString;
+        titleEn: z.ZodString;
+        updatedAt: z.ZodString;
+        count: z.ZodNumber;
+        entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+            item: z.ZodReadonly<z.ZodObject<{
+                icon: z.ZodOptional<z.ZodString>;
+                packageName: z.ZodOptional<z.ZodString>;
+                titleZh: z.ZodOptional<z.ZodString>;
+                titleEn: z.ZodOptional<z.ZodString>;
+                descriptionEn: z.ZodOptional<z.ZodString>;
+                installStatus: z.ZodOptional<z.ZodEnum<{
+                    command: "command";
+                    manual: "manual";
+                    none: "none";
+                }>>;
                 keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
                 archived: z.ZodOptional<z.ZodBoolean>;
                 disabled: z.ZodOptional<z.ZodBoolean>;
@@ -457,6 +550,11 @@ export declare const marketCatalogResultSchema: z.ZodReadonly<z.ZodObject<{
             titleZh: z.ZodOptional<z.ZodString>;
             titleEn: z.ZodOptional<z.ZodString>;
             descriptionEn: z.ZodOptional<z.ZodString>;
+            installStatus: z.ZodOptional<z.ZodEnum<{
+                command: "command";
+                manual: "manual";
+                none: "none";
+            }>>;
             keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
             archived: z.ZodOptional<z.ZodBoolean>;
             disabled: z.ZodOptional<z.ZodBoolean>;
@@ -513,6 +611,69 @@ export declare const marketCatalogResultSchema: z.ZodReadonly<z.ZodObject<{
                     titleZh: z.ZodOptional<z.ZodString>;
                     titleEn: z.ZodOptional<z.ZodString>;
                     descriptionEn: z.ZodOptional<z.ZodString>;
+                    installStatus: z.ZodOptional<z.ZodEnum<{
+                        command: "command";
+                        manual: "manual";
+                        none: "none";
+                    }>>;
+                    keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
+                    archived: z.ZodOptional<z.ZodBoolean>;
+                    disabled: z.ZodOptional<z.ZodBoolean>;
+                    installInfo: z.ZodOptional<z.ZodObject<{
+                        mode: z.ZodEnum<{
+                            command: "command";
+                            manual: "manual";
+                        }>;
+                        targets: z.ZodArray<z.ZodObject<{
+                            install: z.ZodString;
+                            profile: z.ZodString;
+                            note: z.ZodString;
+                        }, z.core.$strip>>;
+                        tasks: z.ZodArray<z.ZodString>;
+                        requirements: z.ZodArray<z.ZodString>;
+                        note: z.ZodString;
+                        manual: z.ZodString;
+                    }, z.core.$strip>>;
+                    fullName: z.ZodUnion<readonly [z.ZodString, z.ZodLiteral<"">]>;
+                    owner: z.ZodString;
+                    name: z.ZodString;
+                    url: z.ZodString;
+                    description: z.ZodString;
+                    stars: z.ZodNumber;
+                    language: z.ZodString;
+                    license: z.ZodString;
+                    pushedAt: z.ZodString;
+                    defaultBranch: z.ZodString;
+                    category: z.ZodString;
+                    categoryZh: z.ZodString;
+                    categoryEn: z.ZodString;
+                }, z.core.$strip>>;
+                reason: z.ZodString;
+            }, z.core.$strip>>>>;
+        }, z.core.$strip>>>;
+        subscription: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+            categories: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                key: z.ZodString;
+                zh: z.ZodString;
+                en: z.ZodString;
+                count: z.ZodNumber;
+            }, z.core.$strip>>>>>;
+            titleZh: z.ZodString;
+            titleEn: z.ZodString;
+            updatedAt: z.ZodString;
+            count: z.ZodNumber;
+            entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+                item: z.ZodReadonly<z.ZodObject<{
+                    icon: z.ZodOptional<z.ZodString>;
+                    packageName: z.ZodOptional<z.ZodString>;
+                    titleZh: z.ZodOptional<z.ZodString>;
+                    titleEn: z.ZodOptional<z.ZodString>;
+                    descriptionEn: z.ZodOptional<z.ZodString>;
+                    installStatus: z.ZodOptional<z.ZodEnum<{
+                        command: "command";
+                        manual: "manual";
+                        none: "none";
+                    }>>;
                     keywords: z.ZodOptional<z.ZodReadonly<z.ZodArray<z.ZodString>>>;
                     archived: z.ZodOptional<z.ZodBoolean>;
                     disabled: z.ZodOptional<z.ZodBoolean>;

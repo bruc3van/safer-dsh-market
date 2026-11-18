@@ -22,3 +22,17 @@ export function buildReviewPrompt(t: MarketLocale, request: {
 }): string {
   return t('prompt', { profile: request.profile, targets: JSON.stringify(request.targets, null, 2) })
 }
+
+/**
+ * The install hand-off for a catalog repository with no recorded install
+ * target: the agent verifies the repository, resolves a package or
+ * subdirectory, and installs through the official manager. The prompt is
+ * staged as a draft — the user still decides to send it.
+ */
+export function buildInstallPrompt(t: MarketLocale, request: {
+  profile: string
+  repo: string
+  name: string
+}): string {
+  return t('prompt.install', { profile: request.profile, repo: request.repo, name: request.name })
+}

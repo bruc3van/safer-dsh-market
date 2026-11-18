@@ -105,3 +105,6 @@ export function isSafeBranchName(value: string): boolean {
  * fixed by the feed contract, not chosen here.
  */
 export const FEATURED_CATEGORY = 'featured'
+
+/** The published subscription, shown beside the editor's picks. */
+export const SUBSCRIPTION_CATEGORY = 'dsh:subscription'

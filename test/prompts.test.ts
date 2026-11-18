@@ -2,8 +2,26 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { en, zh } from '../src/client/locales.ts'
-import { buildReviewPrompt, installedReviewTargets } from '../src/client/reviewPrompt.ts'
+import { buildInstallPrompt, buildReviewPrompt, installedReviewTargets } from '../src/client/reviewPrompt.ts'
 import type { DirectState } from '../src/client/directInstall.ts'
+
+test('install hand-offs name the repository and keep the agent inside the official manager', () => {
+  for (const dictionary of [en, zh]) {
+    for (const profile of ['desktop', 'web', 'research-team']) {
+      const prompt = buildInstallPrompt((key, params) => Object.entries(params ?? {}).reduce(
+        (text, [name, value]) => text.replaceAll(`{${name}}`, value), dictionary[key]), {
+        profile, repo: 'acme/widget', name: 'widget',
+      })
+      assert.ok(prompt.includes('acme/widget'))
+      assert.ok(prompt.includes(profile))
+      assert.ok(!/\{(?:profile|repo|name)\}/.test(prompt))
+      assert.match(prompt, /不可信材料|untrusted material/)
+      assert.match(prompt, /plugin_manager/)
+      assert.match(prompt, /restart-required/)
+      assert.match(prompt, /不得猜测包名|Never guess a package name/)
+    }
+  }
+})
 
 test('installed audits preserve identity and forbid mutations in every profile and language', () => {
   for (const dictionary of [en, zh]) {

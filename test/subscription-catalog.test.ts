@@ -34,6 +34,33 @@ test('complete catalog ignores legacy size cuts and preserves package identities
   assert.ok(matches(picks.entries[0]!.item, 'plugin 编排', '', false))
 })
 
+test('editorial picks and the published subscription get separate scopes', () => {
+  const body = {
+    ...feed(),
+    featured: {
+      title_zh: '编辑精选', title_en: 'Editor picks', updated_at: '2026-11-17',
+      entries: [
+        { full_name: 'owner/monorepo', description: '编辑写的推荐语' },
+        { full_name: 'owner/not-in-catalog', description: '目录外的推荐' },
+      ],
+    },
+  }
+  const catalog = marketCatalogSchema.parse(deriveMarket(body, 1000))
+  const picks = catalog.featured
+  assert.equal(picks?.count, 1, 'a pick with no install target and no row is dropped')
+  const pick = picks?.entries[0]?.item
+  assert.equal(pick?.description, '编辑写的推荐语', 'the editorial copy wins')
+  assert.ok(['@demo/one', '@demo/two'].includes(pick?.packageName ?? ''), 'the subscription plugin identity wins')
+  assert.equal(catalog.subscription?.count, 2, 'the subscription keeps its own complete list')
+  assert.ok(catalog.categories.some(category => category.key === 'dsh:subscription'))
+})
+
+test('a schema-3 feed without editorial picks keeps the subscription as 精选', () => {
+  const catalog = marketCatalogSchema.parse(deriveMarket(feed(), 1000))
+  assert.equal(catalog.featured?.count, 2)
+  assert.equal(catalog.subscription, undefined)
+})
+
 test('all subscription plugins survive beyond the old fifty-pick cap', () => {
   const catalog = deriveMarket(feed(Array.from({ length: 130 }, (_, i) => packageRow(`plugin-${i}`))), 1)
   assert.equal(catalog.featured?.entries.length, 130)
@@ -67,6 +94,35 @@ test('plugin logos preserve supported image sources and discard executable or lo
   assert.ok(isMarketIcon('https://example.com/logo.png'))
   assert.ok(!isMarketIcon('file:///C:/logo.png'))
   assert.ok(!isMarketIcon('data:text/html;base64,PHN2Zy8+'))
+})
+
+test('repository rows carry install_status and the subscription plugin copy', () => {
+  const body = {
+    ...feed(),
+    entries: [
+      {
+        ...repository,
+        install_status: 'command',
+        title_zh: '小部件',
+        title_en: 'Widget',
+        description_en: 'A widget plugin',
+        packages: { mode: 'command', targets: [{ install: 'acme-widget', profile: 'web', note: '' }], tasks: [], requirements: [], note: '', manual: '' },
+      },
+      { ...repository, full_name: 'owner/unmapped', install_status: 'none' },
+      { ...repository, full_name: 'owner/legacy' },
+    ],
+  }
+  const catalog = marketCatalogSchema.parse(deriveMarket(body, 1000))
+  const [mapped, unmapped, legacy] = catalog.items
+  assert.equal(mapped?.installStatus, 'command')
+  assert.equal(mapped?.titleZh, '小部件')
+  assert.equal(mapped?.titleEn, 'Widget')
+  assert.equal(mapped?.descriptionEn, 'A widget plugin')
+  assert.equal(mapped?.installInfo?.targets[0]?.install, 'acme-widget')
+  assert.equal(unmapped?.installStatus, 'none')
+  assert.equal(unmapped?.installInfo, undefined)
+  assert.equal(legacy?.installStatus, undefined)
+  assert.equal(legacy?.titleZh, undefined)
 })
 
 test('broken subscription sources cannot quietly become a smaller featured set', () => {

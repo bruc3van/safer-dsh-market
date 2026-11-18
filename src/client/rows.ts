@@ -61,6 +61,27 @@ export function marketRows(items: readonly MarketPlugin[], featured: MarketFeatu
   return [...items, ...featured.entries.map(entry => entry.item).filter(item => !listed.has(item.fullName.toLowerCase()))]
 }
 
+/**
+ * How a row can be installed, from the same two sources the install button
+ * reads: the publisher's `install_status` when the feed carries one (schema 3),
+ * otherwise the parsed packages block. A row that claims a command target the
+ * wire pass could not validate is treated as uninstallable, never as a
+ * clickable install that would fail later.
+ */
+export function installState(item: MarketPlugin): 'command' | 'manual' | 'none' {
+  const status = item.installStatus ?? item.installInfo?.mode ?? 'none'
+  if (status === 'manual') return item.installInfo?.mode === 'manual' ? 'manual' : 'none'
+  if (status === 'command') {
+    return item.installInfo?.mode === 'command' && item.installInfo.targets.length > 0 ? 'command' : 'none'
+  }
+  return 'none'
+}
+
+/** Whether the card offers anything beyond a GitHub link. */
+export function hasInstallTarget(item: MarketPlugin): boolean {
+  return installState(item) !== 'none'
+}
+
 /** Stable card identity across repository and package lists, including monorepos. */
 export function marketKey(item: MarketPlugin): string {
   return item.packageName ? `package:${item.packageName}` : `repo:${item.fullName}`

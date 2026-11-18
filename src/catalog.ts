@@ -4,7 +4,7 @@
 import { brotliDecompressSync, gunzipSync, inflateSync } from 'node:zlib'
 import { parseInstallInfo } from './installInfo.ts'
 import type { MarketCatalog, MarketCategory, MarketFeatured, MarketFeaturedEntry, MarketPlugin } from './contract.ts'
-import { FEATURED_CATEGORY, isMarketIcon, isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
+import { FEATURED_CATEGORY, SUBSCRIPTION_CATEGORY, isMarketIcon, isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
 import { categoriesOf, deriveSubscription } from './subscription.ts'
 
 /** Default feed and CDN fallback serve the same npm package dataset. */
@@ -22,6 +22,9 @@ const MAX_REDIRECTS = 5
 
 /** A description longer than this is a README pasted into the field, not a summary. */
 const DESCRIPTION_LIMIT = 300
+
+/** A card title is a name, not a sentence — the publisher caps it at 60. */
+const TITLE_LIMIT = 60
 
 const SCHEMA_VERSION = 2
 
@@ -49,6 +52,10 @@ interface RawEntry {
   archived?: unknown
   disabled?: unknown
   packages?: unknown
+  install_status?: unknown
+  title_zh?: unknown
+  title_en?: unknown
+  description_en?: unknown
   full_name?: unknown
   description?: unknown
   stargazers_count?: unknown
@@ -147,7 +154,7 @@ function branchName(value: unknown): string {
  * @param rows - every parsed row, keyed by lower-cased `owner/name`.
  * @returns the resolved picks, or undefined when there are none.
  */
-function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<string, MarketPlugin>): MarketFeatured | undefined {
+function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<string, MarketPlugin>, copy = new Map<string, string>()): MarketFeatured | undefined {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
   const raw = value as RawFeatured
   if (!Array.isArray(raw.entries)) return undefined
@@ -166,7 +173,8 @@ function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<str
     const known = rows.get(key)
     if (known !== undefined) {
       seen.add(key)
-      entries.push({ item: known, reason })
+      const description = copy.get(key) ?? ''
+      entries.push({ item: description === '' ? known : { ...known, description }, reason })
       continue
     }
     // A dangling reference with no install block of its own has nothing to
@@ -232,12 +240,21 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
     const category = text(row.category, 60)
     if (category === '') continue
     const slash = fullName.indexOf('/')
+    // Plugin-level copy the publisher added for a repository that publishes a
+    // subscription plugin: the card should name the plugin, not the repository.
+    const titleZh = text(row.title_zh, TITLE_LIMIT)
+    const titleEn = text(row.title_en, TITLE_LIMIT)
+    const descriptionEn = text(row.description_en, DESCRIPTION_LIMIT)
     items.push({
       ...(typeof row.icon === 'string' && isMarketIcon(row.icon) ? { icon: row.icon } : {}),
       ...(Array.isArray(row.keywords) ? { keywords: row.keywords.filter((word): word is string => typeof word === 'string').slice(0, 200).map(word => text(word, 100)) } : {}),
       ...(row.archived === true ? { archived: true } : {}),
       ...(row.disabled === true ? { disabled: true } : {}),
       ...(row.packages === undefined ? {} : { installInfo: parseInstallInfo(row.packages) }),
+      ...(row.install_status === 'command' || row.install_status === 'manual' || row.install_status === 'none' ? { installStatus: row.install_status } : {}),
+      ...(titleZh === '' ? {} : { titleZh }),
+      ...(titleEn === '' ? {} : { titleEn }),
+      ...(descriptionEn === '' ? {} : { descriptionEn }),
       fullName,
       owner: fullName.slice(0, slash),
       name: fullName.slice(slash + 1),
@@ -263,17 +280,54 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
   // after them are exactly what a feed without picks produces.
   const byName = new Map<string, MarketPlugin>()
   for (const item of items) if (!byName.has(item.fullName.toLowerCase())) byName.set(item.fullName.toLowerCase(), item)
-  const featured = envelope.schema_version === 3
-    ? deriveSubscription(envelope.subscription, text(envelope.subscription_updated_at, 40), byName)
-    : deriveFeatured(envelope.featured, envelope.featured_count, byName)
+  let featured: MarketFeatured | undefined
+  let subscription: MarketFeatured | undefined
+  if (envelope.schema_version === 3) {
+    subscription = deriveSubscription(envelope.subscription, text(envelope.subscription_updated_at, 40), byName)
+    // A feed that carries the editorial shortlist gets two scopes: 精选 is the
+    // hand-picked list, 订阅 is the published subscription. Picks resolve to the
+    // subscription's plugin card first (monorepo identity + install target),
+    // then to the repository row; the pick's own description wins.
+    const editorial = envelope.featured !== undefined && envelope.featured !== null
+    if (editorial) {
+      const rowsForPicks = new Map(byName)
+      const copy = new Map<string, string>()
+      const rawEntries = (envelope.featured as { entries?: unknown }).entries
+      for (const raw of Array.isArray(rawEntries) ? rawEntries : []) {
+        if (raw === null || typeof raw !== 'object') continue
+        const pick = raw as { full_name?: unknown; description?: unknown }
+        const slug = repositorySlug(pick.full_name)
+        if (slug === null) continue
+        const description = text(pick.description, DESCRIPTION_LIMIT)
+        if (description !== '') copy.set(slug.toLowerCase(), description)
+      }
+      for (const entry of subscription.entries) {
+        const key = entry.item.fullName.toLowerCase()
+        if (key !== '') rowsForPicks.set(key, entry.item)
+      }
+      const picks = deriveFeatured(envelope.featured, undefined, rowsForPicks, copy)
+      if (picks !== undefined) featured = picks
+      else subscription = undefined
+    } else {
+      // Older schema-3 feed: the subscription is the only pick list.
+      featured = subscription
+      subscription = undefined
+    }
+  } else {
+    featured = deriveFeatured(envelope.featured, envelope.featured_count, byName)
+  }
   if (featured !== undefined) {
     categories.unshift({ key: FEATURED_CATEGORY, zh: featured.titleZh, en: featured.titleEn, count: featured.count })
+  }
+  if (subscription !== undefined) {
+    categories.unshift({ key: SUBSCRIPTION_CATEGORY, zh: subscription.titleZh, en: subscription.titleEn, count: subscription.count })
   }
 
   return {
     items: cut,
     categories,
     ...(featured === undefined ? {} : { featured }),
+    ...(subscription === undefined ? {} : { subscription }),
     fetchedAt: text(envelope.source_fetched_at, 40),
     refreshedAt: new Date().toISOString(),
     scanned: count(envelope.source_repo_count) || rows.length,
@@ -308,9 +362,13 @@ async function fetchFollowing(url: string, etag: string): Promise<Response> {
       // hands the compressed bytes through undecoded; asking for identity
       // makes the CDN answer in plain text. `readJson` still copes if a
       // server compresses anyway.
+      // A cold catalog read is ~19 MB of JSON; asking for gzip turns that into
+      // ~6 MB over the wire. gzip specifically (not br): its magic number lets
+      // readJson decode the body even when the host wrapper leaves the bytes
+      // compressed with an unexpected header shape.
       headers: etag !== '' && sameOrigin
-        ? { 'accept-encoding': 'identity', 'if-none-match': etag }
-        : { 'accept-encoding': 'identity' },
+        ? { 'accept-encoding': 'gzip', 'if-none-match': etag }
+        : { 'accept-encoding': 'gzip' },
     })
     if (![301, 302, 303, 307, 308].includes(response.status)) return response
     const location = response.headers.get('location')

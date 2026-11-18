@@ -1,4 +1,4 @@
-import { reviewChannelZh, reviewChannelEn } from './reviewPolicy.ts'
+import { installChannelEn, installChannelZh, reviewChannelZh, reviewChannelEn } from './reviewPolicy.ts'
 
 /** Localized UI copy and read-only installed-artifact review requests. */
 export const zh = {
@@ -61,7 +61,9 @@ export const zh = {
   'direct.batchDone': '本次安装已结束，请查看各组件结果',
   'direct.multiHint': '按顺序安装所选组件；遇到问题会暂停。已装好的组件会保留。',
   'direct.target': "选择要安装的组件（可多选）",
-  'direct.noTarget': "非标准插件，暂无可用安装目标，请前往 GitHub 查看安装说明。",
+  'direct.noTarget': "该仓库尚未收录可直接执行的安装目标。",
+  'direct.agentHint': '继续后会打开会话并填入安装提示词：由 AI 先核对仓库、确认 npm 包归属或子目录，再通过官方插件管理器安装；草稿不会自动发送。',
+  'direct.agentInstall': 'AI 核对并安装',
   'direct.confirm': "安装",
   'direct.idle': "待安装",
   'direct.checking': "正在检查安装要求…",
@@ -78,6 +80,7 @@ export const zh = {
 
   'lang': 'zh',
   'prompt': reviewChannelZh,
+  'prompt.install': installChannelZh,
 
   'nav': '插件市场Pro',
   'sidebar.description': '浏览插件、技能与已安装插件',
@@ -93,7 +96,9 @@ export const zh = {
   'search': '搜索插件名称、包名、功能或分类',
   'all': '全部',
   'featured.chip': '精选',
-  'featured.summary': '{count} 个订阅精选插件',
+  'featured.summary': '{count} 个编辑精选插件',
+  'subscription.chip': '订阅',
+  'subscription.summary': '{count} 个订阅插件',
   'refresh': '刷新数据',
   'refreshing': '刷新中…',
   'loading': "正在加载插件…",
@@ -265,7 +270,9 @@ export const en: Record<SafeMarketLocaleKey, string> = {
   'direct.batchDone': 'Installation finished; check each component’s result',
   'direct.multiHint': 'Selected components install in order and pause if an issue occurs. Completed installations are kept.',
   'direct.target': "Choose components (multiple allowed)",
-  'direct.noTarget': "Not a standard plugin: no installation target is available. See the installation instructions on GitHub.",
+  'direct.noTarget': "No directly executable install target is recorded for this repository yet.",
+  'direct.agentHint': 'Continuing opens a session with an install prompt: the AI verifies the repository, resolves an npm package or subdirectory, and installs through the official plugin manager. The draft is never sent automatically.',
+  'direct.agentInstall': 'Verify & install with AI',
   'direct.confirm': "Install",
   'direct.idle': "Ready",
   'direct.checking': "Checking installation requirements…",
@@ -282,6 +289,7 @@ export const en: Record<SafeMarketLocaleKey, string> = {
 
   'lang': 'en',
   'prompt': reviewChannelEn,
+  'prompt.install': installChannelEn,
 
   'nav': 'DSH Market Pro',
   'sidebar.description': 'Browse plugins, skills, and installed plugins',
@@ -297,7 +305,9 @@ export const en: Record<SafeMarketLocaleKey, string> = {
   'search': 'Search plugins by name, package, task, or category',
   'all': 'All',
   'featured.chip': 'Featured',
-  'featured.summary': '{count} subscription picks',
+  'featured.summary': '{count} editor picks',
+  'subscription.chip': 'Subscription',
+  'subscription.summary': '{count} subscription plugins',
   'refresh': 'Refresh data',
   'refreshing': 'Refreshing…',
   'loading': "Loading plugins…",

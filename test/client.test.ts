@@ -19,6 +19,8 @@ import {
   INSTALLED_FILTER,
   SELF_CARD_KEY,
   featuredRows,
+  hasInstallTarget,
+  installState,
   installedReviewCardKey,
   marketRows,
   matches,
@@ -245,6 +247,29 @@ const plugin = (over: Partial<MarketPlugin> = {}): MarketPlugin => ({
   categoryZh: '代理与工作流',
   categoryEn: 'Agents and workflows',
   ...over,
+})
+
+test('installState distinguishes direct, manual and catalog-only rows', () => {
+  const info = (mode: 'command' | 'manual'): MarketPlugin['installInfo'] => mode === 'command'
+    ? { mode, targets: [{ install: 'acme-widget', profile: 'web', note: '' }], tasks: [], requirements: [], note: '', manual: '' }
+    : { mode, targets: [], tasks: [], requirements: [], note: '', manual: 'see the README' }
+  const command = plugin({ installStatus: 'command', installInfo: info('command') })
+  const manual = plugin({ fullName: 'acme/manual', installStatus: 'manual', installInfo: info('manual') })
+  const none = plugin({ fullName: 'acme/none', installStatus: 'none' })
+  // A feed may claim a command target the wire pass could not validate; the
+  // card must fall back to the agent hand-off, not a failing install button.
+  const claimed = plugin({ fullName: 'acme/claimed', installStatus: 'command' })
+  const legacy = plugin({ fullName: 'acme/legacy' })
+  const legacyMapped = plugin({ fullName: 'acme/legacy-mapped', installInfo: info('command') })
+
+  assert.equal(installState(command), 'command')
+  assert.equal(installState(manual), 'manual')
+  assert.equal(installState(none), 'none')
+  assert.equal(installState(claimed), 'none')
+  assert.equal(installState(legacy), 'none')
+  assert.equal(installState(legacyMapped), 'command', 'a legacy feed is derived from its packages block')
+  assert.equal(hasInstallTarget(none), false)
+  assert.equal(hasInstallTarget(manual), true)
 })
 
 test('the filter matches on the fields a searcher actually types', () => {

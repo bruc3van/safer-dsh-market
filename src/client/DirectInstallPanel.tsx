@@ -7,10 +7,11 @@ import { installedReviewTargets, type ReviewTarget } from './reviewPrompt.ts'
 import { PluginLogo } from './PluginLogo.tsx'
 
 /** One shared installation remains observable if the recommendation page remounts. */
-export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, onReview, reviewBusy, reviewAvailable, reviewMessage }: {
+export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, onReview, onAgentInstall, reviewBusy, reviewAvailable, reviewMessage }: {
   item: MarketPlugin | null; installer: DirectInstaller; t: MarketLocale
   onClose: () => void; onInstalled: () => void
   onReview: (targets: ReviewTarget[]) => Promise<boolean>
+  onAgentInstall?: () => void
   reviewBusy: boolean; reviewAvailable: boolean; reviewMessage: string
 }) {
   const state = useSyncExternalStore(installer.subscribe, installer.getSnapshot)
@@ -74,7 +75,12 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
     </ul>}
     {visibleItem && !available && <div className="dsh_market_installUnavailable">
       <p>{t('direct.noTarget')}</p>
-      {info?.manual && <p>{info.manual}</p>}
+      <p>{t('direct.agentHint')}</p>
+      {reviewMessage && <p role="status">{reviewMessage}</p>}
+      {info?.manual && <details className="dsh_market_installDetails">
+        <summary>{t('direct.more')}</summary>
+        <p>{info.manual}</p>
+      </details>}
     </div>}
     {visibleItem && available && !showResult && targets.length > 1 && <fieldset className="dsh_market_installChoices" disabled={busy || showResult}>
       <legend>{t('direct.target')}</legend><p>{t('direct.multiHint')}</p>
@@ -115,6 +121,8 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
         : <>
           {visibleItem && <a className="dsh_market_link" href={visibleItem.url} target="_blank" rel="noreferrer">{t(visibleItem.fullName ? 'repo' : 'package.page')}</a>}
           <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t('direct.close')}</button>
+          {visibleItem && onAgentInstall && <button type="button" className="dsh_market_primary" disabled={reviewBusy}
+            onClick={() => { if (canDismiss) onAgentInstall() }}>{reviewBusy ? t('installing') : t('direct.agentInstall')}</button>}
         </>}
     </fieldset>
   </dialog>
