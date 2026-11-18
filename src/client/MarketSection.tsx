@@ -17,7 +17,7 @@ import type { SkillsSessionSource } from './skillsSubscription.ts'
  * Each host supplies a close callback to reveal the conversation after staging.
  */
 import {
-  useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore,
+  useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent, type ReactElement,
 } from 'react'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
@@ -651,6 +651,9 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
         .sort((a, b) => b.stars - a.stars)
         .map(item => ({ item })), [catalog, installedSelected, featuredSelected, needle, english, scope])
   const paged = pageOf(shown, page)
+  useLayoutEffect(() => {
+    resultsRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+  }, [paged.current])
   useEffect(() => {
     setPage(0)
     resultsRef.current?.scrollTo({ top: 0 })
@@ -892,12 +895,12 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
         <span className="dsh_market_pageRange">{t('pagination.range', { start: String(paged.start), end: String(paged.end), total: String(paged.total) })}</span>
         <div className="dsh_market_pager">
           <button type="button" className="dsh_market_pageButton" disabled={paged.current === 0} aria-label={t('pagination.previous')} title={t('pagination.previous')}
-            onClick={() => { setPage(paged.current - 1); resultsRef.current?.scrollTo({ top: 0 }) }}>
+            onClick={() => setPage(paged.current - 1)}>
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
           </button>
           <span className="dsh_market_pageNumber" aria-live="polite">{t('pagination.page', { page: String(paged.current + 1), pages: String(paged.pages) })}</span>
           <button type="button" className="dsh_market_pageButton" disabled={paged.current + 1 === paged.pages} aria-label={t('pagination.next')} title={t('pagination.next')}
-            onClick={() => { setPage(paged.current + 1); resultsRef.current?.scrollTo({ top: 0 }) }}>
+            onClick={() => setPage(paged.current + 1)}>
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
           </button>
         </div>
