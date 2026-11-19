@@ -6,6 +6,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import { MarketSection, type MarketSectionInjected } from './MarketSection.tsx'
+import { MarketErrorBoundary } from './MarketErrorBoundary.tsx'
 
 export const MARKET_TAB_ID = 'dsh-market-pro'
 const NS = 'settings.dshMarketPro'
@@ -17,7 +18,9 @@ type MarketSidebarProps = PropsRuntime<'sidebar.right.pane.tab'>
 export function MarketSidebar({ useTabInfo, ...props }: MarketSidebarProps) {
   const { tab } = useTabInfo()
   return <div className="dsh_market_sidebar">
-    <MarketSection {...props} close={() => tab.actions.close()} />
+    <MarketErrorBoundary t={props.t} surface="sidebar">
+      <MarketSection {...props} close={() => tab.actions.close()} />
+    </MarketErrorBoundary>
   </div>
 }
 
@@ -26,7 +29,9 @@ type MarketMainProps = PropsRuntime<'main'>
 
 /** The global page shares the shared install hand-off. */
 export function MarketMain(props: MarketMainProps) {
-  return <div className="dsh_market_main"><MarketSection {...props} /></div>
+  return <div className="dsh_market_main">
+    <MarketErrorBoundary t={props.t} surface="main"><MarketSection {...props} /></MarketErrorBoundary>
+  </div>
 }
 
 type PluginTabInjected = Omit<MarketSectionInjected, 'install'> & {
@@ -37,7 +42,9 @@ type PluginTabInjected = Omit<MarketSectionInjected, 'install'> & {
 /** The owner's install verb is distinct from the market's review-draft verb. */
 export function MarketPluginTab({ install: _install, update: _update, openPackage: _openPackage, stageReview, ...props }:
   PropsRuntime<'plugins.tab'> & InjectFace<PluginTabInjected> & PropsLocale<typeof NS>) {
-  return <div className="dsh_market_main"><MarketSection {...props} install={stageReview} /></div>
+  return <div className="dsh_market_main">
+    <MarketErrorBoundary t={props.t} surface="plugins.tab"><MarketSection {...props} install={stageReview} /></MarketErrorBoundary>
+  </div>
 }
 
 /** Optional on older hosts: wait for the actual Plugins page slot declaration. */

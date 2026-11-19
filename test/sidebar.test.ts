@@ -51,10 +51,11 @@ test('official Plugins tab waits for declaration and keeps review separate from 
     install: () => { throw new Error('not a review') },
     update: () => { throw new Error('not a market action') }, openPackage: () => {},
   })
-  assert.equal(page.props.children.props.install, review)
-  assert.equal(page.props.children.props.update, undefined)
-  assert.equal(page.props.children.props.directInstaller, face.directInstaller)
-  page.props.children.props.close()
+  const tabMarket = page.props.children.props.children
+  assert.equal(tabMarket.props.install, review)
+  assert.equal(tabMarket.props.update, undefined)
+  assert.equal(tabMarket.props.directInstaller, face.directInstaller)
+  tabMarket.props.close()
   assert.equal(selected, null)
   await feature.dispose()
   assert.equal(entry, undefined)
@@ -93,8 +94,9 @@ test('left navigation pairs its destination, returns to conversation, and cleans
   assert.equal(row.label(), 'DSH Market Pro')
   assert.equal(main.component, MarketMain)
   const page = MarketMain(main.entry.inject())
-  assert.equal(page.props.children.props.loadCatalog, face.loadCatalog)
-  page.props.children.props.close()
+  const mainMarket = page.props.children.props.children
+  assert.equal(mainMarket.props.loadCatalog, face.loadCatalog)
+  mainMarket.props.close()
   assert.equal(selected, null)
   await provider.dispose()
   await setImmediate()
@@ -164,7 +166,7 @@ test('sidebar dismissal closes its own tab after the shared market hand-off', ()
     useTabInfo: () => ({ tab: { actions: { close: () => { closed++ } } } }),
     loadCatalog,
   })
-  const market = wrapper.props.children
+  const market = wrapper.props.children.props.children
   assert.equal(market.props.loadCatalog, loadCatalog)
   assert.equal(closed, 0)
   market.props.close()
