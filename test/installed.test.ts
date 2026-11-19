@@ -14,7 +14,9 @@ import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Context } from '@deepseek-ai/cordis'
 import type { Loader } from '@deepseek-ai/cordis-plugin-loader'
+import { PluginManager } from '@deepseek-ai/dsh-plugin-manager'
 import {
   collectEntryRows,
   readPatchList,
@@ -100,6 +102,60 @@ function stubLoader(rows: { id: string; name?: string; disabled?: boolean; fiber
 
 /** The pending-seat file path for the fixture's `web` profile. */
 const pendingFile = (home: string): string => join(home, 'dsh-desktop-safe-market', 'pending-web.json')
+
+test('native bundle management keeps the Host switch in sync and honors its restart and removal outcomes', async () => {
+  const { home, profileDir } = await makeHome('- id: demo\n  disabled: true\n- id: custom\n  disabled: true\n  config: {}\n')
+  const ctx = new Context()
+  try {
+    const manifest = await readManifest(profileDir)
+    manifest.dsh!.profile!.bundles = ['demo-plugin']
+    await writeManifest(profileDir, manifest)
+    await makeBundle(profileDir, 'demo-plugin', '- insert:\n  - id: demo\n    name: demo-plugin\n  - id: custom\n    name: demo-plugin/extra\n')
+    const patchPath = join(profileDir, 'cordis.patch.yml')
+    const installAnchor = join(home, 'package.json')
+    await writeFile(installAnchor, '{}\n')
+    const { loader, updates } = stubLoader([{ id: 'include:demo', disabled: true }])
+    ctx.provide('loader', loader)
+    ctx.provide('profileContext', { name: 'web', dir: profileDir, patchPath, installAnchor, home, cwd: home,
+      startedBundles: ['demo-plugin'], overlays: [], telemetryDisabledEnv: undefined })
+    const hostFiber = ctx.plugin(PluginManager, {})
+    await hostFiber.await()
+    try {
+      const native = ctx.get('pluginManager')!
+      const market = createInstalledManager({ profile: 'web', profileDir, home, loader, selfName: 'dsh-market-pro',
+        pluginManager: () => native })
+      const changes: string[] = []
+      ctx.on('plugin-manager/changed', event => changes.push(event.reason))
+      const bundle = async () => (await native.listBundles()).find(row => row.name === 'demo-plugin')!
+      assert.equal((await bundle()).enabled, true)
+      assert.equal((await market.list()).packages[0]?.enabled, false, 'the legacy stop remains in force')
+      const enabled = await market.setEnabled('demo-plugin', true)
+      assert.equal(enabled.restartRequired, true)
+      assert.equal((await bundle()).enabled, true)
+      assert.doesNotMatch(await readFile(patchPath, 'utf8'), /id: demo\b/)
+      assert.match(await readFile(patchPath, 'utf8'), /id: custom\b/)
+      const disabled = await market.setEnabled('demo-plugin', false)
+      assert.equal(disabled.packages[0]?.bundleEnabled, false)
+      assert.equal(disabled.packages[0]?.unregistered, false)
+      assert.equal((await bundle()).enabled, false)
+      assert.equal((await bundle()).installed, true)
+      await setEntryDisabled(patchPath, ['demo'], true)
+      await market.setEnabled('demo-plugin', true)
+      assert.equal((await bundle()).enabled, true)
+      assert.match(await readFile(patchPath, 'utf8'), /id: demo\b/, 'bundle selection preserves per-entry overrides')
+      await native.setBundleEnabled('demo-plugin', false)
+      assert.equal((await market.list()).packages[0]?.enabled, false)
+      assert.deepEqual(changes, ['bundle', 'bundle', 'bundle', 'bundle'])
+      assert.deepEqual(updates, [], 'the Host owns runtime application')
+      await assert.rejects(market.uninstall('demo-plugin'), /stop-profile/)
+      assert.equal((await bundle()).installed, true, 'the native refusal cannot fall back to direct removal')
+    } finally {
+      await hostFiber.dispose()
+    }
+  } finally {
+    await rm(home, { recursive: true, force: true })
+  }
+})
 
 /** Read the fixture's pending seat (a missing or corrupt seat is empty). */
 async function readPending(home: string): Promise<PendingUninstall[]> {

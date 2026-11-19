@@ -37,6 +37,7 @@
  * as an install.
  */
 import type { Loader } from '@deepseek-ai/cordis-plugin-loader';
+import type { PluginManager } from '@deepseek-ai/dsh-plugin-manager';
 import { type MarketInstalledResult } from './contract.ts';
 /** One uninstall the manager still has disable rows out for. */
 export interface PendingUninstall {
@@ -50,6 +51,8 @@ export interface PendingUninstall {
 }
 /** The manager's construction facts. */
 export interface InstalledManagerOptions {
+    readonly pluginManager?: () => Pick<PluginManager, 'setBundleEnabled' | 'removeBundle'> | undefined;
+    readonly notifyLegacyChange?: (reason: 'bundle' | 'remove') => void;
     /** The active profile name reported by the host launcher. */
     readonly profile: string;
     /** Actual launcher-owned directory, including application-owned profiles. */

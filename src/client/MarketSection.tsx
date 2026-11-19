@@ -109,6 +109,7 @@ export interface MarketSectionInjected {
   }
   /** Read the plugins installed into this profile, with live enable state. */
   listInstalled: () => Promise<MarketInstalledResult>
+  subscribeInstalledChanges?: (listener: () => void) => () => void
   /** Enable or disable one installed package (durable and immediate). */
   setInstalledEnabled: (packageName: string, enabled: boolean) => Promise<MarketInstalledResult>
   /** Uninstall one installed package (stops now, finishes on restart). */
@@ -153,7 +154,7 @@ type InstalledState =
  * the rows belong to the same card grid the catalog uses: one list of cards,
  * one of whose filters happens to be "the ones I already have".
  */
-function useInstalled({ t, active, listInstalled, setInstalledEnabled, uninstallInstalled }: {
+function useInstalled({ t, active, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled }: {
   t: MarketLocale
   /**
    * Whether the panel is on screen at all. The read is local and cheap, but
@@ -163,6 +164,7 @@ function useInstalled({ t, active, listInstalled, setInstalledEnabled, uninstall
    */
   active: boolean
   listInstalled: MarketSectionInjected['listInstalled']
+  subscribeInstalledChanges?: MarketSectionInjected['subscribeInstalledChanges']
   setInstalledEnabled: MarketSectionInjected['setInstalledEnabled']
   uninstallInstalled: MarketSectionInjected['uninstallInstalled']
 }): {
@@ -214,10 +216,10 @@ function useInstalled({ t, active, listInstalled, setInstalledEnabled, uninstall
     })
   }, [active, listInstalled])
 
-  // One read per mount, and one more the first time the market is switched
-  // on: the list changes only through these verbs (or a `dsh plugin` command,
-  // which needs a restart anyway) — a poll would add nothing but motion.
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (active) return subscribeInstalledChanges?.(load)
+  }, [active, load, subscribeInstalledChanges])
 
   const describe = (error: unknown): string => error instanceof Error ? error.message : String(error)
 
@@ -232,6 +234,7 @@ function useInstalled({ t, active, listInstalled, setInstalledEnabled, uninstall
       readSeq.current += 1
       setBusy(null)
       setState({ status: 'ready', result })
+      if (result.restartRequired) setNotice(t('installed.restartRequired'))
     }, (error: unknown) => {
       if (!mounted.current) return
       setBusy(null)
@@ -258,6 +261,7 @@ function useInstalled({ t, active, listInstalled, setInstalledEnabled, uninstall
       // over the default success copy.
       setNotice((() => {
         const faults = result.notice ?? ''
+        if (result.restartRequired) return t('installed.restartRequired') + (faults === '' ? '' : ` ${faults}`)
         if (faults === '') return t('installed.uninstalled', { name: item.packageName })
         return t(
           result.noticeKind === 'may-run' ? 'installed.uninstalledMayRun' : 'installed.uninstalledWithFaults',
@@ -435,7 +439,7 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
                 <button
                   type="button"
                   className="dsh_market_ghost"
-                  disabled={busyRow || busy !== null || installBusy || item.error !== '' || item.entries.length === 0}
+                  disabled={busyRow || busy !== null || installBusy || item.error !== '' || (item.bundleEnabled === undefined && item.entries.length === 0)}
                   onClick={() => { toggle(item) }}
                 >
                   {busy === `${item.packageName}:toggle`
@@ -531,7 +535,7 @@ function InstalledCards({ t, installed, needle, snapshot, cards, installBusy, re
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, appliedUpdateRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
+function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, appliedUpdateRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
   setDirectItem: (item: MarketPlugin) => void
   installedRevision: number
   appliedUpdateRevision: number
@@ -543,6 +547,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
   snapshot: SafeMarketSnapshot
   loadCatalog: MarketSectionInjected['loadCatalog']
   listInstalled: MarketSectionInjected['listInstalled']
+  subscribeInstalledChanges?: MarketSectionInjected['subscribeInstalledChanges']
   setInstalledEnabled: MarketSectionInjected['setInstalledEnabled']
   uninstallInstalled: MarketSectionInjected['uninstallInstalled']
   chooseWorkspace: MarketSectionInjected['chooseWorkspace']
@@ -564,7 +569,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
   const [filterCategory, setFilterCategory] = useState('')
   const [page, setPage] = useState(0)
   const resultsRef = useRef<HTMLDivElement>(null)
-  const installed = useInstalled({ t, active: enabled, listInstalled, setInstalledEnabled, uninstallInstalled })
+  const installed = useInstalled({ t, active: enabled, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled })
   useEffect(() => { if (installedRevision > 0) installed.reload() }, [installedRevision, installed.reload])
   useLayoutEffect(() => {
     if (appliedUpdateRevision > 0) resultsRef.current?.scrollTo({ top: 0, behavior: 'instant' })
@@ -916,7 +921,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
 /** The Marketplace section. */
 export function MarketSection({
   useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
-  listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t,
+  listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t,
 }: MarketSectionProps): ReactElement {
   const snapshot = useScope(value => value)
   // The slot props carry a translate function, not a locale tag; the
@@ -1130,6 +1135,7 @@ export function MarketSection({
           snapshot={snapshot}
           loadCatalog={loadCatalog}
           listInstalled={listInstalled}
+          subscribeInstalledChanges={subscribeInstalledChanges}
           setInstalledEnabled={setInstalledEnabled}
           uninstallInstalled={uninstallInstalled}
           chooseWorkspace={chooseWorkspace}

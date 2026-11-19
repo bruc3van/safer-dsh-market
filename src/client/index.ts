@@ -262,6 +262,12 @@ export function apply(ctx: ClientContext): void {
     return result.value
   }
 
+  const subscribeInstalledChanges = (listener: () => void): (() => void) => {
+    const offChanged = ctx.remote.$on('plugin-manager/changed', listener)
+    const offReset = ctx.on('connection/reset', listener)
+    return () => { offChanged(); offReset() }
+  }
+
   const setInstalledEnabled = async (packageName: string, enabled: boolean): Promise<MarketInstalledResult> => {
     const remote = market
     if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
@@ -410,6 +416,7 @@ export function apply(ctx: ClientContext): void {
     chooseWorkspace,
     workspaceReadiness,
     listInstalled,
+    subscribeInstalledChanges,
     setInstalledEnabled,
     uninstallInstalled,
   })

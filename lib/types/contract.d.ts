@@ -210,12 +210,13 @@ export interface MarketInstalledPackage {
      */
     readonly inBox: boolean;
     /**
-     * In `dependencies` but not in `dsh.profile.bundles`: installed, not
-     * loaded. Listed so Uninstall can reach it; Enable cannot put it on the
-     * stack (that is `dsh plugin add`'s reconcile).
+     * Installed outside the bundle stack on a legacy Host that cannot enable
+     * it from this panel. The package remains available for uninstall.
      */
     readonly unregistered: boolean;
-    /** Package-level enablement: at least one of its entries is enabled. */
+    /** Host bundle selection when native package-level management is available. */
+    readonly bundleEnabled?: boolean;
+    /** Effective package switch, including legacy entry-level stops. */
     readonly enabled: boolean;
     readonly entries: readonly MarketInstalledEntry[];
     /** Why the bundle could not be read (uninstall stays available); '' when read. */
@@ -235,6 +236,8 @@ export interface MarketInstalledResult {
     /** The profile the list describes (the panel names it in its explainer). */
     readonly profile: string;
     readonly error: string;
+    /** The Host saved the change and requires a restart to apply it. */
+    readonly restartRequired?: boolean;
     /**
      * Fault details a verb wants the panel to wrap in localized copy. Absent
      * (or empty) means the default success line. The wrapping sentence is
@@ -786,6 +789,7 @@ export declare const marketInstalledPackageSchema: z.ZodReadonly<z.ZodObject<{
     self: z.ZodBoolean;
     inBox: z.ZodBoolean;
     unregistered: z.ZodBoolean;
+    bundleEnabled: z.ZodOptional<z.ZodBoolean>;
     enabled: z.ZodBoolean;
     entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
         id: z.ZodString;
@@ -814,6 +818,7 @@ export declare const marketInstalledResultSchema: z.ZodReadonly<z.ZodObject<{
         self: z.ZodBoolean;
         inBox: z.ZodBoolean;
         unregistered: z.ZodBoolean;
+        bundleEnabled: z.ZodOptional<z.ZodBoolean>;
         enabled: z.ZodBoolean;
         entries: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
             id: z.ZodString;
@@ -839,6 +844,7 @@ export declare const marketInstalledResultSchema: z.ZodReadonly<z.ZodObject<{
         faults: "faults";
         "may-run": "may-run";
     }>>;
+    restartRequired: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strip>>;
 /** Strict wire codec for one enable/disable request. */
 export declare const setInstalledEnabledUpdateSchema: z.ZodReadonly<z.ZodObject<{

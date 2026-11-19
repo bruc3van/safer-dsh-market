@@ -173,6 +173,7 @@ export declare const zh: {
     readonly 'installed.uninstalledWithFaults': "已移除 {name}，但部分清理未完成：{faults}";
     readonly 'installed.uninstalledMayRun': "已移除 {name}，重启客户端后才能确保停止运行：{faults}";
     readonly 'installed.actionFailed': "操作失败：{reason}";
+    readonly 'installed.restartRequired': "已保存更改，重启 DSH 后生效。";
     readonly 'installed.readFailed': "无法读取插件信息：{reason}";
     readonly 'installed.heldDown': "此插件此前已被卸载，重新安装后需点击「启用」恢复使用。";
     readonly 'skills.title': "当前会话可用的技能";

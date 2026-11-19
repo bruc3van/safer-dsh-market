@@ -104,6 +104,7 @@ export interface MarketSectionInjected {
     };
     /** Read the plugins installed into this profile, with live enable state. */
     listInstalled: () => Promise<MarketInstalledResult>;
+    subscribeInstalledChanges?: (listener: () => void) => () => void;
     /** Enable or disable one installed package (durable and immediate). */
     setInstalledEnabled: (packageName: string, enabled: boolean) => Promise<MarketInstalledResult>;
     /** Uninstall one installed package (stops now, finishes on restart). */
@@ -114,4 +115,4 @@ export type MarketSectionProps = {
     close: () => void;
 } & InjectFace<MarketSectionInjected> & PropsLocale<'settings.dshMarketPro'>;
 /** The Marketplace section. */
-export declare function MarketSection({ useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t, }: MarketSectionProps): ReactElement;
+export declare function MarketSection({ useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t, }: MarketSectionProps): ReactElement;

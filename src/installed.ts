@@ -37,6 +37,8 @@
  * as an install.
  */
 import type { Entry, Loader } from '@deepseek-ai/cordis-plugin-loader'
+import type { PluginManager } from '@deepseek-ai/dsh-plugin-manager'
+import type { ChangeResult } from '@deepseek-ai/dsh-plugin-manager/types'
 import { spawn } from 'node:child_process'
 import { mkdir, readFile, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -81,6 +83,8 @@ export interface PendingUninstall {
 
 /** The manager's construction facts. */
 export interface InstalledManagerOptions {
+  readonly pluginManager?: () => Pick<PluginManager, 'setBundleEnabled' | 'removeBundle'> | undefined
+  readonly notifyLegacyChange?: (reason: 'bundle' | 'remove') => void
   /** The active profile name reported by the host launcher. */
   readonly profile: string
   /** Actual launcher-owned directory, including application-owned profiles. */
@@ -130,6 +134,12 @@ export interface InstalledManager {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function requireApplied(result: ChangeResult): void {
+  if (result.application !== 'applied' && result.application !== 'restart-required') {
+    throw new Error(result.error?.diagnostic || result.error?.code || result.application)
+  }
 }
 
 /** The harness-home directory holding every pending-uninstall seat. */
@@ -350,6 +360,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
     const heldDown = (packageName: string): boolean =>
       pending.some(record => record.packageName === packageName && (record.ownedEntryIds ?? record.entryIds).length > 0)
     const live = liveEntries()
+    const hostControlsBundles = typeof options.pluginManager?.()?.setBundleEnabled === 'function'
     const packages: MarketInstalledPackage[] = []
     const seen = new Set<string>()
     const pushPackage = async (packageName: string, flags: { inBox: boolean; unregistered: boolean }): Promise<void> => {
@@ -368,6 +379,8 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
             phase: entry?.fiber === undefined ? null : (FIBER_PHASE[entry.fiber.state] ?? null),
           }
         })
+        const bundleEnabled = hostControlsBundles && !flags.inBox ? !flags.unregistered : undefined
+        const liveEnabled = entries.some(entry => entry.enabled)
         packages.push({
           packageName,
           version: info.version,
@@ -375,8 +388,10 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
           repository: info.repository,
           self,
           inBox: flags.inBox,
-          unregistered: flags.unregistered,
-          enabled: entries.some(entry => entry.enabled),
+          unregistered: flags.unregistered && bundleEnabled === undefined,
+          ...(bundleEnabled === undefined ? {} : { bundleEnabled }),
+          enabled: bundleEnabled === undefined ? liveEnabled
+            : bundleEnabled && (liveEnabled || !entries.some(entry => entry.present)),
           entries,
           error: '',
           heldDown: heldDown(packageName),
@@ -410,14 +425,39 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
     // the panel showing a switch the Host refuses, which is worse than either
     // offering it or hiding it.
     const { bundles, unregistered, seats } = await readUserBundles()
-    if (unregistered.includes(packageName) && !bundles.includes(packageName) && !seats.includes(packageName)) {
+    const host = options.pluginManager?.()
+    const hostManaged = !seats.includes(packageName) && typeof host?.setBundleEnabled === 'function'
+    if (!hostManaged && unregistered.includes(packageName) && !bundles.includes(packageName) && !seats.includes(packageName)) {
       throw new Error(
         `${packageName} is installed as a dependency but is not in the bundle stack — Enable cannot load it; Uninstall will remove it`,
       )
     }
-    assertInstalled([...bundles, ...seats], packageName)
+    assertInstalled([...bundles, ...seats, ...(hostManaged ? unregistered : [])], packageName)
     const info = await readBundleInfo(profileDir, packageName)
     const ids = info.entries.map(entry => entry.id)
+    if (hostManaged) {
+      const pending = await readPending()
+      const pendingStop = pending.find(record => record.packageName === packageName)
+      const live = liveEntries()
+      const rows = ids.map(id => findLive(live, id)).filter(entry => entry !== undefined)
+      // A selected but stopped bundle may still carry the old market's stop rows.
+      // Re-selecting a disabled bundle preserves its independent entry overrides.
+      const stopped = bundles.includes(packageName) && rows.length > 0 && rows.every(entry => entry.disabled)
+      const stopIds = stopped ? ids : pendingStop?.ownedEntryIds ?? []
+      const released = enabled ? await setEntryDisabled(patchPath, stopIds, false) : []
+      let outcome: ChangeResult
+      try {
+        outcome = await host.setBundleEnabled(packageName, enabled)
+        requireApplied(outcome)
+      } catch (error) {
+        await setEntryDisabled(patchPath, released, true)
+        throw error
+      }
+      if (enabled && pendingStop !== undefined) {
+        await writePending(pending.filter(record => record.packageName !== packageName))
+      }
+      return { ...await list(), restartRequired: outcome.application === 'restart-required' }
+    }
     // Durable first: the patch row holds the state across boots even when the
     // live nudge below finds nothing to nudge (a launcher without the watcher
     // still converges at the next recompose or boot).
@@ -438,6 +478,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
       await writePending(pending.filter(record => record.packageName !== packageName))
     }
     await applyLive(ids, enabled)
+    options.notifyLegacyChange?.('bundle')
     return await list()
   }
 
@@ -445,12 +486,24 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
     const { bundles, unregistered, seats } = await readUserBundles()
     const inBox = seats.includes(packageName)
     assertInstalled(inBox ? seats : [...bundles, ...unregistered], packageName)
+    const self = packageName === options.selfName
+    const host = options.pluginManager?.()
+    if (!inBox && !self && typeof host?.removeBundle === 'function') {
+      const outcome = await host.removeBundle(packageName)
+      requireApplied(outcome)
+      let result = await list()
+      try {
+        await removePackageInstallGate(profileDir, packageName)
+      } catch (error) {
+        result = { ...result, notice: 'install gate: ' + messageOf(error), noticeKind: 'faults' }
+      }
+      return { ...result, restartRequired: outcome.application === 'restart-required' }
+    }
     // An in-box seat has no dependency to drop and no pnpm-managed tree to
     // leave behind: the directory IS the install, and it was put there by a
     // client that may no longer exist to take it back. Removing the files is
     // therefore part of the uninstall, not litter for someone else to sweep.
     const seatDir = inBox ? desktopSeatDir(profileDir, packageName) : undefined
-    const self = packageName === options.selfName
     const info = await readBundleInfo(profileDir, packageName).catch(() => ({ version: '', description: '', repository: '', entries: [] as { id: string; name: string }[] }))
     const ids = info.entries.map(entry => entry.id)
     const faults: string[] = []
@@ -542,6 +595,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
     } catch (error) {
       faults.push('sweep record: ' + messageOf(error))
     }
+    options.notifyLegacyChange?.('remove')
     const result = await list()
     if (faults.length === 0) return result
     // `may-run` is specifically "the package was not stopped". A failed sweep

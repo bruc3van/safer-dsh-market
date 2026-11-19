@@ -114,8 +114,9 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     },
   }
 
-  // The installed panel's manager: profile files for the durable half, the
-  // live Loader for the now half. Its pending-uninstall record lives in a
+  // The installed panel uses native bundle management when available. Its
+  // desktop seats and legacy profiles still use the profile patch and Loader.
+  // The pending-uninstall record lives in a
   // small file under the harness home — deliberately NOT in the storage
   // domain — so the boot sweep runs even when the domain is unavailable:
   // losing the record is what strands stop rows in the user's patch file.
@@ -125,6 +126,8 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     home: profile.home,
     selfName: PACKAGE_NAME,
     loader: ctx.loader,
+    pluginManager: () => ctx.get('pluginManager'),
+    notifyLegacyChange: reason => ctx.emit('plugin-manager/changed', { reason }),
   })
 
   ctx.effect(async () => {

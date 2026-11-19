@@ -107,9 +107,11 @@ export function matchesSkill(skill: MarketSkill, query: string): boolean {
 export function stateOf(item: MarketInstalledPackage): 'readFailed' | 'unregistered' | 'disabled' | 'failed' | 'running' | 'installed' {
   if (item.error !== '') return 'readFailed'
   if (item.unregistered) return 'unregistered'
+  if (item.bundleEnabled === false) return 'disabled'
   // A bundle whose patch declares no entry rows is neither running nor
   // stopped — installed, with nothing live to report.
   if (item.entries.length === 0) return 'installed'
   if (!item.enabled) return 'disabled'
+  if (!item.entries.some(entry => entry.enabled)) return 'installed'
   return item.entries.some(entry => entry.phase === 'failed') ? 'failed' : 'running'
 }
