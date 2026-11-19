@@ -836,7 +836,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
             return (
               <li key={marketKey(item)} className="dsh_market_card dsh_market_catalogCard">
                 <div className="dsh_market_head">
-                  <PluginLogo src={item.icon} name={item.name} />
+                  <PluginLogo src={item.icon} name={item.name} fullName={item.fullName} />
                   <div className="dsh_market_identity">
                     <span className="dsh_market_name" title={(english ? item.titleEn : item.titleZh) || item.name}>{(english ? item.titleEn : item.titleZh) || item.name}</span>
                     <span className="dsh_market_packageName" title={item.packageName || item.fullName}>{item.packageName || item.fullName}</span>

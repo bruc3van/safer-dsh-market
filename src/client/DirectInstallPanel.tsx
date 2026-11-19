@@ -48,7 +48,7 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
   return <dialog ref={dialog} className="dsh_market_directPanel" aria-labelledby={id}
     onCancel={e => { e.preventDefault(); if (canDismiss && !reviewBusy) dismiss() }}>
     <div className="dsh_market_directHead">
-      {visibleItem && <PluginLogo src={visibleItem.icon} name={visibleItem.name} />}
+      {visibleItem && <PluginLogo src={visibleItem.icon} name={visibleItem.name} fullName={visibleItem.fullName} />}
       <div className="dsh_market_installHeading">
         <span>{t('direct.title')}</span>
         <h3 id={id}>{(english ? visibleItem?.titleEn : visibleItem?.titleZh) || visibleItem?.name || state.spec || t('direct.title')}</h3>
