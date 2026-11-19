@@ -87,7 +87,7 @@ export declare const zh: {
     readonly 'tab.skills': "技能";
     readonly 'tabs.aria': "插件市场Pro分区";
     readonly 'intro.title': "插件市场Pro";
-    readonly 'intro.slogan': "精选真插件，一站式浏览、安装、更新与 AI 审查。";
+    readonly 'intro.slogan': "精选数万个真插件，一站式浏览、安装、卸载、更新与 AI 审查。";
     readonly 'intro.body': "默认联网加载社区插件目录，通过官方通道安装。安装后可选择 AI 审查已安装版本。插件可能已执行，事后审查不能代替安装前的安全判断；目录收录不代表安全或兼容保证。";
     readonly 'intro.disabled': "社区插件目录已在宿主配置中停用。";
     readonly search: "搜索插件名称、包名、功能或分类";

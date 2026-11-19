@@ -531,9 +531,10 @@ function InstalledCards({ t, installed, needle, snapshot, cards, installBusy, re
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
+function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, appliedUpdateRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
   setDirectItem: (item: MarketPlugin) => void
   installedRevision: number
+  appliedUpdateRevision: number
   onCheckUpdate?: (packageName: string) => void
   availableUpdates?: Readonly<Record<string, string>>
   onProbeUpdates?: (packageNames: readonly string[]) => void
@@ -565,6 +566,9 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, setInst
   const resultsRef = useRef<HTMLDivElement>(null)
   const installed = useInstalled({ t, active: enabled, listInstalled, setInstalledEnabled, uninstallInstalled })
   useEffect(() => { if (installedRevision > 0) installed.reload() }, [installedRevision, installed.reload])
+  useLayoutEffect(() => {
+    if (appliedUpdateRevision > 0) resultsRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+  }, [appliedUpdateRevision])
   useEffect(() => {
     if (installed.state.status === 'ready' && installed.state.result.error === '' && installed.state.result.packages.length > 0) {
       onProbeUpdates?.(installed.state.result.packages.map(pkg => pkg.packageName))
@@ -926,9 +930,13 @@ export function MarketSection({
   const [installedRevision, setInstalledRevision] = useState(0)
   const refreshInstalled = useCallback(() => setInstalledRevision(value => value + 1), [])
   useEffect(() => { if (updateState?.revision) refreshInstalled() }, [updateState?.revision, refreshInstalled])
+  const application = updateState?.result?.result.application
+  const appliedUpdateRevision = updateState?.phase === 'done' && (application === 'applied' || application === 'restart-required')
+    ? updateState.revision : 0
   const checkUpdate = pluginUpdater ? (packageName: string) => {
+    if (pluginUpdater.getSnapshot().phase === 'updating') return
+    void pluginUpdater.check(packageName)
     setUpdateOpen(true)
-    if (pluginUpdater.getSnapshot().phase === 'idle') void pluginUpdater.check(packageName)
   } : undefined
   const probeUpdates = useCallback((packageNames: readonly string[]) => {
     void pluginUpdater?.probe(packageNames)
@@ -1113,6 +1121,7 @@ export function MarketSection({
         <PluginsPage
           setDirectItem={setDirectItem}
           installedRevision={installedRevision}
+          appliedUpdateRevision={appliedUpdateRevision}
           onCheckUpdate={checkUpdate}
           availableUpdates={updateState?.available}
           onProbeUpdates={probeUpdates}
