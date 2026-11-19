@@ -7,20 +7,21 @@ import type { MarketCatalog, MarketCategory, MarketFeatured, MarketFeaturedEntry
 import { FEATURED_CATEGORY, SUBSCRIPTION_CATEGORY, isMarketIcon, isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
 import { categoriesOf, deriveSubscription } from './subscription.ts'
 
-/** Default feed and CDN fallback serve the same npm package dataset. */
-export const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json'
-export const MIRROR_CATALOG_BASE = 'https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-catalog.json'
+/** Default feed and mirrors (including China-reachable npmmirror) serve the same npm package dataset. */
+export const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json'
+export const CN_MIRROR_CATALOG_BASE = 'https://registry.npmmirror.com/awesome-dsh-plugin-feed/latest/files/data/market-catalog-v4.json'
+export const MIRROR_CATALOG_BASE = 'https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json'
 
 /** The market is refreshed daily upstream; asking more often than this is noise. */
 const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1_000
 
-/** One attempt against one base; a chain of two costs at most twice this. */
+/** One attempt against one base; a chain of three costs at most three times this. */
 const FETCH_TIMEOUT_MS = 20_000
 
-/** Bound both the response stream and decompression. The full feed is about 19 MiB. */
+/** Bound both the response stream and decompression. The compact v4 feed is ~11.6 MiB. */
 const MAX_CATALOG_BYTES = 64 * 1024 * 1024
 
-/** unpkg answers every `@latest` path with one 302; a few more hops is already a loop. */
+/** unpkg and npmmirror answer every `@latest` path with a 302; a few more hops is already a loop. */
 const MAX_REDIRECTS = 5
 
 /** A description longer than this is a README pasted into the field, not a summary. */
@@ -39,9 +40,10 @@ const SCHEMA_VERSION = 2
  * forever. Bump this whenever the derived catalog gains or changes a field.
  * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions;
  * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions;
- * 6 — up to 100 editorial picks with their own category totals.
+ * 6 — up to 100 editorial picks with their own category totals;
+ * 7 — schema-4 compact feed support, subscription icon/keyword hydration, and npmmirror failover.
  */
-export const CATALOG_FORMAT = 6
+export const CATALOG_FORMAT = 7
 
 /** The editorial list is capped. Published subscription packages are not. */
 const FEATURED_LIMIT = 100
@@ -49,7 +51,7 @@ const FEATURED_LIMIT = 100
 /** A pick's reason is one sentence, not a second description. */
 const REASON_LIMIT = 200
 
-/** One published entry, before the wire pass. Every field may be anything. */
+/** One published entry (schema 2/3 full keys or schema 4 compact keys), before the wire pass. */
 interface RawEntry {
   icon?: unknown
   keywords?: unknown
@@ -70,6 +72,22 @@ interface RawEntry {
   category?: unknown
   category_zh?: unknown
   category_en?: unknown
+  // Schema 4 compact keys
+  n?: unknown
+  d?: unknown
+  s?: unknown
+  c?: unknown
+  p?: unknown
+  l?: unknown
+  lic?: unknown
+  b?: unknown
+  is?: unknown
+  pkg?: unknown
+  tz?: unknown
+  te?: unknown
+  de?: unknown
+  ar?: unknown
+  di?: unknown
 }
 
 /** The envelope's editorial section, before the wire pass. */
@@ -226,12 +244,26 @@ function deriveFeatured(value: unknown, declared: unknown, rows: ReadonlyMap<str
  */
 export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
   const envelope = body as {
-    schema_version?: unknown; entries?: unknown; source_fetched_at?: unknown; source_repo_count?: unknown; featured?: unknown; featured_count?: unknown
+    schema_version?: unknown; entries?: unknown; category_table?: unknown; source_fetched_at?: unknown; source_repo_count?: unknown; featured?: unknown; featured_count?: unknown
     subscription?: unknown; subscription_updated_at?: unknown
   }
-  if (envelope.schema_version !== SCHEMA_VERSION && envelope.schema_version !== 3) {
-    const version = envelope.schema_version === undefined ? 'absent' : String(envelope.schema_version)
-    throw new Error(`unsupported market schema version ${version}; expected 2 or 3`)
+  const schema = envelope.schema_version
+  if (schema !== SCHEMA_VERSION && schema !== 3 && schema !== 4) {
+    const version = schema === undefined ? 'absent' : String(schema)
+    throw new Error(`unsupported market schema version ${version}; expected 2, 3, or 4`)
+  }
+  const isCompact = schema === 4
+  const isCompleteCatalog = schema === 3 || schema === 4
+  const categoryTable: Array<[string, string, string]> = []
+  if (isCompact && Array.isArray(envelope.category_table)) {
+    for (const tuple of envelope.category_table as unknown[]) {
+      if (Array.isArray(tuple) && typeof tuple[0] === 'string') {
+        const key = text(tuple[0], 60)
+        categoryTable.push([key, text(tuple[1], 60) || key, text(tuple[2], 60) || key])
+      } else {
+        categoryTable.push(['', '', ''])
+      }
+    }
   }
   const rows = Array.isArray(envelope.entries) ? envelope.entries as RawEntry[] : []
   if (rows.length === 0) throw new Error('the published market carried no entries')
@@ -239,26 +271,36 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
   const items: MarketPlugin[] = []
   const knownNames = new Set<string>()
   for (const row of rows) {
-    const fullName = repositorySlug(row.full_name)
+    const rawFullName = isCompact ? (row.n ?? row.full_name) : row.full_name
+    const fullName = repositorySlug(rawFullName)
     // The publisher's validator makes either case impossible; the wire pass
     // exists so a poisoned or broken file cannot steer the renderer.
     if (fullName === null || knownNames.has(fullName)) continue
     knownNames.add(fullName)
-    const category = text(row.category, 60)
+    const catTuple = isCompact && typeof row.c === 'number' && Number.isInteger(row.c)
+      ? categoryTable[row.c]
+      : undefined
+    const category = catTuple ? catTuple[0] : text(row.category, 60)
     if (category === '') continue
+    const categoryZh = catTuple ? catTuple[1] : (text(row.category_zh, 60) || category)
+    const categoryEn = catTuple ? catTuple[2] : (text(row.category_en, 60) || category)
     const slash = fullName.indexOf('/')
     // Plugin-level copy the publisher added for a repository that publishes a
     // subscription plugin: the card should name the plugin, not the repository.
-    const titleZh = text(row.title_zh, TITLE_LIMIT)
-    const titleEn = text(row.title_en, TITLE_LIMIT)
-    const descriptionEn = text(row.description_en, DESCRIPTION_LIMIT)
+    const titleZh = text(isCompact ? (row.tz ?? row.title_zh) : row.title_zh, TITLE_LIMIT)
+    const titleEn = text(isCompact ? (row.te ?? row.title_en) : row.title_en, TITLE_LIMIT)
+    const descriptionEn = text(isCompact ? (row.de ?? row.description_en) : row.description_en, DESCRIPTION_LIMIT)
+    const rawPackages = isCompact ? (row.pkg ?? row.packages) : row.packages
+    const rawStatus = isCompact ? (row.is ?? row.install_status ?? 'none') : row.install_status
+    const archived = isCompact ? (row.ar === 1 || row.ar === true || row.archived === true) : row.archived === true
+    const disabled = isCompact ? (row.di === 1 || row.di === true || row.disabled === true) : row.disabled === true
     items.push({
       ...(typeof row.icon === 'string' && isMarketIcon(row.icon) ? { icon: row.icon } : {}),
       ...(Array.isArray(row.keywords) ? { keywords: row.keywords.filter((word): word is string => typeof word === 'string').slice(0, 200).map(word => text(word, 100)) } : {}),
-      ...(row.archived === true ? { archived: true } : {}),
-      ...(row.disabled === true ? { disabled: true } : {}),
-      ...(row.packages === undefined ? {} : { installInfo: parseInstallInfo(row.packages) }),
-      ...(row.install_status === 'command' || row.install_status === 'manual' || row.install_status === 'none' ? { installStatus: row.install_status } : {}),
+      ...(archived ? { archived: true } : {}),
+      ...(disabled ? { disabled: true } : {}),
+      ...(rawPackages === undefined ? {} : { installInfo: parseInstallInfo(rawPackages) }),
+      ...(rawStatus === 'command' || rawStatus === 'manual' || rawStatus === 'none' ? { installStatus: rawStatus } : {}),
       ...(titleZh === '' ? {} : { titleZh }),
       ...(titleEn === '' ? {} : { titleEn }),
       ...(descriptionEn === '' ? {} : { descriptionEn }),
@@ -266,21 +308,21 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
       owner: fullName.slice(0, slash),
       name: fullName.slice(slash + 1),
       url: `https://github.com/${fullName}`,
-      description: text(row.description, DESCRIPTION_LIMIT),
-      stars: count(row.stargazers_count),
-      language: text(row.language, 40),
-      license: text(row.license, 40),
-      pushedAt: text(row.pushed_at, 30),
-      defaultBranch: branchName(row.default_branch),
+      description: text(isCompact ? (row.d ?? row.description) : row.description, DESCRIPTION_LIMIT),
+      stars: count(isCompact ? (row.s ?? row.stargazers_count) : row.stargazers_count),
+      language: text(isCompact ? (row.l ?? row.language) : row.language, 40),
+      license: text(isCompact ? (row.lic ?? row.license) : row.license, 40),
+      pushedAt: text(isCompact ? (row.p ?? row.pushed_at) : row.pushed_at, 30),
+      defaultBranch: branchName(isCompact ? (row.b ?? row.default_branch) : row.default_branch),
       category,
-      categoryZh: text(row.category_zh, 60) || category,
-      categoryEn: text(row.category_en, 60) || category,
+      categoryZh,
+      categoryEn,
     })
   }
 
-  // Schema 3 is a complete repository catalog. Legacy marketSize reductions
+  // Schema 3/4 is a complete repository catalog. Legacy marketSize reductions
   // must not silently cut an upgraded installation back down to 1000 rows.
-  const cut = envelope.schema_version === 3 ? items : items.slice(0, marketSize)
+  const cut = isCompleteCatalog ? items : items.slice(0, marketSize)
   const categories: MarketCategory[] = categoriesOf(cut)
 
   // The picks lead the list whatever their count; the ranked categories
@@ -289,8 +331,40 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
   for (const item of items) if (!byName.has(item.fullName.toLowerCase())) byName.set(item.fullName.toLowerCase(), item)
   let featured: MarketFeatured | undefined
   let subscription: MarketFeatured | undefined
-  if (envelope.schema_version === 3) {
+  if (isCompleteCatalog) {
     subscription = deriveSubscription(envelope.subscription, text(envelope.subscription_updated_at, 40), byName)
+    // Hydrate deduplicated plugin icons and search keywords from the embedded
+    // subscription onto repository rows so compact feeds avoid duplicating ~1.7 MiB
+    // of base64 icons without losing card artwork or package-name search.
+    const subIconByRepo = new Map<string, string>()
+    const subKeywordsByRepo = new Map<string, Set<string>>()
+    for (const entry of subscription.entries) {
+      const key = entry.item.fullName.toLowerCase()
+      if (key === '') continue
+      if (entry.item.icon && !subIconByRepo.has(key)) subIconByRepo.set(key, entry.item.icon)
+      const words = subKeywordsByRepo.get(key) ?? new Set<string>()
+      for (const word of [entry.item.packageName, entry.item.titleZh, entry.item.titleEn, ...(entry.item.keywords ?? [])]) {
+        if (typeof word === 'string' && word !== '') words.add(word)
+      }
+      subKeywordsByRepo.set(key, words)
+    }
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i]!
+      const key = item.fullName.toLowerCase()
+      const icon = item.icon ?? subIconByRepo.get(key)
+      const extraKeywords = subKeywordsByRepo.get(key)
+      if (icon === item.icon && extraKeywords === undefined) continue
+      const mergedKeywords = extraKeywords === undefined
+        ? item.keywords
+        : [...new Set([...(item.keywords ?? []), ...extraKeywords])].slice(0, 200)
+      const hydrated: MarketPlugin = {
+        ...item,
+        ...(icon === undefined ? {} : { icon }),
+        ...(mergedKeywords === undefined ? {} : { keywords: mergedKeywords }),
+      }
+      items[i] = hydrated
+      byName.set(key, hydrated)
+    }
     // Editorial picks prefer the published plugin card and its install target,
     // then fall back to the repository row. The editorial description wins.
     const editorial = envelope.featured !== undefined && envelope.featured !== null
@@ -311,8 +385,15 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
         if (key !== '') rowsForPicks.set(key, entry.item)
       }
       const picks = deriveFeatured(envelope.featured, undefined, rowsForPicks, copy)
-      if (picks !== undefined) featured = picks
-      else subscription = undefined
+      if (picks !== undefined) {
+        featured = picks
+      } else {
+        // No editorial pick survived the wire pass. `subscription` only travels
+        // alongside an editorial list (see MarketCatalog), so fall back exactly
+        // like a feed without picks: the subscription becomes the pick list.
+        featured = subscription
+        subscription = undefined
+      }
     } else {
       // Older schema-3 feed: the subscription is the only pick list.
       featured = subscription
@@ -457,15 +538,24 @@ export interface CatalogSource {
  * @returns the reader.
  */
 export function createCatalogSource(options: CatalogOptions): CatalogSource {
-  // Migrate the previous built-in URL even when it was persisted by the host.
-  const primary = options.base === DEFAULT_CATALOG_BASE.replace('market-catalog.json', 'market-v2.json')
-    ? DEFAULT_CATALOG_BASE
-    : options.base === MIRROR_CATALOG_BASE.replace('market-catalog.json', 'market-v2.json') ? MIRROR_CATALOG_BASE : options.base
-  // The mirror stands behind the default feed only. A deployment that
-  // pointed the market at its own mirror or curation gets exactly that one
-  // source — silently switching datasets is not what `catalogBase` was
-  // configured for.
-  const chain = primary === DEFAULT_CATALOG_BASE ? [primary, MIRROR_CATALOG_BASE] : [primary]
+  // Migrate previous built-in URLs (market-v2.json / market-catalog.json) even when persisted by the host.
+  const migrateBuiltIn = (base: string): string => {
+    for (const current of [DEFAULT_CATALOG_BASE, CN_MIRROR_CATALOG_BASE, MIRROR_CATALOG_BASE]) {
+      if (
+        base === current.replace('market-catalog-v4.json', 'market-v2.json') ||
+        base === current.replace('market-catalog-v4.json', 'market-catalog.json')
+      ) return current
+    }
+    return base
+  }
+  const primary = migrateBuiltIn(options.base)
+  // The mirrors (China-reachable npmmirror, then unpkg) stand behind the default
+  // feed only. A deployment that pointed the market at its own mirror or curation
+  // gets exactly that one source — silently switching datasets is not what
+  // `catalogBase` was configured for.
+  const chain = primary === DEFAULT_CATALOG_BASE
+    ? [primary, CN_MIRROR_CATALOG_BASE, MIRROR_CATALOG_BASE]
+    : [primary]
   // The durable seat is NOT seeded at construction time. The plugin body
   // hands the source a cache port whose backing domain opens asynchronously
   // after this constructor returns, so reading it here would always see the

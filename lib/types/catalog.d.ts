@@ -1,7 +1,8 @@
 import type { MarketCatalog } from './contract.ts';
-/** Default feed and CDN fallback serve the same npm package dataset. */
-export declare const DEFAULT_CATALOG_BASE = "https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json";
-export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-catalog.json";
+/** Default feed and mirrors (including China-reachable npmmirror) serve the same npm package dataset. */
+export declare const DEFAULT_CATALOG_BASE = "https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json";
+export declare const CN_MIRROR_CATALOG_BASE = "https://registry.npmmirror.com/awesome-dsh-plugin-feed/latest/files/data/market-catalog-v4.json";
+export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json";
 /**
  * The shape {@link deriveMarket} produces. A stored catalog records the
  * format it was derived under, and the cache gate refuses any other: a
@@ -10,9 +11,10 @@ export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin
  * forever. Bump this whenever the derived catalog gains or changes a field.
  * 1 — before the editorial picks; 2 — `featured`; 3 — inline pick descriptions;
  * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions;
- * 6 — up to 100 editorial picks with their own category totals.
+ * 6 — up to 100 editorial picks with their own category totals;
+ * 7 — schema-4 compact feed support, subscription icon/keyword hydration, and npmmirror failover.
  */
-export declare const CATALOG_FORMAT = 6;
+export declare const CATALOG_FORMAT = 7;
 /**
  * Where a parsed catalog survives a restart. The catalog source neither opens
  * nor closes this — the plugin body owns the domain's lifecycle and hands the

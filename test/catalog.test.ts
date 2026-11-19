@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import {
+  CN_MIRROR_CATALOG_BASE,
   createCatalogSource,
   DEFAULT_CATALOG_BASE,
   deriveMarket,
@@ -121,7 +122,7 @@ test('deriveMarket rejects an unsupported schema version and an empty market', (
   assert.throws(() => deriveMarket({}, 200), /schema version/)
   assert.throws(() => deriveMarket({ schema_version: 1, entries: [entry()] }, 200), /expected 2/)
   assert.throws(() => deriveMarket({ schema_version: 2, entries: [] }, 200), /no entries/)
-  assert.throws(() => deriveMarket({ schema_version: 4, entries: [entry()] }, 200), /schema version/)
+  assert.throws(() => deriveMarket({ schema_version: 5, entries: [entry()] }, 200), /schema version/)
   assert.throws(() => deriveMarket({ schema_version: '2', entries: [entry()] }, 200), /schema version/)
 })
 
@@ -415,15 +416,17 @@ function jsonResponse(body: unknown, etag: string): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { etag } })
 }
 
-test('persisted built-in v2 URLs migrate to the complete catalog', async () => {
+test('persisted built-in v2 and v3 URLs migrate to the compact v4 catalog', async () => {
   const fetch = stubFetch()
   try {
-    for (const base of [DEFAULT_CATALOG_BASE, MIRROR_CATALOG_BASE]) {
-      const source = createCatalogSource({ base: base.replace('market-catalog.json', 'market-v2.json'), marketSize: 1000 })
-      const pending = source.read(false)
-      assert.equal(fetch.calls.at(-1)?.url, base)
-      fetch.parked.at(-1)!.resolve(jsonResponse({ schema_version: 2, entries: [entry()] }, '"migrated"'))
-      assert.equal((await pending).error, '')
+    for (const base of [DEFAULT_CATALOG_BASE, CN_MIRROR_CATALOG_BASE, MIRROR_CATALOG_BASE]) {
+      for (const legacy of ['market-v2.json', 'market-catalog.json']) {
+        const source = createCatalogSource({ base: base.replace('market-catalog-v4.json', legacy), marketSize: 1000 })
+        const pending = source.read(false)
+        assert.equal(fetch.calls.at(-1)?.url, base)
+        fetch.parked.at(-1)!.resolve(jsonResponse({ schema_version: 2, entries: [entry()] }, '"migrated"'))
+        assert.equal((await pending).error, '')
+      }
     }
   } finally { fetch.restore() }
 })
@@ -636,7 +639,7 @@ test('the reader works memory-only when no cache seat exists', async () => {
 /** One macrotask, enough for a rejected fetch's continuation to run. */
 const tick = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0))
 
-test('the default base fails over to the unpkg mirror on a network failure', async () => {
+test('the default base fails over to npmmirror (China) then unpkg on network failures', async () => {
   const fetch = stubFetch()
   try {
     const seat = stubCache()
@@ -646,8 +649,8 @@ test('the default base fails over to the unpkg mirror on a network failure', asy
     assert.equal(fetch.calls[0]!.url, DEFAULT_CATALOG_BASE)
     fetch.parked[0]!.reject(new Error('The operation was aborted due to timeout'))
     await tick()
-    assert.equal(fetch.calls.length, 2, 'the timeout moves the read to the mirror')
-    assert.equal(fetch.calls[1]!.url, MIRROR_CATALOG_BASE)
+    assert.equal(fetch.calls.length, 2, 'the timeout moves the read to npmmirror first')
+    assert.equal(fetch.calls[1]!.url, CN_MIRROR_CATALOG_BASE)
     fetch.parked[1]!.resolve(jsonResponse(
       { schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'mirror/row' })] },
       '"m-mirror"',
@@ -657,7 +660,7 @@ test('the default base fails over to the unpkg mirror on a network failure', asy
     assert.equal(result.stale, false)
     assert.equal(result.error, '')
     assert.equal(seat.writes.length, 1)
-    assert.equal(seat.writes[0]!.activeBase, MIRROR_CATALOG_BASE, 'the mirror becomes sticky')
+    assert.equal(seat.writes[0]!.activeBase, CN_MIRROR_CATALOG_BASE, 'npmmirror becomes sticky')
     assert.equal(seat.writes[0]!.marketEtag, '"m-mirror"')
   } finally {
     fetch.restore()
@@ -678,7 +681,7 @@ test('after a failover the mirror is sticky: the next read goes straight to it',
     // first attempt, and the ETag it issued is the conditional's.
     const second = source.read(true)
     assert.equal(fetch.calls.length, 3)
-    assert.equal(fetch.calls[2]!.url, MIRROR_CATALOG_BASE)
+    assert.equal(fetch.calls[2]!.url, CN_MIRROR_CATALOG_BASE)
     const headers = fetch.calls[2]!.init?.headers as Record<string, string> | undefined
     assert.equal(headers?.['if-none-match'], '"m-g"')
     fetch.parked[2]!.resolve(NOT_MODIFIED())
@@ -728,7 +731,7 @@ test('a legacy cached catalog (no serving base) revalidates against the primary'
   }
 })
 
-test('when both bases fail the error names both hosts', async () => {
+test('when all bases fail the error names every host', async () => {
   const fetch = stubFetch()
   try {
     const source = createCatalogSource({ base: DEFAULT_CATALOG_BASE, marketSize: 200 })
@@ -736,12 +739,16 @@ test('when both bases fail the error names both hosts', async () => {
     fetch.parked[0]!.reject(new Error('primary down'))
     await tick()
     assert.equal(fetch.calls.length, 2)
-    fetch.parked[1]!.reject(new Error('mirror down'))
+    fetch.parked[1]!.reject(new Error('cn mirror down'))
+    await tick()
+    assert.equal(fetch.calls.length, 3)
+    fetch.parked[2]!.reject(new Error('unpkg down'))
     const result = await pending
     assert.equal(result.catalog, null)
     assert.equal(result.stale, false)
     assert.match(result.error, /cdn\.jsdelivr\.net: primary down/)
-    assert.match(result.error, /unpkg\.com: mirror down/)
+    assert.match(result.error, /registry\.npmmirror\.com: cn mirror down/)
+    assert.match(result.error, /unpkg\.com: unpkg down/)
   } finally {
     fetch.restore()
   }
@@ -852,12 +859,15 @@ test('an unpkg @latest 302 is followed to the pinned version', async () => {
     const pending = source.read(false)
     fetch.parked[0]!.reject(new Error('primary down'))
     await tick()
-    assert.equal(fetch.calls[1]!.url, MIRROR_CATALOG_BASE)
-    fetch.parked[1]!.resolve(redirect(302, '/awesome-dsh-plugin-feed@0.20260928.1/data/market-catalog.json'))
+    assert.equal(fetch.calls[1]!.url, CN_MIRROR_CATALOG_BASE)
+    fetch.parked[1]!.reject(new Error('cn mirror down'))
     await tick()
-    assert.equal(fetch.calls.length, 3, 'the redirect is followed by hand')
-    assert.equal(fetch.calls[2]!.url, 'https://unpkg.com/awesome-dsh-plugin-feed@0.20260928.1/data/market-catalog.json')
-    fetch.parked[2]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-09-28', entries: [entry({ full_name: 'pinned/row' })] }, '"m-pin"'))
+    assert.equal(fetch.calls[2]!.url, MIRROR_CATALOG_BASE)
+    fetch.parked[2]!.resolve(redirect(302, '/awesome-dsh-plugin-feed@0.20260928.1/data/market-catalog-v4.json'))
+    await tick()
+    assert.equal(fetch.calls.length, 4, 'the redirect is followed by hand')
+    assert.equal(fetch.calls[3]!.url, 'https://unpkg.com/awesome-dsh-plugin-feed@0.20260928.1/data/market-catalog-v4.json')
+    fetch.parked[3]!.resolve(jsonResponse({ schema_version: 2, source_fetched_at: '2026-09-28', entries: [entry({ full_name: 'pinned/row' })] }, '"m-pin"'))
     const result = await pending
     assert.equal(result.error, '')
     assert.equal(result.catalog?.items[0]?.fullName, 'pinned/row')

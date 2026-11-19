@@ -148,3 +148,81 @@ test('pagination searches the complete list and renders only the selected fifty 
   assert.equal(pageOf(items.filter(i => i === 28439), 568).items[0], 28439)
   assert.equal(pageOf([], 568).items.length, 0)
 })
+
+test('schema-4 compact catalogs decode category_table, omitted defaults, and hydrate icons/keywords from subscription', () => {
+  const icon = 'data:image/webp;base64,UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAfQ//73v/+BiOh/AAA='
+  const compactFeed = {
+    schema_version: 4,
+    source_fetched_at: '2026-11-19T00:00:00Z',
+    source_repo_count: 2,
+    repository_count: 2,
+    subscription_updated_at: '2026-11-19T00:00:00Z',
+    category_table: [['agents-workflows', 'Agent 工作流', 'Agent workflows']],
+    entries: [
+      {
+        n: 'owner/monorepo',
+        d: '编排任务',
+        s: 123,
+        c: 0,
+        p: '2026-11-18',
+        l: 'TypeScript',
+        lic: 'MIT',
+        is: 'command',
+        tz: '插件一',
+        te: 'Plugin One',
+        de: 'Orchestrate tasks',
+        pkg: { mode: 'command', targets: [{ install: '@demo/one', profile: 'web', note: '' }], tasks: [], requirements: [], note: '', manual: '' },
+      },
+      {
+        n: 'owner/unmapped',
+        d: 'Catalog only',
+        s: 5,
+        c: 0,
+        ar: 1,
+      },
+    ],
+    featured: {
+      title_zh: '编辑精选',
+      title_en: "Editor's Picks",
+      updated_at: '2026-11-19',
+      entries: [{ full_name: 'owner/monorepo', description: '编辑推荐语' }],
+    },
+    subscription: {
+      format: 1,
+      metadata: { categories: { 'agents-workflows': { title: { zh: 'Agent 工作流', en: 'Agent workflows' } } } },
+      plugins: [packageRow('@demo/one', { icon }), packageRow('@demo/two')],
+    },
+  }
+  const catalog = marketCatalogSchema.parse(deriveMarket(compactFeed, 1))
+  assert.equal(catalog.items.length, 2)
+  const [mapped, unmapped] = catalog.items
+  assert.equal(mapped?.category, 'agents-workflows')
+  assert.equal(mapped?.categoryZh, 'Agent 工作流')
+  assert.equal(mapped?.categoryEn, 'Agent workflows')
+  assert.equal(mapped?.defaultBranch, 'main')
+  assert.equal(mapped?.installStatus, 'command')
+  assert.equal(mapped?.icon, icon, 'repository card must inherit deduplicated icon from subscription')
+  assert.ok(mapped?.keywords?.includes('@demo/two'), 'repository card must inherit monorepo package keywords from subscription')
+  assert.equal(unmapped?.installStatus, 'none')
+  assert.equal(unmapped?.archived, true)
+  assert.equal(catalog.featured?.entries[0]?.item.description, '编辑推荐语')
+  assert.equal(catalog.subscription?.count, 2)
+})
+
+test('an editorial block with no surviving picks falls back to the subscription as the pick list', () => {
+  const feed = {
+    schema_version: 3,
+    source_fetched_at: '2026-11-19T00:00:00Z',
+    subscription_updated_at: '2026-11-19T00:00:00Z',
+    entries: [{ full_name: 'owner/monorepo', description: 'Row', stargazers_count: 1, category: 'agents-workflows' }],
+    featured: { entries: [{ full_name: 'ghost/missing' }] },
+    subscription: {
+      format: 1,
+      metadata: { categories: { 'agents-workflows': { title: { zh: 'Agent 工作流', en: 'Agent workflows' } } } },
+      plugins: [packageRow('@demo/one'), packageRow('@demo/two')],
+    },
+  }
+  const catalog = marketCatalogSchema.parse(deriveMarket(feed, 1))
+  assert.equal(catalog.featured?.count, 2, 'the subscription is still shown, as the pick list')
+  assert.equal(catalog.subscription, undefined, 'subscription never travels without an editorial list')
+})
