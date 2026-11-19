@@ -184,7 +184,7 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     catalog,
     readSettings,
     writeSettings,
-    (agent, signal) => readSkills(ctx, agent, signal),
+    (sessionId, signal) => readSkills(ctx, sessionId, signal),
     { profile: profile.name, version: readSelfVersion() },
     installed,
   )

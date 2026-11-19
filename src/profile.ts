@@ -127,7 +127,8 @@ export interface PatchRow {
 export type ProfileManifest = Record<string, unknown> & {
   dependencies?: Record<string, string>
   dsh?: {
-    bundle?: { patch?: string }
+    /** One file, or an ordered list applied in sequence (the Host's `bundlePatchFiles`). */
+    bundle?: { patch?: string | string[] }
     profile?: { bundles?: string[] }
   }
 }
@@ -269,8 +270,7 @@ export function declaresBundle(profileDir: string, packageName: string): boolean
   if (dir === undefined) return false
   try {
     const parsed = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as ProfileManifest
-    const declared = parsed.dsh?.bundle?.patch
-    return typeof declared === 'string' && declared !== ''
+    return bundlePatchFiles(parsed) !== undefined
   } catch {
     return false
   }
@@ -362,6 +362,21 @@ export function removeBundle(manifest: ProfileManifest, packageName: string): bo
     changed = true
   }
   return changed
+}
+
+/**
+ * The package-relative patch files a manifest's `dsh.bundle.patch` declares,
+ * in application order: one file for a string, the listed files for an array
+ * (the Host's `bundlePatchFiles`). An empty list is a bundle with no patch
+ * layer, as the Host composes it, and answers `[]`. `undefined` when the
+ * package declares no usable patch: absent, an empty string, or a list holding
+ * anything but non-empty file paths.
+ */
+export function bundlePatchFiles(manifest: ProfileManifest): string[] | undefined {
+  const declared: unknown = manifest.dsh?.bundle?.patch
+  const files = typeof declared === 'string' ? [declared] : declared
+  if (!Array.isArray(files) || !files.every(file => typeof file === 'string' && file !== '')) return undefined
+  return [...files as string[]]
 }
 
 /** Parse a patch-list file (a missing file is an empty list, per the launcher's own rule). */
@@ -482,11 +497,14 @@ export async function readBundleInfo(profileDir: string, packageName: string): P
     throw new Error(`package ${packageName} is not resolvable from the profile`)
   }
   const manifest = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')) as ProfileManifest
-  const declared = manifest.dsh?.bundle?.patch
-  if (typeof declared !== 'string' || declared === '') {
+  const files = bundlePatchFiles(manifest)
+  if (files === undefined) {
     throw new Error(`package ${packageName} declares no dsh.bundle patch`)
   }
-  const entries = collectEntryRows(await readPatchList(join(dir, declared)))
+  const patches: PatchRow[] = []
+  for (const file of files) patches.push(...await readPatchList(join(dir, file)))
+  const seen = new Set<string>()
+  const entries = collectEntryRows(patches).filter(entry => !seen.has(entry.id) && seen.add(entry.id))
   return {
     version: typeof (manifest as { version?: unknown }).version === 'string' ? (manifest as { version: string }).version : '',
     description: typeof manifest.description === 'string' ? manifest.description : '',

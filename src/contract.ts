@@ -478,13 +478,14 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
     invocation: { kind: 'direct' },
     parameters: [
       {
-        name: 'agent',
-        wire: 'agentId',
-        source: 'lookup',
-        lookup: 'agent',
-        // The type symbol must equal the agent lookup provider's wire identity
-        // exactly — the gateway's strict path rejects a mismatched symbol.
-        codec: { mode: 'strict', typeSymbol: '@deepseek-ai/dsh-session/types#SessionId', create: () => sessionIdSchema },
+        // A plain Session id, not an `agent` lookup: the lookup resumes a cold
+        // Session (and refuses subagent ones), while the read only needs the
+        // Session's projected directory and preset — the Host's own skill
+        // catalog reads them the same way.
+        name: 'sessionId',
+        wire: 'sessionId',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'dsh-market-pro#SessionId', create: () => sessionIdSchema },
       },
     ],
     cancellation: { parameter: 'signal' },

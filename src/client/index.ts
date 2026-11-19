@@ -101,7 +101,7 @@ function createMarketStore<T>(initial: T): {
 /** The mounted dshMarketPro namespace service's callable face. */
 interface SafeMarketFace {
   getCatalog(force: boolean, signal?: AbortSignal): Promise<{ ok: true; value: MarketCatalogResult } | { ok: false; error: { code: string; message: string } }>
-  listSkills(agentId: string, signal?: AbortSignal): Promise<{ ok: true; value: MarketSkillsResult } | { ok: false; error: { code: string; message: string } }>
+  listSkills(sessionId: string, signal?: AbortSignal): Promise<{ ok: true; value: MarketSkillsResult } | { ok: false; error: { code: string; message: string } }>
   describe(): Promise<{ ok: true; value: MarketEnvironment } | { ok: false; error: { code: string; message: string } }>
   getSettings(): Promise<{ ok: true; value: SafeMarketSettings } | { ok: false; error: { code: string; message: string } }>
   listInstalled(): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>

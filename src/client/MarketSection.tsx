@@ -439,7 +439,10 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
                 <button
                   type="button"
                   className="dsh_market_ghost"
-                  disabled={busyRow || busy !== null || installBusy || item.error !== '' || (item.bundleEnabled === undefined && item.entries.length === 0)}
+                  disabled={busyRow || busy !== null || installBusy || (item.error !== ''
+                    // An unreadable package can still be switched off by the Host, never on.
+                    ? item.bundleEnabled !== true
+                    : item.bundleEnabled === undefined && item.entries.length === 0)}
                   onClick={() => { toggle(item) }}
                 >
                   {busy === `${item.packageName}:toggle`

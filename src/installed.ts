@@ -83,7 +83,7 @@ export interface PendingUninstall {
 
 /** The manager's construction facts. */
 export interface InstalledManagerOptions {
-  readonly pluginManager?: () => Pick<PluginManager, 'setBundleEnabled' | 'removeBundle'> | undefined
+  readonly pluginManager?: () => (Pick<PluginManager, 'setBundleEnabled' | 'removeBundle'> & Partial<Pick<PluginManager, 'listBundles'>>) | undefined
   readonly notifyLegacyChange?: (reason: 'bundle' | 'remove') => void
   /** The active profile name reported by the host launcher. */
   readonly profile: string
@@ -303,12 +303,22 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
     seats: string[]
   }> => {
     const manifest = await readManifest(profileDir)
-    return {
-      manifest,
-      bundles: userBundles(manifest),
-      unregistered: unregisteredPlugins(manifest, profileDir),
-      seats: desktopSeatBundles(manifest, profileDir),
+    const bundles = userBundles(manifest)
+    const unregistered = unregisteredPlugins(manifest, profileDir)
+    const seats = desktopSeatBundles(manifest, profileDir)
+    // A deselected dependency whose package can no longer be read declares no
+    // bundle we can see, but the Host still lists it with its load error.
+    // Keep it in the panel so the residue stays reachable for Uninstall.
+    const host = options.pluginManager?.()
+    if (typeof host?.listBundles === 'function') {
+      const known = new Set([...bundles, ...unregistered, ...seats])
+      const listed = await host.listBundles().catch(() => [])
+      for (const row of listed) {
+        if (row.installed && !row.enabled && !row.official && row.source !== undefined && row.error !== undefined
+          && !known.has(row.name)) unregistered.push(row.name)
+      }
     }
+    return { manifest, bundles, unregistered, seats }
   }
 
   const assertInstalled = (bundles: readonly string[], packageName: string): void => {
@@ -367,6 +377,7 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
       if (seen.has(packageName)) return
       seen.add(packageName)
       const self = packageName === options.selfName
+      const bundleEnabled = hostControlsBundles && !flags.inBox ? !flags.unregistered : undefined
       try {
         const info = await readBundleInfo(profileDir, packageName)
         const entries: MarketInstalledEntry[] = info.entries.map(({ id, name }) => {
@@ -379,7 +390,6 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
             phase: entry?.fiber === undefined ? null : (FIBER_PHASE[entry.fiber.state] ?? null),
           }
         })
-        const bundleEnabled = hostControlsBundles && !flags.inBox ? !flags.unregistered : undefined
         const liveEnabled = entries.some(entry => entry.enabled)
         packages.push({
           packageName,
@@ -400,9 +410,13 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
         // A bundle whose package vanished from node_modules is still an
         // install fact: list it, say why it cannot be read, and let the user
         // uninstall the residue.
+        // Under the Host its selection is still the truth, and a selected
+        // one can be switched off without reading the package.
         packages.push({
           packageName, version: '', description: '', repository: '', self,
-          inBox: flags.inBox, unregistered: flags.unregistered, enabled: false, entries: [],
+          inBox: flags.inBox, unregistered: flags.unregistered && bundleEnabled === undefined,
+          ...(bundleEnabled === undefined ? {} : { bundleEnabled }),
+          enabled: bundleEnabled ?? false, entries: [],
           error: messageOf(error), heldDown: heldDown(packageName),
         })
       }
@@ -433,6 +447,14 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
       )
     }
     assertInstalled([...bundles, ...seats, ...(hostManaged ? unregistered : [])], packageName)
+    if (hostManaged && !enabled) {
+      // The Host deselects a bundle without reading its manifest, so a damaged
+      // or vanished package can still be disabled: nothing here needs its
+      // patch rows either.
+      const outcome = await host.setBundleEnabled(packageName, false)
+      requireApplied(outcome)
+      return { ...await list(), restartRequired: outcome.application === 'restart-required' }
+    }
     const info = await readBundleInfo(profileDir, packageName)
     const ids = info.entries.map(entry => entry.id)
     if (hostManaged) {
@@ -444,16 +466,16 @@ export function createInstalledManager(options: InstalledManagerOptions): Instal
       // Re-selecting a disabled bundle preserves its independent entry overrides.
       const stopped = bundles.includes(packageName) && rows.length > 0 && rows.every(entry => entry.disabled)
       const stopIds = stopped ? ids : pendingStop?.ownedEntryIds ?? []
-      const released = enabled ? await setEntryDisabled(patchPath, stopIds, false) : []
+      const released = await setEntryDisabled(patchPath, stopIds, false)
       let outcome: ChangeResult
       try {
-        outcome = await host.setBundleEnabled(packageName, enabled)
+        outcome = await host.setBundleEnabled(packageName, true)
         requireApplied(outcome)
       } catch (error) {
         await setEntryDisabled(patchPath, released, true)
         throw error
       }
-      if (enabled && pendingStop !== undefined) {
+      if (pendingStop !== undefined) {
         await writePending(pending.filter(record => record.packageName !== packageName))
       }
       return { ...await list(), restartRequired: outcome.application === 'restart-required' }

@@ -33,9 +33,9 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   /** The `dshMarketPro` namespace face mounted under `ctx.remote.dshMarketPro`. */
   interface TypertRemoteNamespace$6473684d61726b657450726f {
     getCatalog: (force: boolean, signal?: AbortSignal) => Promise<RemoteResult<MarketCatalogResult>>
-    // The `agent` lookup parameter marshals as the first positional argument
-    // (its wire field is `agentId`), before the cancellation signal.
-    listSkills: (agentId: string, signal?: AbortSignal) => Promise<RemoteResult<MarketSkillsResult>>
+    // The Session id marshals as the first positional argument (wire field
+    // `sessionId`), before the cancellation signal.
+    listSkills: (sessionId: string, signal?: AbortSignal) => Promise<RemoteResult<MarketSkillsResult>>
     describe: () => Promise<RemoteResult<MarketEnvironment>>
     getSettings: () => Promise<RemoteResult<SafeMarketSettings>>
     updateSettings: (update: SafeMarketSettingsUpdate) => Promise<RemoteResult<SafeMarketSettings>>
@@ -45,7 +45,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   }
   interface TypertRemoteMap {
     'dshMarketPro/getCatalog': (force: boolean, signal?: AbortSignal) => Promise<RemoteResult<MarketCatalogResult>>
-    'dshMarketPro/listSkills': (agentId: string, signal?: AbortSignal) => Promise<RemoteResult<MarketSkillsResult>>
+    'dshMarketPro/listSkills': (sessionId: string, signal?: AbortSignal) => Promise<RemoteResult<MarketSkillsResult>>
     'dshMarketPro/describe': () => Promise<RemoteResult<MarketEnvironment>>
     'dshMarketPro/getSettings': () => Promise<RemoteResult<SafeMarketSettings>>
     'dshMarketPro/updateSettings': (update: SafeMarketSettingsUpdate) => Promise<RemoteResult<SafeMarketSettings>>

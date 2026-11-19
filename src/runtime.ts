@@ -12,7 +12,6 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSource } from './catalog.ts'
 import type { InstalledManager } from './installed.ts'
-import type { SkillReadAgent } from './skills.ts'
 import type {
   MarketCatalogResult,
   MarketEnvironment,
@@ -39,7 +38,7 @@ export class SafeMarketRuntime extends TypertRemoteService {
     private readonly catalog: CatalogSource,
     private readonly readSettings: () => SafeMarketSettings,
     private readonly writeSettings: (update: SafeMarketSettingsUpdate) => Promise<SafeMarketSettings>,
-    private readonly readSkills: (agent: SkillReadAgent, signal: AbortSignal) => Promise<MarketSkillsResult>,
+    private readonly readSkills: (sessionId: string, signal: AbortSignal) => Promise<MarketSkillsResult>,
     private readonly environment: MarketEnvironment,
     private readonly installed: InstalledManager,
   ) {
@@ -61,14 +60,14 @@ export class SafeMarketRuntime extends TypertRemoteService {
    * Read-only, and deliberately not gated on the market switch: listing what
    * is already installed reaches nothing outside this machine, so it answers
    * whether or not the user has turned the catalog on.
-   * @param agent - the live agent resolved from the `agentId` wire field; its
-   *   scope chain selects the layers, its session header the workspace.
+   * @param sessionId - the Session whose directory and preset select the
+   *   layers; a cold Session is read, never resumed.
    * @param signal - caller lifetime; discovery races it.
    * @returns the merged skill list, and whether discovery was complete.
    */
   @Remote
-  async listSkills(agent: SkillReadAgent, signal: AbortSignal): Promise<MarketSkillsResult> {
-    return await this.readSkills(agent, signal)
+  async listSkills(sessionId: string, signal: AbortSignal): Promise<MarketSkillsResult> {
+    return await this.readSkills(sessionId, signal)
   }
 
   /** Read the resolved durable settings through the plugin-owned wire. */

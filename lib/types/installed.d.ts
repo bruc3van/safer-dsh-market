@@ -51,7 +51,7 @@ export interface PendingUninstall {
 }
 /** The manager's construction facts. */
 export interface InstalledManagerOptions {
-    readonly pluginManager?: () => Pick<PluginManager, 'setBundleEnabled' | 'removeBundle'> | undefined;
+    readonly pluginManager?: () => (Pick<PluginManager, 'setBundleEnabled' | 'removeBundle'> & Partial<Pick<PluginManager, 'listBundles'>>) | undefined;
     readonly notifyLegacyChange?: (reason: 'bundle' | 'remove') => void;
     /** The active profile name reported by the host launcher. */
     readonly profile: string;

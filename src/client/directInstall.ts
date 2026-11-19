@@ -36,7 +36,6 @@ export interface DirectState {
 export function createDirectInstaller(host: () => InstallHost | undefined) {
   let state: DirectState = { phase: 'idle', spec: '', message: '', pendingBuilds: [], queue: [] }
   let requestId: RequestId
-  let approved: string[] = []
   let stopped = false
   let recovering = false
   const listeners = new Set<() => void>()
@@ -67,7 +66,6 @@ export function createDirectInstaller(host: () => InstallHost | undefined) {
     if (busy()) return
     if (!isInstallSpec(spec)) { set({ phase: 'failed', spec, message: 'Invalid install target', pendingBuilds: [] }); return }
     requestId = undefined
-    approved = builds
     set({ phase: 'checking', spec, message: '', application: undefined, pendingBuilds: [] })
     try {
       const api = manager()
@@ -93,11 +91,14 @@ export function createDirectInstaller(host: () => InstallHost | undefined) {
       set({ spec: '', queue: specs.map(spec => ({ spec, phase: 'idle', message: '' })) })
       await run(specs[0]!)
     },
+    // The Host writes each approval into allowBuilds and refuses a name that is
+    // no longer pending ('stale-approval'): a retry carries no approvals, and an
+    // approval names only what the failed run left pending.
     async retry() {
-      if (state.phase === 'failed' && !state.pendingBuilds.length) await run(state.spec, approved)
+      if (state.phase === 'failed' && !state.pendingBuilds.length) await run(state.spec)
     },
     reset() { if (!busy()) set({ phase: 'idle', spec: '', message: '', pendingBuilds: [], application: undefined, queue: [] }) },
-    approve: async () => { if (state.phase === 'failed' && state.pendingBuilds.length) await run(state.spec, [...new Set([...approved, ...state.pendingBuilds])]) },
+    approve: async () => { if (state.phase === 'failed' && state.pendingBuilds.length) await run(state.spec, [...state.pendingBuilds]) },
     async cancel() {
       if (!requestId || state.phase !== 'installing') return
       stopped = true

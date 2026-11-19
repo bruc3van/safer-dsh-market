@@ -2,12 +2,16 @@
  * The skills read: what this deployment can currently resolve, reduced to the
  * wire shape the market renders.
  *
- * The read is addressed by a live agent, and it has to be. The registry is
- * host+per-scope layered, and the web deployment disables the host-plane
+ * The read is addressed by a Session, never by waking its Agent. The registry
+ * is host+per-scope layered, and the web deployment disables the host-plane
  * `skill-filesystem` row on purpose — local discovery belongs to whichever
- * agent preset a session runs. A read from the plugin's root context would
- * therefore see the global layer alone and report "no skills" to a user who
- * has plenty; the agent is what selects the layer chain that answers.
+ * agent preset a session runs. A read from the plugin's root context with no
+ * scope would therefore see the global layer alone and report "no skills" to
+ * a user who has plenty. Like the Host's own `SessionSkillCatalog`, the
+ * session's projected working directory and preset select the view: a live
+ * Agent is its own scope (and its preset may mount an isolated `skills`
+ * service), a cold one borrows its preset's standing scope, so opening the
+ * page or refocusing the window never resumes a session.
  *
  * Incompleteness is carried through rather than hidden: a list that silently
  * lost a provider's skills would read as "you have none of those", which is a
@@ -72,33 +76,113 @@ function validPath(value: unknown): value is string {
   return typeof value === 'string' && value !== '' && value.length <= 4096 && !/[\u0000-\u001f]/.test(value)
 }
 
-/** The addressed agent, structurally: its scope key and its workspace. */
+/** A live Agent, structurally: its Session header and its own context. */
 export interface SkillReadAgent {
   readonly session: { readonly header: { readonly cwd?: string } }
 }
 
+/** The Host services a cold read needs — structural, all optional across host versions. */
+interface SessionObservationFace extends Disposable {
+  readonly header: { readonly cwd?: string }
+  readonly projections?: { readonly values: { readonly workingDirectory?: string | null; readonly agentPreset?: string | null } }
+}
+interface SkillReadHost {
+  agents?: { get(sessionId: string): SkillReadAgent | undefined }
+  sessionQuery?: { observeSession(sessionId: string): Promise<SessionObservationFace> }
+  agentPresets?: {
+    serviceFor(agent: SkillReadAgent, name: 'skills'): SkillRegistryFace | undefined
+    acquireScope(id?: string): Promise<{ key: unknown } & AsyncDisposable>
+  }
+  workingDirectory?: { defaultDirectory?: string }
+}
+
+/** Where one Session's skill view comes from, read without resuming it. */
+interface SkillView {
+  readonly registry: SkillRegistryFace
+  readonly cwd: string | undefined
+  readonly scope: unknown
+  readonly release?: () => Promise<void>
+}
+
+function optional<T>(ctx: Context, name: string): T | undefined {
+  try {
+    return (ctx as unknown as { get(name: string): T | undefined }).get(name)
+  } catch {
+    return undefined
+  }
+}
+
+async function resolveView(ctx: Context, sessionId: string): Promise<SkillView | string> {
+  const host: SkillReadHost = {
+    agents: optional(ctx, 'agents'),
+    sessionQuery: optional(ctx, 'sessionQuery'),
+    agentPresets: optional(ctx, 'agentPresets'),
+    workingDirectory: optional(ctx, 'workingDirectory'),
+  }
+  const root = (ctx as unknown as { skills?: SkillRegistryFace }).skills
+  const live = host.agents?.get(sessionId)
+  if (live !== undefined) {
+    const registry = host.agentPresets?.serviceFor(live, 'skills') ?? root
+    if (registry === undefined) return 'the skill registry is not mounted'
+    // New hosts separate the execution directory from the original project.
+    // Reading the committed value keeps this listing read-only.
+    const directory = ctx.reflect?.get('workingDirectory') as { get(session: SkillReadAgent['session']): string } | undefined
+    return { registry, cwd: directory ? directory.get(live.session) : live.session.header.cwd, scope: live }
+  }
+  if (host.sessionQuery === undefined) return 'this host cannot read the skills of an inactive session; open the session first'
+  let cwd: string | undefined
+  let agentPreset: string | undefined
+  let observation: SessionObservationFace
+  try {
+    observation = await host.sessionQuery.observeSession(sessionId)
+  } catch (error) {
+    if ((error as { code?: unknown } | null | undefined)?.code === 'SESSION_QUERY_SESSION_NOT_FOUND') return `session "${sessionId}" not found`
+    throw error
+  }
+  try {
+    cwd = observation.projections?.values.workingDirectory ?? observation.header.cwd ?? host.workingDirectory?.defaultDirectory
+    agentPreset = observation.projections?.values.agentPreset ?? undefined
+  } finally {
+    observation[Symbol.dispose]()
+  }
+  if (root === undefined) return 'the skill registry is not mounted'
+  // An unknown or unusable recorded preset falls back to the global registry.
+  let lease: ({ key: unknown } & AsyncDisposable) | undefined
+  try {
+    lease = await host.agentPresets?.acquireScope(agentPreset)
+  } catch {
+    lease = undefined
+  }
+  const held = lease
+  return {
+    registry: root, cwd, scope: held?.key,
+    ...(held === undefined ? {} : { release: async () => { await held[Symbol.asyncDispose]() } }),
+  }
+}
+
 /**
- * Read the merged skill list an agent's scope chain selects.
- * @param ctx - the plugin context carrying the skill registry.
- * @param agent - the live agent resolved from the `agentId` wire field.
+ * Read the merged skill list one Session's scope chain selects.
+ * @param ctx - the plugin context carrying the skill registry and optional Host services.
+ * @param sessionId - the Session from the `sessionId` wire field.
  * @param signal - caller lifetime; discovery races it.
  * @returns the reduced list, whether it is complete, and any failure reason.
  */
 export async function readSkills(
   ctx: Context,
-  agent: SkillReadAgent,
+  sessionId: string,
   signal: AbortSignal,
 ): Promise<MarketSkillsResult> {
-  const registry = (ctx as unknown as { skills?: SkillRegistryFace }).skills
-  if (registry === undefined) {
-    return { skills: [], complete: false, error: 'the skill registry is not mounted' }
-  }
+  let view: SkillView | string
   try {
-    // New hosts separate the execution directory from the original project.
-    // Reading the committed value keeps this listing read-only.
-    const directory = ctx.reflect?.get('workingDirectory') as { get(session: SkillReadAgent['session']): string } | undefined
-    const cwd = directory ? directory.get(agent.session) : agent.session.header.cwd
-    const observation = await registry.snapshot({ cwd, signal, scope: agent })
+    view = await resolveView(ctx, sessionId)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { skills: [], complete: false, error: message === '' ? 'unknown error' : message }
+  }
+  if (typeof view === 'string') return { skills: [], complete: false, error: view }
+  const { registry, cwd, scope } = view
+  try {
+    const observation = await registry.snapshot({ cwd, signal, scope })
     const skills: MarketSkill[] = observation.skills.map(entry => ({
       name: text(entry.name, 120),
       description: text(entry.description, 400),
@@ -120,5 +204,7 @@ export async function readSkills(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return { skills: [], complete: false, error: message === '' ? 'unknown error' : message }
+  } finally {
+    await view.release?.().catch(() => undefined)
   }
 }

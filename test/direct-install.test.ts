@@ -236,3 +236,25 @@ test('overridden results stop the queue for inspection', async () => {
   await installer.start(['one','two'])
   assert.deepEqual(calls,['one'])
 })
+
+test('approvals name only the current pending builds and retries carry none', async () => {
+  // The Host refuses ('stale-approval') any approved name that is no longer pending.
+  const calls: (string[] | undefined)[] = []
+  const replies = [
+    { application: 'failed', pendingBuilds: ['native-addon'] },
+    { application: 'failed', pendingBuilds: ['second-addon'] },
+    { application: 'failed', error: { code: 'pnpm-failed' } },
+    { application: 'applied' },
+  ]
+  const installer = createDirectInstaller(() => host({ installBundle: async (_spec, options) => {
+    calls.push(options?.approvedBuilds)
+    return { ok: true, value: replies[calls.length - 1] } as any
+  } }))
+  await installer.start('demo@1.0.0')
+  await installer.approve()
+  await installer.approve()
+  assert.equal(installer.getSnapshot().phase, 'failed')
+  await installer.retry()
+  assert.deepEqual(calls, [undefined, ['native-addon'], ['second-addon'], undefined])
+  assert.equal(installer.getSnapshot().phase, 'done')
+})

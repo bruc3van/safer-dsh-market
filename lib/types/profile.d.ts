@@ -49,8 +49,9 @@ export interface PatchRow {
 export type ProfileManifest = Record<string, unknown> & {
     dependencies?: Record<string, string>;
     dsh?: {
+        /** One file, or an ordered list applied in sequence (the Host's `bundlePatchFiles`). */
         bundle?: {
-            patch?: string;
+            patch?: string | string[];
         };
         profile?: {
             bundles?: string[];
@@ -135,6 +136,15 @@ export declare function removePackageInstallGate(profileDir: string, packageName
  * @returns true when the manifest changed.
  */
 export declare function removeBundle(manifest: ProfileManifest, packageName: string): boolean;
+/**
+ * The package-relative patch files a manifest's `dsh.bundle.patch` declares,
+ * in application order: one file for a string, the listed files for an array
+ * (the Host's `bundlePatchFiles`). An empty list is a bundle with no patch
+ * layer, as the Host composes it, and answers `[]`. `undefined` when the
+ * package declares no usable patch: absent, an empty string, or a list holding
+ * anything but non-empty file paths.
+ */
+export declare function bundlePatchFiles(manifest: ProfileManifest): string[] | undefined;
 /** Parse a patch-list file (a missing file is an empty list, per the launcher's own rule). */
 export declare function readPatchList(file: string): Promise<PatchRow[]>;
 /**

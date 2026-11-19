@@ -18,6 +18,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Loader } from '@deepseek-ai/cordis-plugin-loader'
 import { PluginManager } from '@deepseek-ai/dsh-plugin-manager'
 import {
+  bundlePatchFiles,
   collectEntryRows,
   readPatchList,
   readManifest,
@@ -410,6 +411,87 @@ test('setEnabled writes the durable rows and nudges the live entry', async () =>
     const reEnabled = await built.setEnabled('demo-plugin', true)
     assert.equal((await readFile(join(profileDir, 'cordis.patch.yml'), 'utf8')).includes('disabled'), false)
     assert.equal(reEnabled.packages[0]!.enabled, true)
+  } finally {
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
+test('a bundle declaring an ordered list of patch files lists the entries of every file', async () => {
+  const { home, profileDir } = await makeHome()
+  try {
+    const dir = join(profileDir, 'node_modules', 'demo-plugin')
+    await mkdir(dir, { recursive: true })
+    await writeFile(join(dir, 'package.json'), JSON.stringify({
+      name: 'demo-plugin', version: '1.2.3', description: 'a demo plugin',
+      dsh: { bundle: { patch: ['./base.patch.yml', './extra.patch.yml'] } },
+    }))
+    await writeFile(join(dir, 'base.patch.yml'), '- insert:\n    - id: demo-plugin\n      name: demo-plugin\n')
+    await writeFile(join(dir, 'extra.patch.yml'), '- insert:\n    - id: demo-extra\n      name: demo-plugin/extra\n- id: demo-plugin\n  config: {}\n')
+    const seat = stubLoader([{ id: 'include:demo-plugin', name: 'demo-plugin', fiberState: 2 }])
+    const built = makeManager(home, seat.loader)
+    const result = await built.list()
+    assert.equal(result.packages[0]!.error, '')
+    assert.deepEqual(result.packages[0]!.entries.map(entry => entry.id), ['demo-plugin', 'demo-extra'])
+    await built.setEnabled('demo-plugin', false)
+    const rows = await readFile(join(profileDir, 'cordis.patch.yml'), 'utf8')
+    assert.match(rows, /- id: demo-plugin\n  disabled: true/)
+    assert.match(rows, /- id: demo-extra\n  disabled: true/)
+  } finally {
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
+test('bundlePatchFiles follows the Host: a string, an ordered list, or an empty list', () => {
+  const of = (patch: unknown) => bundlePatchFiles({ dsh: { bundle: { patch } } } as ProfileManifest)
+  assert.deepEqual(of('./a.yml'), ['./a.yml'])
+  assert.deepEqual(of(['./a.yml', './b.yml']), ['./a.yml', './b.yml'])
+  assert.deepEqual(of([]), [], 'a bundle with no patch layer')
+  for (const bad of [undefined, '', [''], ['./a.yml', 3], { file: './a.yml' }]) assert.equal(of(bad), undefined)
+  const declared = ['./a.yml']
+  const files = of(declared)!
+  files.push('./b.yml')
+  assert.deepEqual(declared, ['./a.yml'], 'the answer is a copy')
+})
+
+test('under the Host an unreadable bundle keeps its selection, can be disabled, and stays listed', async () => {
+  const { home, profileDir } = await makeHome()
+  try {
+    // demo-plugin is selected but its package is gone; the Host deselects it
+    // and, like the real manager, still lists the dependency with its error.
+    let selected = true
+    const calls: [string, boolean][] = []
+    const built = createInstalledManager({
+      profile: 'web', selfName: 'dsh-market-pro', loader: stubLoader([]).loader, home, pendingFile: pendingFile(home),
+      pluginManager: () => ({
+        setBundleEnabled: async (name: string, enabled: boolean) => {
+          calls.push([name, enabled])
+          const manifest = await readManifest(profileDir)
+          manifest.dsh!.profile!.bundles = manifest.dsh!.profile!.bundles!.filter(bundle => bundle !== name)
+          await writeManifest(profileDir, manifest)
+          selected = enabled
+          return { application: 'applied' }
+        },
+        removeBundle: async () => ({ application: 'applied' }),
+        listBundles: async () => [
+          { name: 'demo-plugin', official: false, installed: true, enabled: selected, availability: 'missing', source: 'demo-plugin@^1.0.0', error: { code: 'not-found' } },
+          { name: 'zod', official: false, installed: true, enabled: false, availability: 'profile', source: 'zod@^4.0.0' },
+        ],
+      }) as any,
+    })
+    const before = (await built.list()).packages.find(item => item.packageName === 'demo-plugin')!
+    assert.match(before.error, /not resolvable/)
+    assert.equal(before.bundleEnabled, true)
+    assert.equal(before.enabled, true)
+    assert.equal(before.unregistered, false)
+    const after = await built.setEnabled('demo-plugin', false)
+    assert.deepEqual(calls, [['demo-plugin', false]])
+    const row = after.packages.find(item => item.packageName === 'demo-plugin')
+    assert.ok(row, 'the deselected residue is still listed for Uninstall')
+    assert.equal(row.bundleEnabled, false)
+    assert.equal(row.enabled, false)
+    assert.equal(after.packages.some(item => item.packageName === 'zod'), false, 'a healthy library is not a plugin')
+    await assert.rejects(built.setEnabled('demo-plugin', true), /not resolvable/)
+    assert.deepEqual(calls, [['demo-plugin', false]], 'enable still needs a readable package')
   } finally {
     await rm(home, { recursive: true, force: true })
   }

@@ -12,7 +12,6 @@ import type { Context } from '@deepseek-ai/cordis';
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { CatalogSource } from './catalog.ts';
 import type { InstalledManager } from './installed.ts';
-import type { SkillReadAgent } from './skills.ts';
 import type { MarketCatalogResult, MarketEnvironment, MarketInstalledResult, MarketSkillsResult, SafeMarketSettings, SafeMarketSettingsUpdate, SetInstalledEnabledUpdate, UninstallInstalledUpdate } from './contract.ts';
 /** Market service: the reduced catalog, the plugin's durable settings, and the installed-panel verbs. */
 export declare class SafeMarketRuntime extends TypertRemoteService {
@@ -30,7 +29,7 @@ export declare class SafeMarketRuntime extends TypertRemoteService {
      * @param writeSettings - durable settings write.
      * @param installed - the installed-plugin manager.
      */
-    constructor(ctx: Context, catalog: CatalogSource, readSettings: () => SafeMarketSettings, writeSettings: (update: SafeMarketSettingsUpdate) => Promise<SafeMarketSettings>, readSkills: (agent: SkillReadAgent, signal: AbortSignal) => Promise<MarketSkillsResult>, environment: MarketEnvironment, installed: InstalledManager);
+    constructor(ctx: Context, catalog: CatalogSource, readSettings: () => SafeMarketSettings, writeSettings: (update: SafeMarketSettingsUpdate) => Promise<SafeMarketSettings>, readSkills: (sessionId: string, signal: AbortSignal) => Promise<MarketSkillsResult>, environment: MarketEnvironment, installed: InstalledManager);
     /**
      * The deployment facts the browser needs to NAME the install command —
      * which profile an install would change. This plugin never runs it.
@@ -42,12 +41,12 @@ export declare class SafeMarketRuntime extends TypertRemoteService {
      * Read-only, and deliberately not gated on the market switch: listing what
      * is already installed reaches nothing outside this machine, so it answers
      * whether or not the user has turned the catalog on.
-     * @param agent - the live agent resolved from the `agentId` wire field; its
-     *   scope chain selects the layers, its session header the workspace.
+     * @param sessionId - the Session whose directory and preset select the
+     *   layers; a cold Session is read, never resumed.
      * @param signal - caller lifetime; discovery races it.
      * @returns the merged skill list, and whether discovery was complete.
      */
-    listSkills(agent: SkillReadAgent, signal: AbortSignal): Promise<MarketSkillsResult>;
+    listSkills(sessionId: string, signal: AbortSignal): Promise<MarketSkillsResult>;
     /** Read the resolved durable settings through the plugin-owned wire. */
     getSettings(): SafeMarketSettings;
     /** Persist one settings field and return the resolved section. */
