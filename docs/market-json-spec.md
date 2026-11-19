@@ -1,10 +1,11 @@
 # DSH Market Pro消费协议
 
-## 默认 schema 3：market-catalog.json
+## 默认 schema 4：market-catalog-v4.json（兼容 schema 3 `market-catalog.json`）
 
-默认地址为 `https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog.json`，回退到同包的 unpkg 地址。上游 `scripts/safe-market-catalog.mjs` 在 npm 打包时生成，不提交另一份全量生成文件。
+默认地址为 `https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json`，失败自动按序回退至国内可达的 `https://registry.npmmirror.com/awesome-dsh-plugin-feed/latest/files/data/market-catalog-v4.json` 与 `https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json`（粘滞成功源）。上游 `scripts/safe-market-catalog.mjs` 在 npm 打包时同时生成 schema 4 紧凑主源（约 11.6 MB，gzip 约 4.5 MB）与兼容旧版客户端的 schema 3 精简源（约 16.5 MB），不提交另一份全量生成文件。
 
-- `schema_version: 3`。
+- `schema_version: 4`（同时完整兼容 `schema_version: 3` 与 `schema_version: 2`）。
+- schema 4 使用顶层 `category_table` 字典与紧凑字段键（`n/d/s/c/p/l/lic/b/is/pkg/tz/te/de/ar/di`），省略默认值（`install_status: none`、`default_branch: main`、空语言/许可证），且不在 `entries[]` 重复内联订阅插件的 base64 图标与关键词——客户端解析时按仓库 slug 从内嵌 `subscription` 自动补全。
 - `source_fetched_at` / `source_repo_count`：爬取快照时间和扫描仓库数。
 - `repository_count` / `entries[]`：与仓库完整目录使用同一个 `catalogRepositories` 审核、描述和排除规则（`excluded_repos`、`market_exclusions`、`leaderboard_exclusions` 与发布者自排除——榜单排除等于市场排除），不套用旧市场的 1000 条限制。保留归档、禁用状态。
 - 仓库条目保留 `full_name`、描述、Star、语言、许可证、更新时间、默认分支和分类；可含 `packages` 安装映射、`install_status`（`command` / `manual` / `none`）、关联订阅插件的 `keywords`，以及该插件的 `title_zh` / `title_en` / `description_en`（有订阅插件的仓库用插件级文案替代仓库简介）。`install_status` 是发布方的显式信号：`command` 走官方插件管理器直接安装；`manual` / `none` 表示该仓库没有可直接执行的安装目标，客户端改为生成「AI 核对安装」提示词（填入会话草稿，不自动发送），由 AI 核实仓库、包归属或子目录后再安装——不隐藏条目，也不伪造安装目标。
