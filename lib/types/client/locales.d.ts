@@ -98,8 +98,6 @@ export declare const zh: {
     readonly 'settings.subtitle': "修改后立即生效。";
     readonly 'settings.unavailable': "当前环境不支持在此修改，请在配置文件中调整。";
     readonly 'settings.saveFailed': "保存失败：{reason}";
-    readonly 'settings.state.on': "已开启";
-    readonly 'settings.state.off': "已关闭";
     readonly 'settings.ai.title': "AI 选插件助手";
     readonly 'settings.ai.desc': "对话中可用 /dsh-market-pro 让 AI 帮你搜插件、做推荐；所有安装仍需你确认。";
     readonly 'settings.ai.catalogOffHint': "社区目录已关闭，目前仅能查看已安装插件；开启下方目录即可搜索全部插件。";
@@ -110,13 +108,11 @@ export declare const zh: {
     readonly all: "全部";
     readonly 'featured.chip': "精选";
     readonly 'featured.summary': "{count} 个编辑精选插件";
-    readonly refresh: "刷新数据";
+    readonly refresh: "刷新";
     readonly refreshing: "刷新中…";
     readonly loading: "正在加载插件…";
     readonly 'loading.title': "正在加载插件目录";
     readonly 'loading.settingsTitle': "正在准备插件市场";
-    readonly 'loading.desc': "首次进入会同步社区插件与编辑精选，完成后将自动缓存在本地，下次打开即可秒开。";
-    readonly 'loading.settingsDesc': "正在读取插件市场配置与运行环境，请稍候。";
     readonly 'loading.stage.settings': "正在初始化插件市场…";
     readonly 'loading.stage.connect': "正在检查本地缓存并连接数据源…";
     readonly 'loading.stage.download': "正在拉取数万个社区插件目录…";
@@ -414,6 +410,9 @@ export declare const zh: {
     readonly "mcp.editor.conflict": "这台服务器的配置已在别处被修改。直接保存会用你当前的修改覆盖它；也可以先载入最新配置再修改。";
     readonly "mcp.editor.reload": "载入最新配置";
     readonly "mcp.editor.inherited": "这是继承的服务器，保存后会写入你的覆盖配置；之后可随时恢复默认。";
+    readonly "mcp.editor.unsaved": "有未保存的修改，确定放弃吗？";
+    readonly "mcp.editor.discard": "放弃修改";
+    readonly "mcp.editor.keepEditing": "继续编辑";
     readonly "mcp.field.name": "名称";
     readonly "mcp.field.nameHint": "仅字母、数字、- 和 _，最多 32 个字符；工具会以 mcp__名称__工具 的形式出现。";
     readonly "mcp.field.transport": "传输方式";

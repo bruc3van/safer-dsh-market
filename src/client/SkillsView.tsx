@@ -1,3 +1,4 @@
+import { MarketButton } from './MarketButton.tsx'
 import { useEffect, useState, type ReactElement } from 'react'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MarketSkill, MarketSkillsResult } from '../contract.ts'
@@ -43,7 +44,7 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
   SkillsActions & { t: MarketLocale; project?: boolean }): ReactElement {
   const [state, setState] = useState<SkillsState>({ status: 'loading' })
   const [query, setQuery] = useState('')
-  const [origin, setOrigin] = useState<Origin | 'all'>(project ? 'project' : 'all')
+  const [origin, setOrigin] = useState<Origin | 'all'>('all')
   const [refresh, setRefresh] = useState(0)
   const [folderAvailable, setFolderAvailable] = useState(false)
   const [actionError, setActionError] = useState('')
@@ -89,17 +90,28 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
     }
   }
 
+  const refreshButton = !failure ? (
+    <button
+      className={project ? 'dsh_market_headerAction' : 'dsh_market_headerAction dsh_market_refreshMarket'}
+      type="button"
+      disabled={busy}
+      aria-busy={busy}
+      onClick={retry}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
+      </svg>
+      {busy ? t('refreshing') : t('skills.refresh')}
+    </button>
+  ) : null
+
   return (
     <div className={project ? 'dsh_market_projectSkills' : 'dsh_market_page dsh_market_fixedPage'}>
       <div className="dsh_market_controls dsh_market_skillsControls">
+        {!project && refreshButton}
         <div className="dsh_market_skillsHeading">
           <h2>{t('skills.title')}</h2>
-          {!failure && <button className="dsh_market_headerAction" type="button" disabled={busy} onClick={retry}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
-            </svg>
-            {t('skills.refresh')}
-          </button>}
+          {project && refreshButton}
         </div>
         {(available || busy) && (
           <div className="dsh_market_filterBar">
@@ -128,7 +140,7 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
               <h3>{t(writerHeld ? 'skills.writerHeld' : 'skills.failed')}</h3>
               <p className="dsh_market_noticeBody">{t(writerHeld ? 'skills.writerHeldHint' : 'skills.failedHint')}</p>
             </div>
-            <button className="dsh_market_primary" type="button" onClick={retry}>{t('skills.retry')}</button>
+            <MarketButton intent="primary" onClick={retry}>{t('skills.retry')}</MarketButton>
             <details className="dsh_market_installDetails" key={failure}>
               <summary>{t('skills.diagnostic')}<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg></summary>
               <pre className="dsh_market_directMessage">{failure}</pre>

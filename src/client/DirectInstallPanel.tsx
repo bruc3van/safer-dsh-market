@@ -1,4 +1,6 @@
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
+import { MarketButton } from './MarketButton.tsx'
+import { useEffect, useId, useState, useSyncExternalStore } from 'react'
+import { IconCloseOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarketPlugin } from '../contract.ts'
 import type { MarketLocale } from './copy.ts'
 import { installChoices, installLabel } from './installTargets.ts'
@@ -19,12 +21,7 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
   const [submitted, setSubmitted] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const id = useId()
-  const dialog = useRef<HTMLDialogElement>(null)
   const open = !dismissed && (item !== null || state.phase !== 'idle')
-  useEffect(() => {
-    if (open && !dialog.current?.open) dialog.current?.showModal()
-    if (!open && dialog.current?.open) dialog.current.close()
-  }, [open])
   const busy = ['checking', 'installing', 'cancelling', 'unknown'].includes(state.phase)
   useEffect(() => { setSelected([0]); setSubmitted(false); if (item) setDismissed(false) }, [item])
   useEffect(() => { if (state.phase === 'done' || state.phase === 'unavailable') onInstalled() }, [state, onInstalled])
@@ -45,17 +42,19 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
   const reviewTargets = showResult && !busy ? installedReviewTargets(state) : []
   const english = t('lang') === 'en'
   const description = english ? visibleItem?.descriptionEn || visibleItem?.description : visibleItem?.description
-  return <dialog ref={dialog} className="dsh_market_directPanel" aria-labelledby={id}
-    onCancel={e => { e.preventDefault(); if (canDismiss && !reviewBusy) dismiss() }}>
+  const heading = (english ? visibleItem?.titleEn : visibleItem?.titleZh) || visibleItem?.name || state.spec || t('direct.title')
+  return <Modal open={open} headless title={heading} className="dsh_market_modal"
+    onClose={() => { if (canDismiss && !reviewBusy) dismiss() }}>
+  <div className="dsh_market_directPanel">
     <div className="dsh_market_directHead">
       {visibleItem && <PluginLogo src={visibleItem.icon} name={visibleItem.name} fullName={visibleItem.fullName} />}
       <div className="dsh_market_installHeading">
         <span>{t('direct.title')}</span>
-        <h3 id={id}>{(english ? visibleItem?.titleEn : visibleItem?.titleZh) || visibleItem?.name || state.spec || t('direct.title')}</h3>
+        <h3>{heading}</h3>
         {visibleItem && <small>{visibleItem.packageName || visibleItem.fullName}</small>}
       </div>
       {canDismiss && <button type="button" disabled={reviewBusy} className="dsh_market_directClose" aria-label={t('direct.close')} onClick={dismiss}>
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        <IconCloseOutlineRegular size={16} />
       </button>}
     </div>
     {visibleItem && !showResult && description && <p className="dsh_market_installSummary">{description}</p>}
@@ -100,30 +99,31 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
     {reviewTargets.length > 0 && <div className="dsh_market_installStatus">
       <strong>{t('audit.targets')}</strong>
       {reviewMessage && <p role="status">{reviewMessage}</p>}
-      <button type="button" className="dsh_market_ghost" disabled={reviewBusy || !reviewAvailable}
+      <MarketButton intent="secondary" disabled={reviewBusy || !reviewAvailable}
         title={!reviewAvailable ? t('install.profilePending') : undefined}
         onClick={() => { void onReview(reviewTargets).then(ok => { if (ok) dismiss() }) }}>
         {reviewBusy ? t('installing') : t('audit.action')}
-      </button>
+      </MarketButton>
     </div>}
     <fieldset className="dsh_market_installFooter" disabled={reviewBusy}>
       {needsApproval ? <>
-        <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t('direct.decline')}</button>
-        <button type="button" className="dsh_market_primary" onClick={() => { void installer.approve() }}>{t('direct.allowContinue')}</button>
-      </> : finished ? <button type="button" className="dsh_market_primary" onClick={dismiss}>{t('direct.finish')}</button>
-        : state.phase === 'unavailable' ? <button type="button" className="dsh_market_primary" onClick={dismiss}>{t('direct.finishUnconfirmed')}</button>
-        : state.phase === 'unknown' ? <button type="button" className="dsh_market_primary" onClick={() => { void installer.recover() }}>{t('direct.recover')}</button>
-        : busy ? <button type="button" className="dsh_market_ghost" disabled={state.phase !== 'installing'} onClick={() => { void installer.cancel() }}>{t('direct.cancel')}</button>
+        <MarketButton size="md" intent="secondary" onClick={dismiss}>{t('direct.decline')}</MarketButton>
+        <MarketButton size="md" intent="primary" onClick={() => { void installer.approve() }}>{t('direct.allowContinue')}</MarketButton>
+      </> : finished ? <MarketButton size="md" intent="primary" onClick={dismiss}>{t('direct.finish')}</MarketButton>
+        : state.phase === 'unavailable' ? <MarketButton size="md" intent="primary" onClick={dismiss}>{t('direct.finishUnconfirmed')}</MarketButton>
+        : state.phase === 'unknown' ? <MarketButton size="md" intent="primary" onClick={() => { void installer.recover() }}>{t('direct.recover')}</MarketButton>
+        : busy ? <MarketButton size="md" intent="secondary" disabled={state.phase !== 'installing'} onClick={() => { void installer.cancel() }}>{t('direct.cancel')}</MarketButton>
         : (available || (showResult && state.phase === 'failed')) ? <>
-          <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t(showResult ? 'direct.close' : 'direct.dismiss')}</button>
-          <button type="button" className="dsh_market_primary" disabled={!chosen.length && !showResult} onClick={showResult && state.phase === 'failed' ? () => { void installer.retry() } : start}>{showResult && state.phase === 'failed' ? t('direct.retry') : `${t('direct.confirm')}${chosen.length > 1 ? ` (${chosen.length})` : ''}`}</button>
+          <MarketButton size="md" intent="secondary" onClick={dismiss}>{t(showResult ? 'direct.close' : 'direct.dismiss')}</MarketButton>
+          <MarketButton size="md" intent="primary" disabled={!chosen.length && !showResult} onClick={showResult && state.phase === 'failed' ? () => { void installer.retry() } : start}>{showResult && state.phase === 'failed' ? t('direct.retry') : `${t('direct.confirm')}${chosen.length > 1 ? ` (${chosen.length})` : ''}`}</MarketButton>
         </>
         : <>
           {visibleItem && <a className="dsh_market_link" href={visibleItem.url} target="_blank" rel="noreferrer">{t(visibleItem.fullName ? 'repo' : 'package.page')}</a>}
-          <button type="button" className="dsh_market_ghost" onClick={dismiss}>{t('direct.close')}</button>
-          {visibleItem && onAgentInstall && <button type="button" className="dsh_market_primary" disabled={reviewBusy}
-            onClick={() => { if (canDismiss) onAgentInstall() }}>{reviewBusy ? t('installing') : t('direct.agentInstall')}</button>}
+          <MarketButton size="md" intent="secondary" onClick={dismiss}>{t('direct.close')}</MarketButton>
+          {visibleItem && onAgentInstall && <MarketButton size="md" intent="primary" disabled={reviewBusy}
+            onClick={() => { if (canDismiss) onAgentInstall() }}>{reviewBusy ? t('installing') : t('direct.agentInstall')}</MarketButton>}
         </>}
     </fieldset>
-  </dialog>
+  </div>
+  </Modal>
 }

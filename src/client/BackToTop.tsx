@@ -1,3 +1,4 @@
+import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import { useEffect, useState, type RefObject } from 'react'
 
 /** Minimal DOM surface used to resolve and reset the active scroll container. */
@@ -68,7 +69,7 @@ export function BackToTop({ root, page, label }: {
     return () => { scrollTarget.removeEventListener('scroll', update, capture); resize.disconnect() }
   }, [root, page])
   if (!visible) return null
-  return <button type="button" className="dsh_market_backToTop" title={label} aria-label={label}
+  return <Tooltip label={label} side="top" portal><button type="button" className="dsh_market_backToTop" aria-label={label}
     onClick={() => {
       const element = root.current
       const scroller = resolveBackToTopScroller(element)
@@ -79,5 +80,5 @@ export function BackToTop({ root, page, label }: {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M5 4h14M12 20V8M6 14l6-6 6 6" />
     </svg>
-  </button>
+  </button></Tooltip>
 }

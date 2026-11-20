@@ -43,7 +43,7 @@ test('the browser bundle requests only module-table platform seeds', async () =>
   const requests = [...new Set(
     [...bundle.matchAll(/require\("([^"]+)"\)/g)].map(match => match[1]),
   )].sort()
-  assert.deepEqual(requests, ['react', 'react/jsx-runtime'])
+  assert.deepEqual(requests, ['@deepseek-ai/dsh-client-ui-primitives', 'react', 'react/jsx-runtime'])
   assert.ok(!bundle.includes('dsh-client-runtime'))
 })
 
@@ -117,8 +117,11 @@ test('the stylesheet takes every hue from the shared design platform', () => {
     assert.match(fn, /^rgba\(0,\s*0,\s*0,/, `${fn} is a literal colour; use a --dsw-alias-* token`)
   }
   assert.ok(cssText.includes('var(--dsw-alias-'), 'the sheet should read the platform tokens')
+  // Colors come only from semantic aliases; geometry, focus, elevation, motion and
+  // scrollbar rebinding come from the host theme's own shared variables.
+  const shared = /^var\(--(?:dsw-alias-|dsw-radius-|dsw-focus-ring-|dsw-elevation-|dsh-scrollbar-|ds-transition-duration|ds-ease-)/
   for (const token of cssText.match(/var\(--[a-z0-9-]+/g) ?? []) {
-    assert.ok(token.startsWith('var(--dsw-alias-'), `${token} is not a shared design token`)
+    assert.match(token, shared, `${token} is not a shared design token`)
   }
 })
 

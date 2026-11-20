@@ -7,17 +7,20 @@ import { Context } from '@deepseek-ai/cordis'
 import { en, zh } from '../src/client/locales.ts'
 import { cssText } from '../src/client/styles.ts'
 
+// The host supplies the shared UI primitives at runtime; these bundles only need JSX transformed.
+const primitivesStub = { '@deepseek-ai/dsh-client-ui-primitives': fileURLToPath(new URL('./support/primitives-stub.tsx', import.meta.url)) }
+
 // Transform JSX for Node's test runner; production keeps React external.
 const result = await build({
   entryPoints: [fileURLToPath(new URL('../src/client/sidebar.tsx', import.meta.url))],
-  bundle: true, write: false, platform: 'node', format: 'esm',
+  bundle: true, write: false, platform: 'node', format: 'esm', alias: primitivesStub,
 })
 const { registerMarketNavigation, MarketMain, registerMarketSidebar, MarketSidebar, registerMarketPluginTab, MarketPluginTab, MARKET_TAB_ID } = await import(
   `data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`
 )
 const backToTopBundle = await build({
   entryPoints: [fileURLToPath(new URL('../src/client/BackToTop.tsx', import.meta.url))],
-  bundle: true, write: false, platform: 'node', format: 'esm',
+  bundle: true, write: false, platform: 'node', format: 'esm', alias: primitivesStub,
 })
 const { resolveBackToTopScroller, scrollResultsContainerToTop } = await import(
   `data:text/javascript;base64,${Buffer.from(backToTopBundle.outputFiles[0].text).toString('base64')}`

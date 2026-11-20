@@ -192,6 +192,8 @@ export interface McpDraft {
     /** Plaintext values the user chose to move into the credential store. */
     readonly pending: readonly McpPendingSecret[];
 }
+/** Whether the working draft differs from its opened or last-reloaded baseline. */
+export declare function isDraftDirty(draft: McpDraft, baseline: McpDraft): boolean;
 /** A fresh draft. New servers start switched off, so they can be probed first. */
 export declare function emptyDraft(): McpDraft;
 /** `dsh-mcp-client`'s close-timeout default. */

@@ -1,3 +1,4 @@
+import { MarketButton } from './MarketButton.tsx'
 import { Component, Fragment, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
 import type { MarketLocale } from './copy.ts'
 
@@ -118,8 +119,8 @@ function CrashNotice({ t, report, message, onRetry }: {
           <p className="dsh_market_noticeBody">{message}</p>
         </div>
         <div className="dsh_market_introActions">
-          <button className="dsh_market_primary" type="button" onClick={onRetry}>{t('retry')}</button>
-          <button className="dsh_market_ghost" type="button" onClick={() => { void copyReport() }}>{t('crash.copy')}</button>
+          <MarketButton intent="primary" onClick={onRetry}>{t('retry')}</MarketButton>
+          <MarketButton intent="secondary" onClick={() => { void copyReport() }}>{t('crash.copy')}</MarketButton>
           {copy !== 'idle' && <span className="dsh_market_noticeBody" role="status">
             {t(copy === 'done' ? 'crash.copied' : 'crash.copyFailed')}
           </span>}

@@ -27,11 +27,10 @@ export function useSearchDock(page: string) {
     // computed only on resize would leave that bar where it stood.
     const place = () => {
       const control = bar()
-      const tab = element.querySelector<HTMLElement>('.dsh_market_tab')
+      const tab = element.querySelector<HTMLElement>('.dsh_market_tabs [role="tab"]')
       if (!control || !tab) return
-      const style = getComputedStyle(tab)
-      const labelCentre = tab.getBoundingClientRect().top - element.getBoundingClientRect().top
-        + parseFloat(style.paddingTop) + parseFloat(style.lineHeight) / 2
+      const tabRect = tab.getBoundingClientRect()
+      const labelCentre = tabRect.top - element.getBoundingClientRect().top + tabRect.height / 2
       control.style.top = `${Math.round(labelCentre - DOCKED_HEIGHT / 2)}px`
     }
     const change = (next: boolean) => {

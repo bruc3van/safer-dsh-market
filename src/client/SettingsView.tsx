@@ -1,3 +1,5 @@
+import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarketButton } from './MarketButton.tsx'
 import { useEffect, useId, useRef, useState, type ReactElement } from 'react'
 import type { SafeMarketSettings, SafeMarketSettingsUpdate } from '../contract.ts'
 import type { MarketLocale } from './copy.ts'
@@ -60,29 +62,18 @@ export function SettingsView({
       {error !== '' && <p className="dsh_market_status" data-error="true" role="alert">{error}</p>}
       {!updateSettings && <p className="dsh_market_status">{t('settings.unavailable')}</p>}
 
-      <section className="dsh_market_settingCard" aria-labelledby={aiHeadingId}>
+      <section className="dsh_market_settingRow" aria-labelledby={aiHeadingId}>
         <div className="dsh_market_settingHead">
           <div className="dsh_market_settingCopy">
-            <div className="dsh_market_settingTitleRow">
-              <h4 id={aiHeadingId} className="dsh_market_settingName">{t('settings.ai.title')}</h4>
-              <span className="dsh_market_settingState" data-on={settings.aiAssistantEnabled ? 'true' : 'false'}>
-                {settings.aiAssistantEnabled ? t('settings.state.on') : t('settings.state.off')}
-              </span>
-            </div>
+            <h4 id={aiHeadingId} className="dsh_market_settingName">{t('settings.ai.title')}</h4>
             <p className="dsh_market_settingBody">{t('settings.ai.desc')}</p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={settings.aiAssistantEnabled}
-            aria-labelledby={aiHeadingId}
-            className="dsh_market_switch"
-            data-on={settings.aiAssistantEnabled ? 'true' : 'false'}
+          <Switch
+            checked={settings.aiAssistantEnabled}
+            label={t('settings.ai.title')}
             disabled={controlsDisabled}
-            onClick={() => toggle('aiAssistantEnabled', !settings.aiAssistantEnabled)}
-          >
-            <span className="dsh_market_switchThumb" aria-hidden="true" />
-          </button>
+            onChange={next => toggle('aiAssistantEnabled', next)}
+          />
         </div>
 
         {settings.aiAssistantEnabled && !settings.enabled && (
@@ -91,42 +82,30 @@ export function SettingsView({
 
         {onTryAssistant && (
           <div className="dsh_market_settingActions">
-            <button
-              type="button"
-              className="dsh_market_primary"
+            <MarketButton
+              intent="secondary"
               disabled={!settingsReady || !settings.aiAssistantEnabled || tryBusy}
               onClick={onTryAssistant}
             >
               {tryBusy ? t('installing') : t('settings.ai.try')}
-            </button>
+            </MarketButton>
             {tryMessage !== '' && <span className="dsh_market_cardNotice">{tryMessage}</span>}
           </div>
         )}
       </section>
 
-      <section className="dsh_market_settingCard" aria-labelledby={catalogHeadingId}>
+      <section className="dsh_market_settingRow" aria-labelledby={catalogHeadingId}>
         <div className="dsh_market_settingHead">
           <div className="dsh_market_settingCopy">
-            <div className="dsh_market_settingTitleRow">
-              <h4 id={catalogHeadingId} className="dsh_market_settingName">{t('settings.catalog.title')}</h4>
-              <span className="dsh_market_settingState" data-on={settings.enabled ? 'true' : 'false'}>
-                {settings.enabled ? t('settings.state.on') : t('settings.state.off')}
-              </span>
-            </div>
+            <h4 id={catalogHeadingId} className="dsh_market_settingName">{t('settings.catalog.title')}</h4>
             <p className="dsh_market_settingBody">{t('settings.catalog.desc')}</p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={settings.enabled}
-            aria-labelledby={catalogHeadingId}
-            className="dsh_market_switch"
-            data-on={settings.enabled ? 'true' : 'false'}
+          <Switch
+            checked={settings.enabled}
+            label={t('settings.catalog.title')}
             disabled={controlsDisabled}
-            onClick={() => toggle('enabled', !settings.enabled)}
-          >
-            <span className="dsh_market_switchThumb" aria-hidden="true" />
-          </button>
+            onChange={next => toggle('enabled', next)}
+          />
         </div>
       </section>
     </div>

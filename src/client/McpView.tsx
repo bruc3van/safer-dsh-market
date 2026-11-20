@@ -8,13 +8,15 @@
  * a machine that runs several. All state and I/O live in ./mcpController.ts;
  * the rules this view renders from live in ./mcpModel.ts.
  */
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react'
+import { IconCloseOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarketButton } from './MarketButton.tsx'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react'
 import type { McpToolGroup, McpUnmanagedServer } from '../contract.ts'
 import type { MarketLocale } from './copy.ts'
 import { staticKey, type McpAdoptNote, type McpController, type McpProbeState, type McpSnapshot } from './mcpController.ts'
 import {
   canProbe, canRestart, commandLine, commandRisks, convertToCredential, draftFromEntry, draftPlaintext, emptyDraft,
-  isConfigured, isEnabled, pendingToStore, splitCommandLine, statusError, statusKind, suggestRef, summarize, targetOf,
+  isConfigured, isDraftDirty, isEnabled, pendingToStore, splitCommandLine, statusError, statusKind, suggestRef, summarize, targetOf,
   DEFAULT_CLOSE_MS, RECONNECT_DEFAULTS, transportOf, validateDraft,
   type McpDraft, type McpDraftError, type McpPair, type McpRow, type McpStatus,
 } from './mcpModel.ts'
@@ -125,7 +127,16 @@ export function McpView({ t, controller, onBrowsePlugins }: {
   const canOpenDocument = !loading && snapshot.mode !== 'legacy' && snapshot.mode !== 'error'
     && snapshot.hasSettingsDocument && controller.supports('openDocument')
   const [openingDocument, setOpeningDocument] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [documentError, setDocumentError] = useState('')
+  const refresh = async () => {
+    setRefreshing(true)
+    try {
+      await controller.refresh()
+    } finally {
+      setRefreshing(false)
+    }
+  }
   const openDocument = async () => {
     setOpeningDocument(true)
     setDocumentError('')
@@ -137,23 +148,33 @@ export function McpView({ t, controller, onBrowsePlugins }: {
   return (
     <div className="dsh_market_page dsh_market_fixedPage">
       <div className="dsh_market_controls">
+        <button
+          className="dsh_market_headerAction dsh_market_refreshMarket"
+          type="button"
+          disabled={loading || refreshing}
+          aria-busy={loading || refreshing}
+          onClick={() => { void refresh() }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" /></svg>
+          {(loading || refreshing) ? t('refreshing') : t('mcp.refresh')}
+        </button>
         <div className="dsh_market_skillsHeading">
           <h2>{t('mcp.title')}</h2>
-          <button className="dsh_market_headerAction" type="button" disabled={loading} onClick={() => { void controller.refresh() }}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" /></svg>
-            {t('mcp.refresh')}
-          </button>
-          {canOpenDocument && (
-            <button className="dsh_market_headerAction" type="button" title={t('mcp.openDocument.hint')} disabled={openingDocument}
-              onClick={() => { void openDocument() }}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></svg>
-              {t('mcp.openDocument')}
-            </button>
-          )}
-          {writable && (
-            <button className="dsh_market_install dsh_market_mcpAdd" type="button" onClick={() => setEditing({ row: null })}>
-              {t('mcp.add')}
-            </button>
+          {(canOpenDocument || writable) && (
+            <div className="dsh_market_headingActions">
+              {canOpenDocument && (
+                <button className="dsh_market_headerAction" type="button" title={t('mcp.openDocument.hint')} disabled={openingDocument}
+                  onClick={() => { void openDocument() }}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></svg>
+                  {t('mcp.openDocument')}
+                </button>
+              )}
+              {writable && (
+                <MarketButton intent="primary" className="dsh_market_mcpAdd" onClick={() => setEditing({ row: null })}>
+                  {t('mcp.add')}
+                </MarketButton>
+              )}
+            </div>
           )}
         </div>
         {!loading && (
@@ -185,7 +206,7 @@ export function McpView({ t, controller, onBrowsePlugins }: {
         {!loading && snapshot.mode !== 'legacy' && snapshot.mode !== 'error' && snapshot.rows.length === 0 && unmanaged.length === 0 && (
           <div className="dsh_market_notice">
             <p className="dsh_market_noticeBody">{t('mcp.empty')}</p>
-            {onBrowsePlugins && <button type="button" className="dsh_market_ghost" onClick={onBrowsePlugins}>{t('mcp.emptyBrowse')}</button>}
+            {onBrowsePlugins && <MarketButton intent="secondary" onClick={onBrowsePlugins}>{t('mcp.emptyBrowse')}</MarketButton>}
           </div>
         )}
         {!loading && (snapshot.rows.length > 0 || unmanaged.length > 0) && rows.length === 0 && statics.length === 0 && (
@@ -265,43 +286,31 @@ const TOOL_FILTER = 8
 function ToolsDialog({ t, name, tools, onClose }: {
   t: MarketLocale; name: string; tools: McpToolGroup; onClose: () => void
 }): ReactElement {
-  const id = useId()
-  const dialog = useRef<HTMLDialogElement>(null)
-  const filter = useRef<HTMLInputElement>(null)
-  const list = useRef<HTMLOListElement>(null)
   const [query, setQuery] = useState('')
-  useEffect(() => {
-    if (!dialog.current?.open) dialog.current?.showModal()
-    ;(filter.current ?? list.current)?.focus({ preventScroll: true })
-  }, [])
-  const close = () => {
-    dialog.current?.close()
-    onClose()
-  }
+  const close = onClose
   const needle = query.trim().toLowerCase()
   const shown = needle === '' ? tools.tools
     : tools.tools.filter(tool => tool.name.toLowerCase().includes(needle) || tool.description.toLowerCase().includes(needle))
   return (
-    <dialog ref={dialog} className="dsh_market_directPanel dsh_market_mcpToolsDialog" aria-labelledby={id}
-      onCancel={(event) => { event.preventDefault(); close() }}
-      onClick={(event) => { if (event.target === event.currentTarget) close() }}>
+    <Modal open headless title={t('mcp.tools.title', { name })} className="dsh_market_modal" onClose={close}>
+    <div className="dsh_market_directPanel dsh_market_mcpToolsDialog">
       <div className="dsh_market_directHead">
         <div className="dsh_market_installHeading">
-          <h3 id={id}>{t('mcp.tools.title', { name })}</h3>
+          <h3>{t('mcp.tools.title', { name })}</h3>
           <small>{t('mcp.tools.count', { count: String(tools.tools.length) })}</small>
         </div>
         <button type="button" className="dsh_market_directClose" aria-label={t('mcp.tools.close')} onClick={close}>
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+          <IconCloseOutlineRegular size={16} />
         </button>
       </div>
       {tools.tools.length > TOOL_FILTER && (
-        <input ref={filter} className="dsh_market_search dsh_market_mcpToolsFilter" type="search" spellCheck={false} value={query}
+        <input data-modal-autofocus className="dsh_market_search dsh_market_mcpToolsFilter" type="search" spellCheck={false} value={query}
           placeholder={t('mcp.tools.filter')} aria-label={t('mcp.tools.filter')} onChange={(event) => setQuery(event.target.value)} />
       )}
       {shown.length === 0
         ? <p className="dsh_market_mcpToolsEmpty">{t('mcp.tools.noMatch')}</p>
         : (
-          <ol ref={list} className="dsh_market_mcpToolList" tabIndex={0} aria-label={t('mcp.tools.title', { name })}>
+          <ol className="dsh_market_mcpToolList" tabIndex={0} data-modal-autofocus={tools.tools.length > TOOL_FILTER ? undefined : true} aria-label={t('mcp.tools.title', { name })}>
             {shown.map(tool => (
               <li key={tool.name}>
                 <span className="dsh_market_mcpToolName">{tool.name}</span>
@@ -312,7 +321,8 @@ function ToolsDialog({ t, name, tools, onClose }: {
             ))}
           </ol>
           )}
-    </dialog>
+    </div>
+    </Modal>
   )
 }
 
@@ -452,12 +462,12 @@ function Credentials({ t, row, snapshot, controller }: {
                   <input type="password" autoComplete="off" spellCheck={false} value={value} autoFocus
                     aria-label={t('mcp.cred.placeholder', { ref })} placeholder={t('mcp.cred.placeholder', { ref })}
                     onChange={event => setValue(event.target.value)} />
-                  <button type="submit" className="dsh_market_install" disabled={value === '' || saving}>
+                  <MarketButton type="submit" intent="primary" disabled={value === '' || saving}>
                     {saving ? t('mcp.cred.saving') : t('mcp.cred.save')}
-                  </button>
-                  <button type="button" className="dsh_market_ghost" disabled={saving} onClick={() => { setEditingRef(null); setValue('') }}>
+                  </MarketButton>
+                  <MarketButton intent="secondary" disabled={saving} onClick={() => { setEditingRef(null); setValue('') }}>
                     {t('mcp.cancel')}
-                  </button>
+                  </MarketButton>
                 </form>
               )}
             </li>
@@ -520,41 +530,41 @@ function McpCard({ t, row, snapshot, controller, writable, tools, onEdit }: {
               <span className="dsh_market_cardNotice" aria-live="polite">
                 {row.source === 'overridden' ? t('mcp.confirmRestore', { name: row.name }) : t('mcp.confirmRemove', { name: row.name })}
               </span>
-              <button type="button" className="dsh_market_danger" disabled={busy !== undefined}
+              <MarketButton intent="danger" disabled={busy !== undefined}
                 onClick={() => { void controller.remove(row.name).then(() => setConfirming(false)) }}>
                 {busy === 'remove' ? t('mcp.removing') : t('mcp.confirm')}
-              </button>
-              <button type="button" className="dsh_market_ghost" disabled={busy !== undefined} onClick={() => setConfirming(false)}>
+              </MarketButton>
+              <MarketButton intent="secondary" disabled={busy !== undefined} onClick={() => setConfirming(false)}>
                 {t('mcp.cancel')}
-              </button>
+              </MarketButton>
             </>
             )
           : (
             <>
               {canProbe(row) && (
-                <button type="button" className="dsh_market_ghost" disabled={probe?.status === 'running' || snapshot.mode === 'legacy'}
+                <MarketButton intent="secondary" disabled={probe?.status === 'running' || snapshot.mode === 'legacy'}
                   onClick={() => { void controller.probe(row.name) }}>
                   {probe?.status === 'running' ? t('mcp.probing') : t('mcp.probe')}
-                </button>
+                </MarketButton>
               )}
               {canRestart(row) && (
-                <button type="button" className="dsh_market_ghost" disabled={busy !== undefined}
+                <MarketButton intent="secondary" disabled={busy !== undefined}
                   onClick={() => { void controller.restart(row.name) }}>
                   {busy === 'restart' ? t('mcp.restarting') : t('mcp.restart')}
-                </button>
+                </MarketButton>
               )}
               {writable && configured && (
                 <>
-                  <button type="button" className="dsh_market_ghost" disabled={busy !== undefined}
+                  <MarketButton intent="secondary" disabled={busy !== undefined}
                     onClick={() => { void controller.setEnabled(row.name, !enabled) }}>
                     {busy === 'enable' ? t('mcp.enabling') : busy === 'disable' ? t('mcp.disabling')
                       : enabled ? t('mcp.disable') : t('mcp.enable')}
-                  </button>
-                  <button type="button" className="dsh_market_ghost" disabled={busy !== undefined} onClick={onEdit}>{t('mcp.edit')}</button>
+                  </MarketButton>
+                  <MarketButton intent="secondary" disabled={busy !== undefined} onClick={onEdit}>{t('mcp.edit')}</MarketButton>
                   {removable && (
-                    <button type="button" className="dsh_market_danger" disabled={busy !== undefined} onClick={() => setConfirming(true)}>
+                    <MarketButton intent="danger" disabled={busy !== undefined} onClick={() => setConfirming(true)}>
                       {row.source === 'overridden' ? t('mcp.restore') : t('mcp.remove')}
-                    </button>
+                    </MarketButton>
                   )}
                 </>
               )}
@@ -632,30 +642,30 @@ function StaticCard({ t, server, tools, conflict, snapshot, controller, writable
             ? (
               <>
                 <span className="dsh_market_cardNotice" aria-live="polite">{t('mcp.adopt.confirm')}</span>
-                <button type="button" className="dsh_market_ghost" disabled={busy !== undefined}
+                <MarketButton intent="secondary" disabled={busy !== undefined}
                   onClick={() => { void controller.adopt(server.loaderId).then(() => setConfirmingAdopt(false)) }}>
                   {busy === 'adopt' ? t('mcp.adopting') : t('mcp.confirm')}
-                </button>
-                <button type="button" className="dsh_market_ghost" disabled={busy !== undefined} onClick={() => setConfirmingAdopt(false)}>
+                </MarketButton>
+                <MarketButton intent="secondary" disabled={busy !== undefined} onClick={() => setConfirmingAdopt(false)}>
                   {t('mcp.cancel')}
-                </button>
+                </MarketButton>
               </>
               )
             : (
               <>
                 {adoptVisible && (
-                  <button type="button" className="dsh_market_ghost" disabled={busy !== undefined || adoptBlocked !== ''}
+                  <MarketButton intent="secondary" disabled={busy !== undefined || adoptBlocked !== ''}
                     title={adoptBlocked !== '' ? adoptBlocked : t('mcp.adopt.hint')} onClick={() => setConfirmingAdopt(true)}>
                     {t('mcp.adopt')}
-                  </button>
+                  </MarketButton>
                 )}
                 {toggleVisible && (
-                  <button type="button" className="dsh_market_ghost" disabled={busy !== undefined || blocked}
+                  <MarketButton intent="secondary" disabled={busy !== undefined || blocked}
                     title={blocked ? t('mcp.reason.nameConflict') : undefined}
                     onClick={() => { void controller.setStaticEnabled(server.loaderId, !server.enabled) }}>
                     {busy === 'enable' ? t('mcp.enabling') : busy === 'disable' ? t('mcp.disabling')
                       : server.enabled ? t('mcp.disable') : t('mcp.enable')}
-                  </button>
+                  </MarketButton>
                 )}
               </>
               )}
@@ -721,11 +731,9 @@ function fieldLabel(draft: McpDraft, where: string): string {
 function McpEditor({ t, row, snapshot, controller, onClose }: {
   t: MarketLocale; row: McpRow | null; snapshot: McpSnapshot; controller: McpController; onClose: () => void
 }): ReactElement {
-  const id = useId()
-  const dialog = useRef<HTMLDialogElement>(null)
-  const original = row?.entry !== undefined ? draftFromEntry(row.name, row.entry) : emptyDraft()
-  const [draft, setDraft] = useState<McpDraft>(original)
-  const [argsText, setArgsText] = useState(original.args.join('\n'))
+  const [baseline, setBaseline] = useState<McpDraft>(() => row?.entry !== undefined ? draftFromEntry(row.name, row.entry) : emptyDraft())
+  const [draft, setDraft] = useState<McpDraft>(baseline)
+  const [argsText, setArgsText] = useState(baseline.args.join('\n'))
   const [pasteLine, setPasteLine] = useState('')
   // Trust is given to one exact command line; any edit to it asks again.
   const [trustedLine, setTrustedLine] = useState<string | null>(null)
@@ -733,10 +741,10 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
   const [touched, setTouched] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [advanced, setAdvanced] = useState([original.startupTimeoutMs, original.toolCallTimeoutMs, original.closeTimeoutMs, original.initialDelayMs, original.maxDelayMs, original.maxAttempts].some(text => text !== '') || !original.reconnectEnabled)
-  useEffect(() => {
-    if (!dialog.current?.open) dialog.current?.showModal()
-  }, [])
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const footerRef = useRef<HTMLDivElement>(null)
+  const keepEditingRef = useRef<HTMLButtonElement>(null)
+  const [advanced, setAdvanced] = useState([baseline.startupTimeoutMs, baseline.toolCallTimeoutMs, baseline.closeTimeoutMs, baseline.initialDelayMs, baseline.maxDelayMs, baseline.maxAttempts].some(text => text !== '') || !baseline.reconnectEnabled)
   const taken = new Set([
     ...snapshot.rows.map(item => item.name),
     ...(snapshot.host?.unmanaged ?? []).map(server => server.serverName),
@@ -749,8 +757,8 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
     return (touched || live) && found !== undefined ? errorText(t, found) : undefined
   }
   const line = draft.transport === 'stdio' ? commandLine(draft.command, draft.args) : ''
-  const commandChanged = draft.transport === 'stdio' && (row === null || line !== commandLine(original.command, original.args)
-    || original.transport !== 'stdio')
+  const commandChanged = draft.transport === 'stdio' && (row === null || line !== commandLine(baseline.command, baseline.args)
+    || baseline.transport !== 'stdio')
   const risks = draft.transport === 'stdio' ? commandRisks(draft.command, draft.args) : []
   const plaintext = draftPlaintext(draft)
   const refsTaken = new Set([...draft.pending.map(secret => secret.ref), ...Object.keys(snapshot.credentials)])
@@ -759,14 +767,25 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
   // An empty command is not gated here: the click runs validation, which
   // names the missing field instead of leaving a silently disabled button.
   const canSave = !saving && (!needsTrust || trusted)
-  const set = (patch: Partial<McpDraft>) => setDraft(current => ({ ...current, ...patch }))
+  const dirty = isDraftDirty(draft, baseline) || pasteLine.trim() !== ''
+  const set = (patch: Partial<McpDraft>) => {
+    setConfirmDiscard(false)
+    setDraft(current => ({ ...current, ...patch }))
+  }
   const setArgs = (text: string) => {
     setArgsText(text)
     set({ args: text.split('\n').filter(item => item !== '') })
   }
-  const close = () => {
+  const requestClose = () => {
     if (saving) return
-    dialog.current?.close()
+    if (dirty) {
+      setConfirmDiscard(true)
+      requestAnimationFrame(() => {
+        footerRef.current?.scrollIntoView({ block: 'nearest' })
+        keepEditingRef.current?.focus()
+      })
+      return
+    }
     onClose()
   }
   const applyPaste = () => {
@@ -779,10 +798,12 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
   const convert = (where: string) => {
     const ref = suggestRef(draft.name || 'server', fieldLabel(draft, where), refsTaken)
     const next = convertToCredential(draft, where, ref)
+    setConfirmDiscard(false)
     setDraft(next)
     setArgsText(next.args.join('\n'))
   }
   const save = async () => {
+    setConfirmDiscard(false)
     setTouched(true)
     if (errors.length > 0) {
       if (errors.some(error => error.field === 'startupTimeoutMs' || error.field === 'toolCallTimeoutMs'
@@ -798,7 +819,6 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
     const outcome = await controller.save({ ...draft, name: draft.name.trim() }, row?.name)
     setSaving(false)
     if (outcome.ok) {
-      dialog.current?.close()
       onClose()
     } else {
       setConflict(outcome.conflict)
@@ -810,22 +830,25 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
   const reloadLatest = () => {
     if (latest === undefined || row === null) return
     const next = draftFromEntry(row.name, latest)
+    setBaseline(next)
     setDraft(next)
     setArgsText(next.args.join('\n'))
+    setPasteLine('')
     setTrustedLine(null)
+    setConfirmDiscard(false)
     setConflict(false)
     setSaveError('')
   }
   const nameEditable = row === null || row.source === 'user'
   return (
-    <dialog ref={dialog} className="dsh_market_directPanel dsh_market_mcpEditor" aria-labelledby={id}
-      onCancel={(event) => { event.preventDefault(); close() }}>
+    <Modal open headless title={row === null ? t('mcp.editor.add') : t('mcp.editor.edit', { name: row.name })} className="dsh_market_modal dsh_market_modalWide" onClose={requestClose}>
+    <div className="dsh_market_directPanel dsh_market_mcpEditor">
       <div className="dsh_market_directHead">
         <div className="dsh_market_installHeading">
-          <h3 id={id}>{row === null ? t('mcp.editor.add') : t('mcp.editor.edit', { name: row.name })}</h3>
+          <h3>{row === null ? t('mcp.editor.add') : t('mcp.editor.edit', { name: row.name })}</h3>
         </div>
-        <button type="button" className="dsh_market_directClose" aria-label={t('mcp.editor.close')} disabled={saving} onClick={close}>
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        <button type="button" className="dsh_market_directClose" aria-label={t('mcp.editor.close')} disabled={saving} onClick={requestClose}>
+          <IconCloseOutlineRegular size={16} />
         </button>
       </div>
       <form className="dsh_market_mcpForm" onSubmit={(event) => { event.preventDefault(); void save() }}>
@@ -856,7 +879,7 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
                 <span>{t('mcp.field.paste')}</span>
                 <div className="dsh_market_mcpPair">
                   <input value={pasteLine} spellCheck={false} placeholder="npx -y @modelcontextprotocol/server-everything"
-                    aria-label={t('mcp.field.paste')} onChange={event => setPasteLine(event.target.value)} />
+                    aria-label={t('mcp.field.paste')} onChange={event => { setConfirmDiscard(false); setPasteLine(event.target.value) }} />
                   <button type="button" className="dsh_market_chip" disabled={pasteLine.trim() === ''} onClick={applyPaste}>
                     {t('mcp.field.pasteApply')}
                   </button>
@@ -910,7 +933,7 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
         {touched && errors.filter(error => error.field === 'template').map(error => (
           <p key={(error as { where: string }).where} className="dsh_market_cardError">{errorText(t, error)}</p>
         ))}
-        <label className="dsh_market_optionCheck dsh_market_mcpCheck">
+        <label className="dsh_market_mcpCheck">
           <input type="checkbox" checked={draft.enabled} onChange={event => set({ enabled: event.target.checked })} />
           <span>{t('mcp.field.enabled')}</span>
         </label>
@@ -933,7 +956,7 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
               <input inputMode="numeric" value={draft.closeTimeoutMs} placeholder={String(DEFAULT_CLOSE_MS)} onChange={event => set({ closeTimeoutMs: event.target.value })} />
               {errorOf('closeTimeoutMs') && <span className="dsh_market_cardError">{errorOf('closeTimeoutMs')}</span>}
             </label>
-            <label className="dsh_market_optionCheck dsh_market_mcpCheck">
+            <label className="dsh_market_mcpCheck">
               <input type="checkbox" checked={draft.reconnectEnabled} onChange={event => set({ reconnectEnabled: event.target.checked })} />
               <span>{t('mcp.field.reconnect')}</span>
             </label>
@@ -956,8 +979,8 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
             <pre className="dsh_market_directMessage">{line}</pre>
             {risks.includes('fetch') && <p className="dsh_market_cardNotice" data-warning="true">{t('mcp.risk.fetch')}</p>}
             {risks.includes('shell') && <p className="dsh_market_cardNotice" data-warning="true">{t('mcp.risk.shell')}</p>}
-            <label className="dsh_market_optionCheck dsh_market_mcpCheck">
-              <input type="checkbox" checked={trusted} onChange={event => setTrustedLine(event.target.checked ? line : null)} />
+            <label className="dsh_market_mcpCheck">
+              <input type="checkbox" checked={trusted} onChange={event => { setConfirmDiscard(false); setTrustedLine(event.target.checked ? line : null) }} />
               <span>{t('mcp.risk.confirm')}</span>
             </label>
           </div>
@@ -965,15 +988,32 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
         {row !== null && isEnabled(row) && draft.enabled && <p className="dsh_market_cardNotice">{t('mcp.rebuild')}</p>}
         {saveError !== '' && <p className="dsh_market_cardError" role="alert">{saveError}</p>}
         {conflict && latest !== undefined && (
-          <button type="button" className="dsh_market_ghost dsh_market_mcpReload" disabled={saving} onClick={reloadLatest}>
+          <MarketButton intent="secondary" className="dsh_market_mcpReload" disabled={saving} onClick={reloadLatest}>
             {t('mcp.editor.reload')}
-          </button>
+          </MarketButton>
         )}
-        <div className="dsh_market_installFooter">
-          <button type="button" className="dsh_market_ghost" disabled={saving} onClick={close}>{t('mcp.cancel')}</button>
-          <button type="submit" className="dsh_market_primary" disabled={!canSave}>{saving ? t('mcp.saving') : t('mcp.save')}</button>
+        <div className="dsh_market_installFooter" ref={footerRef}>
+          {confirmDiscard
+            ? (
+              <>
+                <span className="dsh_market_cardNotice" role="status">{t('mcp.editor.unsaved')}</span>
+                <MarketButton ref={keepEditingRef} size="md" intent="secondary" disabled={saving} onClick={() => setConfirmDiscard(false)}>
+                  {t('mcp.editor.keepEditing')}
+                </MarketButton>
+                <MarketButton size="md" intent="danger" disabled={saving} onClick={onClose}>
+                  {t('mcp.editor.discard')}
+                </MarketButton>
+              </>
+              )
+            : (
+              <>
+                <MarketButton size="md" intent="secondary" disabled={saving} onClick={requestClose}>{t('mcp.cancel')}</MarketButton>
+                <MarketButton size="md" type="submit" intent="primary" disabled={!canSave}>{saving ? t('mcp.saving') : t('mcp.save')}</MarketButton>
+              </>
+              )}
         </div>
       </form>
-    </dialog>
+    </div>
+    </Modal>
   )
 }

@@ -3,7 +3,11 @@ interface MenuOption<T extends string = string> {
     label: string;
     count?: number;
 }
-/** Shared theme-aware single-choice menu for marketplace controls. */
+/**
+ * Single-choice filter control: a host selector trigger opening the host
+ * `Menu`, which owns keyboard walking, outside dismissal, viewport fitting
+ * and the shared translucent menu material.
+ */
 export declare function MarketSelector<T extends string = string>({ value, onChange, label, options, className }: {
     value: T;
     onChange: (value: T) => void;

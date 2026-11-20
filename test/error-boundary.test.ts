@@ -4,11 +4,14 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { zh } from '../src/client/locales.ts'
 
+// The host supplies the shared UI primitives at runtime; these bundles only need JSX transformed.
+const primitivesStub = { '@deepseek-ai/dsh-client-ui-primitives': fileURLToPath(new URL('./support/primitives-stub.tsx', import.meta.url)) }
+
 // Transform JSX for Node's test runner; there is no DOM renderer here, so the
 // boundary's lifecycle methods are driven by hand.
 const result = await build({
   entryPoints: [fileURLToPath(new URL('../src/client/MarketErrorBoundary.tsx', import.meta.url))],
-  bundle: true, write: false, platform: 'node', format: 'esm',
+  bundle: true, write: false, platform: 'node', format: 'esm', alias: primitivesStub,
 })
 const { MarketErrorBoundary, describeCrash } = await import(
   `data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`

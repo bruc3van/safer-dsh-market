@@ -20,7 +20,7 @@ import {
 } from '../src/mcpShapes.ts'
 import {
   buildRows, canProbe, canRestart, commandRisks, convertToCredential, draftFromEntry, emptyDraft, entryFromDraft,
-  pendingToStore, saveOps, splitCommandLine, statusKind, suggestRef, targetOf, validateDraft,
+  isDraftDirty, pendingToStore, saveOps, splitCommandLine, statusKind, suggestRef, targetOf, validateDraft,
   type McpServerView, type McpSettingsView,
 } from '../src/client/mcpModel.ts'
 import {
@@ -511,6 +511,18 @@ test('a slow Settings read cannot roll back the revision a write just returned',
   await settle()
   assert.equal(controller.getSnapshot().settings?.revision, 8, 'the stale describe (revision 7) was discarded')
   detach()
+})
+
+test('isDraftDirty detects edits across scalar fields, lists, key-value pairs, and pending secrets', () => {
+  const base = draftFromEntry('demo', {
+    transport: 'stdio', command: 'npx', args: ['-y', 'pkg'], env: { A: '1' }, enabled: true,
+  })
+  assert.equal(isDraftDirty(base, base), false)
+  assert.equal(isDraftDirty({ ...base, args: ['-y', 'pkg'], env: [{ key: 'A', value: '1' }] }, base), false)
+  assert.equal(isDraftDirty({ ...base, command: 'uvx' }, base), true)
+  assert.equal(isDraftDirty({ ...base, args: ['-y', 'pkg', '--flag'] }, base), true)
+  assert.equal(isDraftDirty({ ...base, env: [{ key: 'A', value: '2' }] }, base), true)
+  assert.equal(isDraftDirty({ ...base, pending: [{ ref: 'TOKEN', value: 'secret' }] }, base), true)
 })
 
 test('forwarded settings and credential events re-read only while a page is attached', async () => {

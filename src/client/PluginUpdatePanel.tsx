@@ -1,4 +1,6 @@
-import { useEffect, useId, useRef } from 'react'
+import { MarketButton } from './MarketButton.tsx'
+import { useId } from 'react'
+import { IconCloseOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarketLocale } from './copy.ts'
 import type { PluginUpdater, UpdateState } from './pluginUpdates.ts'
 
@@ -6,23 +8,18 @@ import type { PluginUpdater, UpdateState } from './pluginUpdates.ts'
 export function PluginUpdatePanel({ open, state, updater, t, onClose }: {
   open: boolean; state: UpdateState; updater: PluginUpdater; t: MarketLocale; onClose: () => void
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
   const id = useId()
   const updating = state.phase === 'updating'
-  useEffect(() => {
-    if (open && !dialog.current?.open) dialog.current?.showModal()
-    if (!open && dialog.current?.open) dialog.current.close()
-  }, [open])
   const close = () => { if (!updating) { updater.close(); onClose() } }
   const selected = state.choices.find(version => version.version === state.selected)
   const result = state.result
   const restore = result?.restore
-  return <dialog ref={dialog} className="dsh_market_directPanel" aria-labelledby={id}
-    onCancel={event => { event.preventDefault(); close() }}>
+  return <Modal open={open} headless title={`${t('update.title')} · ${state.packageName}`} className="dsh_market_modal" onClose={close}>
+  <div className="dsh_market_directPanel">
     <div className="dsh_market_directHead">
-      <div className="dsh_market_installHeading"><span>{t('update.title')}</span><h3 id={id}>{state.packageName}</h3></div>
+      <div className="dsh_market_installHeading"><span>{t('update.title')}</span><h3>{state.packageName}</h3></div>
       <button type="button" className="dsh_market_directClose" disabled={updating} aria-label={t('direct.close')} onClick={close}>
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        <IconCloseOutlineRegular size={16} />
       </button>
     </div>
     {result ? <p>{t('update.transition', { from: result.from, to: result.to })}</p>
@@ -61,9 +58,10 @@ export function PluginUpdatePanel({ open, state, updater, t, onClose }: {
     </>}
     {state.warnings.length > 0 && <p role="alert">{t('update.partial')} {state.warnings.join('\n')}</p>}
     <div className="dsh_market_updateActions">
-      {state.phase === 'ready' && state.selected && <button type="button" className="dsh_market_primary" onClick={() => { void updater.confirm() }}>{t('update.action')}</button>}
-      {!updating && state.phase !== 'checking' && <button type="button" className="dsh_market_ghost" onClick={() => { void updater.check(state.packageName) }}>{t('update.recheck')}</button>}
-      <button type="button" className="dsh_market_ghost" disabled={updating} onClick={close}>{t('direct.close')}</button>
+      {state.phase === 'ready' && state.selected && <MarketButton size="md" intent="primary" onClick={() => { void updater.confirm() }}>{t('update.action')}</MarketButton>}
+      {!updating && state.phase !== 'checking' && <MarketButton size="md" intent="secondary" onClick={() => { void updater.check(state.packageName) }}>{t('update.recheck')}</MarketButton>}
+      <MarketButton size="md" intent="secondary" disabled={updating} onClick={close}>{t('direct.close')}</MarketButton>
     </div>
-  </dialog>
+  </div>
+  </Modal>
 }

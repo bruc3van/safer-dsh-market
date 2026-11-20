@@ -305,6 +305,34 @@ export interface McpDraft {
   readonly pending: readonly McpPendingSecret[]
 }
 
+/** Whether the working draft differs from its opened or last-reloaded baseline. */
+export function isDraftDirty(draft: McpDraft, baseline: McpDraft): boolean {
+  if (
+    draft.name !== baseline.name
+    || draft.transport !== baseline.transport
+    || draft.command !== baseline.command
+    || draft.cwd !== baseline.cwd
+    || draft.url !== baseline.url
+    || draft.enabled !== baseline.enabled
+    || draft.startupTimeoutMs !== baseline.startupTimeoutMs
+    || draft.toolCallTimeoutMs !== baseline.toolCallTimeoutMs
+    || draft.closeTimeoutMs !== baseline.closeTimeoutMs
+    || draft.reconnectEnabled !== baseline.reconnectEnabled
+    || draft.initialDelayMs !== baseline.initialDelayMs
+    || draft.maxDelayMs !== baseline.maxDelayMs
+    || draft.maxAttempts !== baseline.maxAttempts
+    || draft.args.length !== baseline.args.length
+    || draft.env.length !== baseline.env.length
+    || draft.headers.length !== baseline.headers.length
+    || draft.pending.length !== baseline.pending.length
+  ) return true
+  if (draft.args.some((arg, i) => arg !== baseline.args[i])) return true
+  if (draft.env.some((pair, i) => pair.key !== baseline.env[i]!.key || pair.value !== baseline.env[i]!.value)) return true
+  if (draft.headers.some((pair, i) => pair.key !== baseline.headers[i]!.key || pair.value !== baseline.headers[i]!.value)) return true
+  if (draft.pending.some((secret, i) => secret.ref !== baseline.pending[i]!.ref || secret.value !== baseline.pending[i]!.value)) return true
+  return false
+}
+
 /** A fresh draft. New servers start switched off, so they can be probed first. */
 export function emptyDraft(): McpDraft {
   return {

@@ -1,3 +1,5 @@
+import { IconInfoOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarketButton } from './MarketButton.tsx'
 import type { DirectInstaller } from './directInstall.ts'
 import { loadingProgressOf } from './catalogCache.ts'
 import { MarketSelector } from './InstallModeSelector.tsx'
@@ -354,42 +356,37 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
             the Host. Keep the link beside the version it describes instead
             of spending a full action-button seat on it. */}
         {item.repository !== '' && (
+          <Tooltip label={`${t('repo')}: ${item.repository}`} side="top" portal>
           <a
             className="dsh_market_repoIcon"
             href={`https://github.com/${item.repository}`}
             target="_blank"
             rel="noreferrer"
             aria-label={`${t('repo')}: ${item.repository}`}
-            title={`${t('repo')}: ${item.repository}`}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="currentColor" d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.04 1.77 2.72 1.26 3.38.96.1-.75.4-1.26.74-1.55-2.57-.29-5.27-1.28-5.27-5.68 0-1.26.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.16 1.18A10.98 10.98 0 0 1 12 6.16c.98 0 1.94.13 2.86.38 2.2-1.49 3.16-1.18 3.16-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.82 1.19 3.08 0 4.41-2.71 5.38-5.29 5.67.42.36.79 1.06.79 2.14v3.26c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z" />
             </svg>
           </a>
+          </Tooltip>
         )}
         {/* The how-and-why of a desktop seat, folded behind a hint icon: it
             matters exactly once — when someone wonders what this row is —
             and as a standing paragraph it dwarfed the card it explains.
             Focusable, so the tooltip is reachable without a pointer. */}
         {item.inBox && (
-          <span className="dsh_market_hint" tabIndex={0} aria-label={t('installed.inBoxNotice')}>
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              <path d="M8 7.3v3.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-              <circle cx="8" cy="4.9" r="0.85" fill="currentColor" />
-            </svg>
-            <span className="dsh_market_hintTip" role="tooltip">{t('installed.inBoxNotice')}</span>
-          </span>
+          <Tooltip label={t('installed.inBoxNotice')} side="top" portal openOnClick maxWidth={280}>
+            <span className="dsh_market_hint" tabIndex={0} aria-label={t('installed.inBoxNotice')}>
+              <IconInfoOutlineRegular size={14} />
+            </span>
+          </Tooltip>
         )}
         {item.unregistered && (
-          <span className="dsh_market_hint" tabIndex={0} aria-label={t('installed.unregisteredNotice')}>
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              <path d="M8 7.3v3.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-              <circle cx="8" cy="4.9" r="0.85" fill="currentColor" />
-            </svg>
-            <span className="dsh_market_hintTip" role="tooltip">{t('installed.unregisteredNotice')}</span>
-          </span>
+          <Tooltip label={t('installed.unregisteredNotice')} side="top" portal openOnClick maxWidth={280}>
+            <span className="dsh_market_hint" tabIndex={0} aria-label={t('installed.unregisteredNotice')}>
+              <IconInfoOutlineRegular size={14} />
+            </span>
+          </Tooltip>
         )}
       </p>
       {item.description !== '' && <p className="dsh_market_desc">{item.description}</p>}
@@ -407,36 +404,33 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
                   ? t('installed.uninstallingHint', { name: shortName(item.packageName) })
                   : t('installed.confirmUninstall', { name: shortName(item.packageName) })}
               </span>
-              <button
-                type="button"
-                className="dsh_market_danger"
+              <MarketButton
+                intent="danger"
                 disabled={busyRow}
                 onClick={() => { uninstall(item) }}
               >
                 {uninstalling ? t('installed.uninstalling') : t('installed.confirm')}
-              </button>
+              </MarketButton>
               {!uninstalling && (
-                <button
-                  type="button"
-                  className="dsh_market_ghost"
+                <MarketButton
+                  intent="secondary"
                   disabled={busyRow}
                   onClick={() => { setConfirming(null) }}
                 >
                   {t('installed.cancel')}
-                </button>
+                </MarketButton>
               )}
             </>
             )
           : (
             <>
-              {onCheckUpdate && <button type="button" className={availableVersion ? 'dsh_market_install' : 'dsh_market_ghost'}
+              {onCheckUpdate && <MarketButton intent={availableVersion ? 'primary' : 'secondary'}
                 disabled={busy !== null || installBusy || item.error !== ''}
                 onClick={() => onCheckUpdate(item.packageName)}>
                 {availableVersion ? t('update.to', { version: availableVersion }) : t('update.check')}
-              </button>}
-              <button
-                type="button"
-                className="dsh_market_ghost"
+              </MarketButton>}
+              <MarketButton
+                intent="secondary"
                 disabled={reviewDisabled}
                 title={reviewTitle}
                 onClick={() => { onReview(item, reviewNeedsWorkspace) }}
@@ -446,11 +440,10 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
                   : card?.status === 'busy'
                     ? t('installing')
                     : reviewNeedsWorkspace ? t('installed.pickAndReview') : t('installed.review')}
-              </button>
+              </MarketButton>
               {!item.self && !item.unregistered && (
-                <button
-                  type="button"
-                  className="dsh_market_ghost"
+                <MarketButton
+                  intent="secondary"
                   disabled={busyRow || busy !== null || installBusy || (item.error !== ''
                     // An unreadable package can still be switched off by the Host, never on.
                     ? item.bundleEnabled !== true
@@ -460,16 +453,15 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
                   {busy === `${item.packageName}:toggle`
                     ? (item.enabled ? t('installed.disabling') : t('installed.enabling'))
                     : (item.enabled ? t('installed.disable') : t('installed.enable'))}
-                </button>
+                </MarketButton>
               )}
-              <button
-                type="button"
-                className="dsh_market_danger"
+              <MarketButton
+                intent="danger"
                 disabled={busyRow || busy !== null || installBusy}
                 onClick={() => { setConfirming(item.packageName) }}
               >
                 {t('installed.uninstall')}
-              </button>
+              </MarketButton>
             </>
             )}
       </div>
@@ -521,7 +513,7 @@ function MarketEmptyState({ icon, badge, title, description, primaryAction, seco
       {(primaryAction !== undefined || secondaryAction !== undefined) && (
         <div className="dsh_market_emptyActions">
           {primaryAction !== undefined && (
-            <button type="button" className="dsh_market_primary dsh_market_emptyAction" onClick={primaryAction.onClick}>
+            <MarketButton intent="primary" size="md" className="dsh_market_emptyAction" onClick={primaryAction.onClick}>
               <span>{primaryAction.label}</span>
               {primaryAction.count !== undefined && <span className="dsh_market_emptyCount">{primaryAction.count}</span>}
               {primaryAction.arrow && (
@@ -529,12 +521,12 @@ function MarketEmptyState({ icon, badge, title, description, primaryAction, seco
                   <path d="M5 12h14m-5-5 5 5-5 5" />
                 </svg>
               )}
-            </button>
+            </MarketButton>
           )}
           {secondaryAction !== undefined && (
-            <button type="button" className="dsh_market_ghost dsh_market_emptyAction" onClick={secondaryAction.onClick}>
+            <MarketButton intent="secondary" size="md" className="dsh_market_emptyAction" onClick={secondaryAction.onClick}>
               {secondaryAction.label}
-            </button>
+            </MarketButton>
           )}
         </div>
       )}
@@ -564,42 +556,45 @@ function MarketLoadingState({ t, mode, installedCount = 0, onViewInstalled }: {
     ? t('loading.stage.settings')
     : t(`loading.stage.${progress.stage}`)
   return (
-    <div className="dsh_market_empty dsh_market_loadingCard" role="status" aria-busy="true" aria-live="polite">
-      <div className="dsh_market_emptyIcon dsh_market_loadingIcon" aria-hidden="true">
-        <svg className="dsh_market_loadingSpinner" viewBox="0 0 24 24">
-          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-        </svg>
-      </div>
-      <h3 className="dsh_market_emptyTitle">
-        {mode === 'settings' ? t('loading.settingsTitle') : t('loading.title')}
-      </h3>
-      <p className="dsh_market_emptyDesc">
-        {mode === 'settings' ? t('loading.settingsDesc') : t('loading.desc')}
-      </p>
-      <div className="dsh_market_progressWrap">
-        <div
-          className="dsh_market_progressTrack"
+    <div className="dsh_market_loading" aria-busy="true">
+      {/* Lists load as skeletons (host rule); the stage line keeps the first sync's progress legible. */}
+      <div className="dsh_market_loadingLine">
+        <span className="dsh_market_progressStage" role="status" aria-live="polite">
+          {mode === 'settings' ? t('loading.settingsTitle') : t('loading.title')}
+          {' · '}
+          {stageLabel}
+        </span>
+        <span
+          className="dsh_market_progressPercent"
           role="progressbar"
           aria-label={t('loading.progressAria')}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={progress.percent}
-        >
-          <div className="dsh_market_progressFill" style={{ width: `${String(progress.percent)}%` }} />
-        </div>
-        <div className="dsh_market_progressMeta">
-          <span className="dsh_market_progressStage">{stageLabel}</span>
-          <span className="dsh_market_progressPercent">{`${String(progress.percent)}%`}</span>
-        </div>
-      </div>
-      {mode === 'catalog' && installedCount > 0 && onViewInstalled !== undefined && (
-        <div className="dsh_market_emptyActions">
-          <button type="button" className="dsh_market_ghost dsh_market_emptyAction" onClick={onViewInstalled}>
+          aria-valuetext={`${stageLabel} ${String(progress.percent)}%`}
+        >{`${String(progress.percent)}%`}</span>
+        {mode === 'catalog' && installedCount > 0 && onViewInstalled !== undefined && (
+          <MarketButton intent="secondary" className="dsh_market_loadingAction" onClick={onViewInstalled}>
             <span>{t('loading.viewInstalled')}</span>
             <span className="dsh_market_emptyCount">{installedCount}</span>
-          </button>
-        </div>
-      )}
+          </MarketButton>
+        )}
+      </div>
+      <ul className="dsh_market_cards" aria-hidden="true">
+        {[0, 1, 2, 3].map(index => (
+          <li key={index} className="dsh_market_card dsh_market_catalogCard dsh_market_skeletonCard">
+            <div className="dsh_market_head">
+              <span className="dsh_market_skeleton dsh_market_skeletonLogo" />
+              <span className="dsh_market_identity">
+                <span className="dsh_market_skeleton dsh_market_skeletonTitle" />
+                <span className="dsh_market_skeleton dsh_market_skeletonSub" />
+              </span>
+            </div>
+            <span className="dsh_market_skeleton dsh_market_skeletonText" />
+            <span className="dsh_market_skeleton dsh_market_skeletonTextShort" />
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -652,7 +647,7 @@ function InstalledCards({ t, installed, needle, catalog, catalogEnabled = true, 
       {state.status === 'error' && (
         <p className="dsh_market_status" data-error="true">
           {t('installed.failed', { reason: state.message })}
-          <button type="button" className="dsh_market_ghost" onClick={reload}>{t('retry')}</button>
+          <MarketButton intent="secondary" onClick={reload}>{t('retry')}</MarketButton>
         </p>
       )}
       {state.status === 'ready' && state.result.error !== '' && (
@@ -952,14 +947,13 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
         <div className="dsh_market_notice">
           <p className="dsh_market_noticeBody">{t('workspace.needed')}</p>
           {chooseError !== '' && <p className="dsh_market_status" data-error="true">{chooseError}</p>}
-          <button
-            type="button"
-            className="dsh_market_primary"
+          <MarketButton
+            intent="primary"
             disabled={choosing || installBusy}
             onClick={pickWorkspace}
           >
             {choosing ? t('workspace.choosing') : t('workspace.choose')}
-          </button>
+          </MarketButton>
         </div>
       )}
         {(enabled || installedSelected) && (
@@ -1055,9 +1049,9 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
               <p className="dsh_market_introTitle">{t('intro.title')}</p>
               <p className="dsh_market_introBody">{t('intro.disabled')}</p>
               <div className="dsh_market_introActions">
-                <button type="button" className="dsh_market_primary" onClick={onOpenSettings}>
+                <MarketButton intent="primary" onClick={onOpenSettings}>
                   {t('intro.openSettings')}
-                </button>
+                </MarketButton>
               </div>
             </div>
             )
@@ -1195,15 +1189,15 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
                   {/* Manage updates using the installed package's exact identity. */}
                   {owned !== undefined
                     ? (
-                      <button type="button" className="dsh_market_install"
+                      <MarketButton intent="primary"
                         onClick={() => {
                           scrollResultsToTop()
                           setCategory(INSTALLED_FILTER)
-                        }}>{t('direct.manage')}</button>
+                        }}>{t('direct.manage')}</MarketButton>
                       )
                     : (
-                      <button type="button" className="dsh_market_install" disabled={!directInstaller || installBusy}
-                        onClick={() => setDirectItem(item)}>{t('direct.install')}</button>
+                      <MarketButton intent="primary" disabled={!directInstaller || installBusy}
+                        onClick={() => setDirectItem(item)}>{t('direct.install')}</MarketButton>
                       )}
                 </div>
               </li>
@@ -1224,15 +1218,19 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
       {!installedSelected && shown.length > 0 && <nav className="dsh_market_pagination" aria-label={t('pagination.label')}>
         <span className="dsh_market_pageRange">{t('pagination.range', { start: String(paged.start), end: String(paged.end), total: String(paged.total) })}</span>
         <div className="dsh_market_pager">
-          <button type="button" className="dsh_market_pageButton" disabled={paged.current === 0} aria-label={t('pagination.previous')} title={t('pagination.previous')}
-            onClick={() => setPage(paged.current - 1)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-          </button>
+          <Tooltip label={t('pagination.previous')} side="top" portal disabled={paged.current === 0}>
+            <button type="button" className="dsh_market_pageButton" disabled={paged.current === 0} aria-label={t('pagination.previous')}
+              onClick={() => setPage(paged.current - 1)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+            </button>
+          </Tooltip>
           <span className="dsh_market_pageNumber" aria-live="polite">{t('pagination.page', { page: String(paged.current + 1), pages: String(paged.pages) })}</span>
-          <button type="button" className="dsh_market_pageButton" disabled={paged.current + 1 === paged.pages} aria-label={t('pagination.next')} title={t('pagination.next')}
-            onClick={() => setPage(paged.current + 1)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-          </button>
+          <Tooltip label={t('pagination.next')} side="top" portal disabled={paged.current + 1 === paged.pages}>
+            <button type="button" className="dsh_market_pageButton" disabled={paged.current + 1 === paged.pages} aria-label={t('pagination.next')}
+              onClick={() => setPage(paged.current + 1)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          </Tooltip>
         </div>
       </nav>}
     </div>
@@ -1336,12 +1334,6 @@ export function MarketSection({
     { id: 'settings', label: t('tab.settings') },
   ]
 
-  /**
-   * Keyboard navigation for the tablist. The roving `tabIndex` below puts one
-   * tab in the tab order; the ARIA pattern then expects the arrow keys to move
-   * between them, which is the half that was missing — without it the second
-   * tab is unreachable from the keyboard at all.
-   */
   const onTabKey = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number): void => {
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
     const next = step !== 0
@@ -1350,9 +1342,9 @@ export function MarketSection({
     if (next < 0) return
     event.preventDefault()
     setPage(pages[next]!.id)
-    // Focus follows selection, as the pattern's automatic-activation form asks.
     document.getElementById(`${tabsId}-tab-${pages[next]!.id}`)?.focus()
   }
+
   const reviewResult = cards[SELF_CARD_KEY]
   const reviewInstalled = (targets: ReviewTarget[]): Promise<boolean> => {
     const profile = snapshot.profile
@@ -1390,20 +1382,24 @@ export function MarketSection({
         </h2>
         {/* No self-update entry: the host has no update verb, and its
             installer refuses a package that is already installed. */}
-        <MarketMoreActions label={t('header.more')}>
-        <a className="dsh_market_headerAction" href="https://github.com/bruc3van/dsh-market-pro" target="_blank" rel="noopener noreferrer">
-          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 19c-4.3 1.3-4.3-2.2-6-2.7M15 22v-3.8a3.3 3.3 0 0 0-.9-2.5c3-.3 6.2-1.5 6.2-6.9a5.4 5.4 0 0 0-1.5-3.8 5 5 0 0 0-.1-3.8s-1.2-.4-3.9 1.4a13.4 13.4 0 0 0-7 0C5.1.8 3.9 1.2 3.9 1.2A5 5 0 0 0 3.8 5a5.4 5.4 0 0 0-1.5 3.8c0 5.4 3.2 6.6 6.2 6.9a3.3 3.3 0 0 0-.9 2.5V22" />
-          </svg>
-          {t('header.repository')}
-        </a>
-        <a className="dsh_market_headerAction" href="https://x.com/bruc3van" target="_blank" rel="noopener noreferrer">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-            <path d="M4 3h4l12 18h-4L4 3ZM20 3l-7 8M4 21l7-8" />
-          </svg>
-          {t('header.contact')}
-        </a>
-        </MarketMoreActions>
+        <MarketMoreActions label={t('header.more')} links={[
+          {
+            id: 'repository',
+            label: t('header.repository'),
+            href: 'https://github.com/bruc3van/dsh-market-pro',
+            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 19c-4.3 1.3-4.3-2.2-6-2.7M15 22v-3.8a3.3 3.3 0 0 0-.9-2.5c3-.3 6.2-1.5 6.2-6.9a5.4 5.4 0 0 0-1.5-3.8 5 5 0 0 0-.1-3.8s-1.2-.4-3.9 1.4a13.4 13.4 0 0 0-7 0C5.1.8 3.9 1.2 3.9 1.2A5 5 0 0 0 3.8 5a5.4 5.4 0 0 0-1.5 3.8c0 5.4 3.2 6.6 6.2 6.9a3.3 3.3 0 0 0-.9 2.5V22" />
+            </svg>,
+          },
+          {
+            id: 'contact',
+            label: t('header.contact'),
+            href: 'https://x.com/bruc3van',
+            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+              <path d="M4 3h4l12 18h-4L4 3ZM20 3l-7 8M4 21l7-8" />
+            </svg>,
+          },
+        ]} />
       </div>
       <p className="dsh_market_subtitle">{t('intro.slogan')}</p>
       {updateState && updateState.phase !== 'idle' && (
@@ -1439,17 +1435,17 @@ export function MarketSection({
         ))}
       </div>
       {snapshot.settingsReady && snapshot.value.aiAssistantEnabled && (
-        <button
-          type="button"
+        <MarketButton
+          intent="secondary"
           className="dsh_market_aiPick"
           disabled={installBusy}
           onClick={tryAiAssistant}
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+          icon={<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3 14.3 9.7 21 12 14.3 14.3 12 21 9.7 14.3 3 12 9.7 9.7Z" />
-          </svg>
+          </svg>}
+        >
           {t('ai.pick')}
-        </button>
+        </MarketButton>
       )}
       </div>
       {aiPickCard && (aiPickCard.status === 'error' || aiPickCard.status === 'needs-workspace') && page !== 'settings' && (
