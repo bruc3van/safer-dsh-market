@@ -1,7 +1,7 @@
 {
   "name": "dsh-market-pro",
   "description": "DSH 插件市场Pro：精选真插件，一站式管理插件、技能、MCP 服务器与安装后 AI 安全审查。",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "entry": {
     "name": "dsh-market-pro",
     "inject": [
