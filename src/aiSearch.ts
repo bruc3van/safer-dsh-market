@@ -18,6 +18,7 @@ import { FEATURED_CATEGORY, SUBSCRIPTION_CATEGORY } from './shapes.ts'
 export type AiSearchScope = 'all' | 'featured'
 export type AiSearchSort = 'relevance' | 'active' | 'stars' | 'updated'
 export type AiInstallStatus = 'command' | 'manual' | 'none'
+export type AiLang = 'zh' | 'en'
 
 export interface AiInstallTargetSummary {
   readonly install: string
@@ -30,10 +31,10 @@ export interface AiCatalogEntrySummary {
   readonly name: string
   readonly titleZh?: string
   readonly titleEn?: string
-  readonly url: string
+  readonly url?: string
   readonly category: string
-  readonly categoryZh: string
-  readonly categoryEn: string
+  readonly categoryZh?: string
+  readonly categoryEn?: string
   readonly stars: number
   readonly pushedAt: string
   readonly language?: string
@@ -46,11 +47,13 @@ export interface AiCatalogEntrySummary {
   readonly descriptionEn?: string
   readonly installStatus: AiInstallStatus
   readonly installTargets?: readonly AiInstallTargetSummary[]
+  readonly hasExtraDetails?: true
   readonly installed: boolean
   readonly installedVersion?: string
 }
 
 export interface AiCatalogEntryDetail extends AiCatalogEntrySummary {
+  readonly url: string
   readonly defaultBranch: string
   readonly keywords?: readonly string[]
   readonly tasks?: readonly string[]
@@ -62,10 +65,13 @@ export interface AiCatalogEntryDetail extends AiCatalogEntrySummary {
 
 export interface AiSearchOptions {
   readonly query?: string
+  readonly queries?: readonly string[]
   readonly category?: string
   readonly scope?: AiSearchScope
   readonly installableOnly?: boolean
+  readonly excludeInstalled?: boolean
   readonly includeArchived?: boolean
+  readonly lang?: AiLang
   readonly sort?: AiSearchSort
   readonly offset?: number
   readonly limit?: number
@@ -78,6 +84,8 @@ export interface AiSearchResult {
   readonly nextOffset: number | null
   readonly matchMode: 'all' | 'exact' | 'broad'
   readonly stale: boolean
+  readonly invalidCategory?: true
+  readonly availableCategories?: readonly { readonly key: string; readonly zh: string; readonly en: string }[]
   readonly entries: readonly AiCatalogEntrySummary[]
 }
 
@@ -129,15 +137,38 @@ const ACTIVE_DECAY_DAYS = 30
 const ACTIVE_DECAY_EXPONENT = 1.5
 const ISO_DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T ])/
 
-export const DEFAULT_AI_LIMIT = 12
+export const DEFAULT_AI_LIMIT = 8
 export const MAX_AI_LIMIT = 25
+export const MAX_AI_QUERIES = 3
+export const MAX_AI_DETAIL_TARGETS = 5
+
+/** Zero-width, BiDi override, and Unicode tag-block characters used in invisible prompt injection. */
+export const INVISIBLE_INJECTION_PATTERN = /[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff\u{e0000}-\u{e007f}]/gu
+
+/**
+ * Strip control, zero-width, BiDi override, and Unicode tag-block characters
+ * (used for invisible prompt injection), neutralize `<` / `>` so third-party
+ * text can never forge or close framing tags like `</untrusted_market_data>`
+ * or `</skill_instructions>`, collapse whitespace, and cap length by code point.
+ */
+export function sanitizeUntrustedText(value: unknown, limit: number): string {
+  if (typeof value !== 'string' || Number.isNaN(limit) || limit <= 0) return ''
+  const cleaned = value
+    .replace(/[\u0000-\u001f\u007f-\u009f]/gu, ' ')
+    .replace(INVISIBLE_INJECTION_PATTERN, '')
+    .replaceAll('<', '＜')
+    .replaceAll('>', '＞')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (cleaned === '' || !Number.isFinite(limit)) return cleaned
+  const maxLen = Math.floor(limit)
+  if (maxLen <= 0) return ''
+  const points = [...cleaned]
+  return points.length > maxLen ? `${points.slice(0, maxLen - 1).join('')}…` : cleaned
+}
 
 function clip(value: unknown, limit: number): string {
-  if (typeof value !== 'string') return ''
-  const cleaned = value.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()
-  if (cleaned === '') return ''
-  const points = [...cleaned]
-  return points.length > limit ? `${points.slice(0, limit - 1).join('')}…` : cleaned
+  return sanitizeUntrustedText(value, limit)
 }
 
 function daysInMonth(year: number, month: number): number {
@@ -242,37 +273,59 @@ function matchInstalled(lookup: InstalledLookup, item: MarketPlugin): MarketInst
   return undefined
 }
 
+function hasExtraDetailsOf(item: MarketPlugin, maxTargets: number): boolean {
+  const info = item.installInfo
+  if (info === undefined) return false
+  return info.requirements.length > 0
+    || info.note.trim() !== ''
+    || info.manual.trim() !== ''
+    || info.targets.length > maxTargets
+}
+
 function toSummary(
   item: MarketPlugin,
   lookup: InstalledLookup,
   featuredReason?: string,
-  maxTargets = 3,
+  maxTargets = 2,
+  lang?: AiLang,
+  isDetail = false,
 ): AiCatalogEntrySummary {
   const status = installStatusOf(item)
   const owned = matchInstalled(lookup, item)
   const targets = status === 'command' && item.installInfo !== undefined
     ? item.installInfo.targets.slice(0, maxTargets).map(target => {
-      const note = clip(target.note, 120)
+      const note = clip(target.note, 100)
       return note === '' ? { install: target.install } : { install: target.install, note }
     })
     : undefined
-  const titleZh = clip(item.titleZh, 80)
-  const titleEn = clip(item.titleEn, 80)
-  const description = clip(item.description, 220)
-  const descriptionEn = clip(item.descriptionEn, 220)
-  const reason = clip(featuredReason, 180)
+  const titleZh = clip(item.titleZh, 70)
+  const titleEn = clip(item.titleEn, 70)
+  const descZh = clip(item.description, 200)
+  const descEn = clip(item.descriptionEn, 200)
+  const reason = clip(featuredReason, 160)
   const language = clip(item.language, 40)
   const license = clip(item.license, 40)
+  const category = clip(item.category, 60)
+  const categoryZh = clip(item.categoryZh, 50)
+  const categoryEn = clip(item.categoryEn, 50)
+  const canonicalGithub = item.fullName !== '' && item.url === `https://github.com/${item.fullName}`
+  const description = lang === 'en' ? (descEn || descZh) : (descZh || descEn)
+  const includeDescEn = lang === undefined && descEn !== '' && descEn !== description
+  const includeTitleZh = titleZh !== '' && (lang !== 'en' || titleEn === '')
+  const includeTitleEn = titleEn !== '' && (lang !== 'zh' || titleZh === '')
+  const includeCategoryZh = categoryZh !== '' && (lang !== 'en' || categoryEn === '')
+  const includeCategoryEn = categoryEn !== '' && (lang !== 'zh' || categoryZh === '')
+  const hasExtraDetails = !isDetail && hasExtraDetailsOf(item, maxTargets)
   return {
     fullName: item.fullName,
     ...(item.packageName ? { packageName: item.packageName } : {}),
-    name: clip(item.name, 80),
-    ...(titleZh !== '' ? { titleZh } : {}),
-    ...(titleEn !== '' ? { titleEn } : {}),
-    url: item.url,
-    category: item.category,
-    categoryZh: clip(item.categoryZh, 60),
-    categoryEn: clip(item.categoryEn, 60),
+    name: clip(item.name, 70),
+    ...(includeTitleZh ? { titleZh } : {}),
+    ...(includeTitleEn ? { titleEn } : {}),
+    ...(isDetail || !canonicalGithub ? { url: item.url } : {}),
+    category,
+    ...(includeCategoryZh ? { categoryZh } : {}),
+    ...(includeCategoryEn ? { categoryEn } : {}),
     stars: safeStars(item.stars),
     pushedAt: pushedDayOf(item.pushedAt),
     ...(language !== '' ? { language } : {}),
@@ -282,18 +335,59 @@ function toSummary(
     ...(featuredReason !== undefined ? { featured: true as const } : {}),
     ...(reason !== '' ? { reason } : {}),
     description,
-    ...(descriptionEn !== '' && descriptionEn !== description ? { descriptionEn } : {}),
+    ...(includeDescEn ? { descriptionEn: descEn } : {}),
     installStatus: status,
     ...(targets !== undefined && targets.length > 0 ? { installTargets: targets } : {}),
+    ...(hasExtraDetails ? { hasExtraDetails: true as const } : {}),
     installed: owned !== undefined,
-    ...(owned !== undefined && owned.version !== '' ? { installedVersion: owned.version } : {}),
+    ...(owned !== undefined && owned.version !== '' ? { installedVersion: clip(owned.version, 60) } : {}),
   }
+}
+
+const CJK_CHAR = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
+const CJK_RUN = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+/gu
+const CJK_SPLIT = /([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+)/u
+const ALNUM_CHAR = /[\p{L}\p{N}]/u
+
+function cjkBigrams(term: string): string[] {
+  const grams = new Set<string>()
+  for (const run of term.match(CJK_RUN) ?? []) {
+    const chars = [...run]
+    if (chars.length < 3) continue
+    for (let i = 0; i < chars.length - 1; i += 1) {
+      grams.add(`${chars[i]!}${chars[i + 1]!}`)
+    }
+  }
+  return [...grams].slice(0, 12)
 }
 
 function tokenizeQuery(query: string): string[] {
   const normalized = query.trim().toLocaleLowerCase()
   if (normalized === '') return []
-  return [...new Set(normalized.split(/[\s,，、;；/]+/).filter(term => term.length > 0))].slice(0, 12)
+  const tokens: string[] = []
+  const seen = new Set<string>()
+  const push = (token: string): void => {
+    if (token === '' || seen.has(token)) return
+    seen.add(token)
+    tokens.push(token)
+  }
+  for (const chunk of normalized.split(/[\s,，、;；/]+/)) {
+    if (chunk === '') continue
+    if (!CJK_CHAR.test(chunk)) {
+      push(chunk)
+      continue
+    }
+    for (const part of chunk.split(CJK_SPLIT)) {
+      if (part === '') continue
+      if (CJK_CHAR.test(part)) {
+        push(part)
+      } else {
+        const trimmed = part.replace(/^[-_.:：·・()（）【】[\]]+|[-_.:：·・()（）【】[\]]+$/g, '')
+        if (trimmed !== '' && ALNUM_CHAR.test(trimmed)) push(trimmed)
+      }
+    }
+  }
+  return tokens.slice(0, 12)
 }
 
 interface CandidateRow {
@@ -433,7 +527,7 @@ function buildAllCatalogPool(catalog: MarketCatalog): CandidateRow[] {
   return pool
 }
 
-function scoreCandidate(row: CandidateRow, terms: readonly string[], fullQuery: string): { matchedCount: number; score: number } {
+function scoreCandidate(row: CandidateRow, terms: readonly string[], fullQuery: string): { matchedCount: number; exactTerms: number; score: number } {
   const { item, featuredReason } = row
   const fullName = item.fullName.toLocaleLowerCase()
   const pkg = (item.packageName ?? '').toLocaleLowerCase()
@@ -443,8 +537,10 @@ function scoreCandidate(row: CandidateRow, terms: readonly string[], fullQuery: 
   const targets = (item.installInfo?.targets.map(t => t.install).join(' ') ?? '').toLocaleLowerCase()
   const prose = `${item.description} ${item.descriptionEn ?? ''} ${featuredReason ?? ''} ${item.installInfo?.tasks.join(' ') ?? ''}`.toLocaleLowerCase()
   const meta = `${item.category} ${item.categoryZh} ${item.categoryEn} ${item.language}`.toLocaleLowerCase()
+  const combinedText = `${titles} ${keywords} ${prose} ${meta}`
 
   let matchedCount = 0
+  let exactTerms = 0
   let score = 0
 
   if (fullQuery !== '' && (pkg === fullQuery || fullName === fullQuery || name === fullQuery)) {
@@ -461,16 +557,36 @@ function scoreCandidate(row: CandidateRow, terms: readonly string[], fullQuery: 
     else if (meta.includes(term)) best = 10
     if (best > 0) {
       matchedCount += 1
+      exactTerms += 1
       score += best
+      continue
+    }
+    // CJK 2-gram fallback so natural Chinese phrases like "画架构图" match "Draw.io 流程图与架构图".
+    const grams = cjkBigrams(term)
+    if (grams.length > 0) {
+      let gramHits = 0
+      let titleHits = 0
+      for (const gram of grams) {
+        if (titles.includes(gram)) {
+          gramHits += 1
+          titleHits += 1
+        } else if (combinedText.includes(gram)) {
+          gramHits += 1
+        }
+      }
+      if (gramHits > 0 && (gramHits >= 2 || gramHits / grams.length >= 0.34)) {
+        matchedCount += 1
+        score += Math.round((gramHits / grams.length) * (titleHits > 0 ? 24 : 14))
+      }
     }
   }
 
   if (matchedCount > 0) {
-    if (featuredReason !== undefined) score += 12
-    if (installStatusOf(item) === 'command') score += 8
+    if (featuredReason !== undefined) score += 16
+    if (installStatusOf(item) === 'command') score += 10
     if (item.archived || item.disabled) score -= 50
   }
-  return { matchedCount, score }
+  return { matchedCount, exactTerms, score }
 }
 
 function normalizePage(offset: number | undefined, limit: number | undefined): { offset: number; limit: number } {
@@ -499,15 +615,15 @@ export function buildAiOverview(
   }
   const categories = catalog.categories
     .filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY)
-    .map(entry => ({ key: entry.key, zh: entry.zh, en: entry.en, count: entry.count }))
+    .map(entry => ({ key: clip(entry.key, 60), zh: clip(entry.zh, 50), en: clip(entry.en, 50), count: entry.count }))
   const mcpToolCount = mcp.tools.reduce((sum, group) => sum + group.tools.length, 0)
   const serverNames = new Set([
     ...mcp.tools.map(group => group.server),
     ...mcp.unmanaged.map(server => server.serverName).filter(name => name !== ''),
   ])
   return {
-    profile,
-    fetchedAt: catalog.fetchedAt,
+    profile: clip(profile, 80),
+    fetchedAt: clip(catalog.fetchedAt, 64),
     scanned: catalog.scanned,
     stale,
     totalRepositories: catalog.items.length,
@@ -516,8 +632,8 @@ export function buildAiOverview(
     categories,
     installedCount: installed.packages.length,
     installedPackages: installed.packages.slice(0, 50).map(pkg => ({
-      packageName: pkg.packageName,
-      version: pkg.version,
+      packageName: clip(pkg.packageName, 120),
+      version: clip(pkg.version, 60),
       enabled: pkg.enabled,
       ...(pkg.self ? { self: true as const } : {}),
     })),
@@ -562,7 +678,7 @@ function compareSortKeys(left: SortKey, right: SortKey, sort: AiSearchSort): num
     || left.tieKey.localeCompare(right.tieKey)
 }
 
-/** Search curated picks or the complete catalog with weighted relevance and activity ranking. */
+/** Search curated picks or the complete catalog with weighted relevance, CJK 2-gram fallback, and multi-query merging. */
 export function searchAiCatalog(
   catalog: MarketCatalog,
   stale: boolean,
@@ -573,11 +689,24 @@ export function searchAiCatalog(
   const scope: AiSearchScope = options.scope ?? 'all'
   const category = (options.category ?? '').trim().toLocaleLowerCase()
   const installableOnly = options.installableOnly === true
+  const excludeInstalled = options.excludeInstalled === true
   const includeArchived = options.includeArchived === true
-  const rawQuery = (options.query ?? '').trim()
-  const terms = tokenizeQuery(rawQuery)
-  const fullQuery = rawQuery.toLocaleLowerCase()
-  const sort: AiSearchSort = options.sort ?? (terms.length > 0 ? 'relevance' : 'active')
+  const lang = options.lang
+  const seenQueries = new Set<string>()
+  const queryPlans: { readonly raw: string; readonly terms: readonly string[] }[] = []
+  for (const candidate of [
+    ...(typeof options.query === 'string' ? [options.query] : []),
+    ...(Array.isArray(options.queries) ? options.queries : []),
+  ]) {
+    const raw = candidate.trim().toLocaleLowerCase()
+    if (raw === '' || seenQueries.has(raw)) continue
+    const terms = tokenizeQuery(raw)
+    if (terms.length === 0) continue
+    seenQueries.add(raw)
+    queryPlans.push({ raw, terms })
+    if (queryPlans.length >= MAX_AI_QUERIES) break
+  }
+  const sort: AiSearchSort = options.sort ?? (queryPlans.length > 0 ? 'relevance' : 'active')
   const lookup = buildInstalledLookup(installedPackages)
 
   const pool = scope === 'featured' ? buildFeaturedPool(catalog) : buildAllCatalogPool(catalog)
@@ -585,6 +714,7 @@ export function searchAiCatalog(
   const filtered = pool.filter(({ item }) => {
     if (!includeArchived && (item.archived || item.disabled)) return false
     if (installableOnly && installStatusOf(item) !== 'command') return false
+    if (excludeInstalled && matchInstalled(lookup, item) !== undefined) return false
     if (category !== '') {
       const cat = item.category.toLocaleLowerCase()
       const catZh = item.categoryZh.toLocaleLowerCase()
@@ -594,11 +724,19 @@ export function searchAiCatalog(
     return true
   })
 
+  const availableCategories = catalog.categories
+    .filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY)
+    .map(entry => ({ key: clip(entry.key, 60), zh: clip(entry.zh, 50), en: clip(entry.en, 50) }))
+  const categoryKnown = category === '' || availableCategories.some(entry =>
+    entry.key.toLocaleLowerCase() === category
+    || entry.zh.toLocaleLowerCase() === category
+    || entry.en.toLocaleLowerCase() === category)
+
   const parsedRef = catalog.fetchedAt === '' ? Number.NaN : parseDayMs(catalog.fetchedAt)
   const referenceMs = Number.isFinite(parsedRef) ? parsedRef : Date.now()
   const tieSort: AiSearchSort = sort === 'relevance' ? 'active' : sort
 
-  if (terms.length === 0) {
+  if (queryPlans.length === 0) {
     const ordered = scope === 'featured' && options.sort === undefined
       ? filtered
       : filtered
@@ -614,18 +752,36 @@ export function searchAiCatalog(
       nextOffset: next < ordered.length ? next : null,
       matchMode: 'all',
       stale,
-      entries: slice.map(row => toSummary(row.item, lookup, row.featuredReason)),
+      ...(filtered.length === 0 && !categoryKnown ? { invalidCategory: true as const, availableCategories } : {}),
+      entries: slice.map(row => toSummary(row.item, lookup, row.featuredReason, 2, lang)),
     }
   }
 
-  const exactMatches: { row: CandidateRow; score: number; key: SortKey }[] = []
+  const exactMatches: { row: CandidateRow; score: number; exactTerms: number; key: SortKey }[] = []
   const broadMatches: { row: CandidateRow; matchedCount: number; score: number; key: SortKey }[] = []
   for (const row of filtered) {
-    const { matchedCount, score } = scoreCandidate(row, terms, fullQuery)
-    if (matchedCount === terms.length) {
-      exactMatches.push({ row, score, key: sortKeyOf(row.item, tieSort, referenceMs) })
-    } else if (matchedCount > 0 && terms.length > 1) {
-      broadMatches.push({ row, matchedCount, score, key: sortKeyOf(row.item, tieSort, referenceMs) })
+    let bestExactScore = Number.NEGATIVE_INFINITY
+    let bestExactTerms = 0
+    let bestBroadMatched = 0
+    let bestBroadScore = Number.NEGATIVE_INFINITY
+    for (const plan of queryPlans) {
+      const { matchedCount, exactTerms, score } = scoreCandidate(row, plan.terms, plan.raw)
+      if (matchedCount === plan.terms.length) {
+        if (score > bestExactScore || (score === bestExactScore && exactTerms > bestExactTerms)) {
+          bestExactScore = score
+          bestExactTerms = exactTerms
+        }
+      } else if (matchedCount > 0 && plan.terms.length > 1) {
+        if (matchedCount > bestBroadMatched || (matchedCount === bestBroadMatched && score > bestBroadScore)) {
+          bestBroadMatched = matchedCount
+          bestBroadScore = score
+        }
+      }
+    }
+    if (bestExactScore > Number.NEGATIVE_INFINITY) {
+      exactMatches.push({ row, score: bestExactScore, exactTerms: bestExactTerms, key: sortKeyOf(row.item, tieSort, referenceMs) })
+    } else if (bestBroadMatched > 0) {
+      broadMatches.push({ row, matchedCount: bestBroadMatched, score: bestBroadScore, key: sortKeyOf(row.item, tieSort, referenceMs) })
     }
   }
 
@@ -636,7 +792,7 @@ export function searchAiCatalog(
       || (sort === 'relevance' ? b.score - a.score : 0)
       || compareSortKeys(a.key, b.key, tieSort))
     : exactMatches.sort((a, b) =>
-      (sort === 'relevance' ? b.score - a.score : 0)
+      (sort === 'relevance' ? (b.score - a.score || b.exactTerms - a.exactTerms) : 0)
       || compareSortKeys(a.key, b.key, tieSort))
 
   const slice = ranked.slice(offset, offset + limit)
@@ -648,7 +804,8 @@ export function searchAiCatalog(
     nextOffset: next < ranked.length ? next : null,
     matchMode: useBroad ? 'broad' : 'exact',
     stale,
-    entries: slice.map(entry => toSummary(entry.row.item, lookup, entry.row.featuredReason)),
+    ...(filtered.length === 0 && !categoryKnown ? { invalidCategory: true as const, availableCategories } : {}),
+    entries: slice.map(entry => toSummary(entry.row.item, lookup, entry.row.featuredReason, 2, lang)),
   }
 }
 
@@ -669,6 +826,7 @@ export function lookupAiCatalogDetail(
   catalog: MarketCatalog,
   installedPackages: readonly MarketInstalledPackage[],
   target: string,
+  lang?: AiLang,
 ): AiCatalogEntryDetail | null {
   const key = target.trim().toLowerCase()
   if (key === '') return null
@@ -719,16 +877,17 @@ export function lookupAiCatalogDetail(
 
   if (matchedItem === undefined) return null
 
-  const summary = toSummary(matchedItem, lookup, featuredReason, 10)
+  const summary = toSummary(matchedItem, lookup, featuredReason, 10, lang, true)
   const owned = matchInstalled(lookup, matchedItem)
-  const keywords = matchedItem.keywords?.map(word => clip(word, 60)).filter(word => word !== '').slice(0, 20)
-  const tasks = matchedItem.installInfo?.tasks.map(task => clip(task, 160)).filter(task => task !== '').slice(0, 10)
-  const requirements = matchedItem.installInfo?.requirements.map(req => clip(req, 160)).filter(req => req !== '').slice(0, 10)
-  const note = clip(matchedItem.installInfo?.note, 300)
-  const manual = clip(matchedItem.installInfo?.manual, 400)
+  const keywords = matchedItem.keywords?.map(word => clip(word, 50)).filter(word => word !== '').slice(0, 15)
+  const tasks = matchedItem.installInfo?.tasks.map(task => clip(task, 120)).filter(task => task !== '').slice(0, 8)
+  const requirements = matchedItem.installInfo?.requirements.map(req => clip(req, 120)).filter(req => req !== '').slice(0, 8)
+  const note = clip(matchedItem.installInfo?.note, 220)
+  const manual = clip(matchedItem.installInfo?.manual, 300)
 
   return {
     ...summary,
+    url: matchedItem.url,
     defaultBranch: matchedItem.defaultBranch,
     ...(keywords !== undefined && keywords.length > 0 ? { keywords } : {}),
     ...(tasks !== undefined && tasks.length > 0 ? { tasks } : {}),
@@ -739,37 +898,75 @@ export function lookupAiCatalogDetail(
   }
 }
 
-/** Build a secret-free summary of installed plugins and MCP servers in this profile. */
+/** Batch detail lookup for up to MAX_AI_DETAIL_TARGETS items in one round-trip. */
+export function lookupAiCatalogDetails(
+  catalog: MarketCatalog,
+  installedPackages: readonly MarketInstalledPackage[],
+  targets: readonly string[],
+  lang?: AiLang,
+): { readonly entries: readonly AiCatalogEntryDetail[]; readonly notFound: readonly string[] } {
+  const entries: AiCatalogEntryDetail[] = []
+  const notFound: string[] = []
+  const seenInputs = new Set<string>()
+  const seenIdentities = new Set<string>()
+  let processed = 0
+  for (const raw of targets) {
+    const trimmed = raw.trim()
+    if (trimmed === '') continue
+    const dedup = trimmed.toLowerCase()
+    if (seenInputs.has(dedup)) continue
+    seenInputs.add(dedup)
+    processed += 1
+    if (processed > MAX_AI_DETAIL_TARGETS) break
+    const found = lookupAiCatalogDetail(catalog, installedPackages, trimmed, lang)
+    if (found !== null) {
+      const identity = found.packageName
+        ? `package:${found.packageName.toLowerCase()}`
+        : found.fullName !== ''
+          ? `repo:${found.fullName.toLowerCase()}`
+          : ''
+      if (identity === '' || !seenIdentities.has(identity)) {
+        if (identity !== '') seenIdentities.add(identity)
+        entries.push(found)
+      }
+    } else {
+      notFound.push(clip(trimmed, 120))
+    }
+  }
+  return { entries, notFound }
+}
+
+/** Build a secret-free, sanitized summary of installed plugins and MCP servers in this profile. */
 export function buildAiEnvironment(
   profile: string,
   installed: MarketInstalledResult,
   mcp: McpHostContext,
 ): AiEnvironmentResult {
   return {
-    profile,
-    installedError: installed.error,
+    profile: clip(profile, 80),
+    installedError: clip(installed.error, 200),
     installedPackages: installed.packages.slice(0, 100).map(pkg => ({
-      packageName: pkg.packageName,
-      version: pkg.version,
+      packageName: clip(pkg.packageName, 120),
+      version: clip(pkg.version, 60),
       enabled: pkg.enabled,
-      ...(pkg.repository !== '' ? { repository: pkg.repository } : {}),
+      ...(pkg.repository !== '' ? { repository: clip(pkg.repository, 140) } : {}),
       ...(pkg.self ? { self: true as const } : {}),
       ...(pkg.inBox ? { inBox: true as const } : {}),
     })),
     mcp: {
       managerActive: mcp.managerActive,
       toolGroups: mcp.tools.slice(0, 40).map(group => ({
-        server: group.server,
+        server: clip(group.server, 80),
         toolCount: group.tools.length,
-        sampleTools: group.tools.slice(0, 10).map(tool => tool.name),
+        sampleTools: group.tools.slice(0, 8).map(tool => clip(tool.name, 80)),
       })),
       unmanagedServers: mcp.unmanaged.slice(0, 40).map(server => ({
-        serverName: server.serverName,
+        serverName: clip(server.serverName, 80),
         transport: server.transport,
         enabled: server.enabled,
         phase: server.phase,
       })),
-      ...(mcp.toolsError !== '' ? { toolsError: mcp.toolsError } : {}),
+      ...(mcp.toolsError !== '' ? { toolsError: clip(mcp.toolsError, 200) } : {}),
     },
   }
 }
