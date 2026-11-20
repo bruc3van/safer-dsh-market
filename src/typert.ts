@@ -69,6 +69,11 @@ export const TYPERT_MANIFEST: TypertContribution = {
             name: 'inspectMcp',
             signature: 'inspectMcp(): McpHostContext',
           },
+          {
+            kind: 'method',
+            name: 'adoptMcp',
+            signature: 'adoptMcp(request: McpAdoptRequest): Promise<McpAdoptResult>',
+          },
         ],
         types: [],
       },

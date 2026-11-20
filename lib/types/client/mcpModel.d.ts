@@ -8,8 +8,8 @@
  * controller in ./mcpController.ts owns the I/O.
  * @module dsh-market-pro/client/mcpModel
  */
-import { credentialTemplate } from '../mcpShapes.ts';
-export { credentialTemplate };
+import { credentialTemplate, suggestRef } from '../mcpShapes.ts';
+export { credentialTemplate, suggestRef };
 /** One server's runtime status, as `mcpManager.watch` reports it. */
 export type McpStatus = {
     readonly state: 'closed';
@@ -181,13 +181,27 @@ export interface McpDraft {
     /** Text fields, so a half-typed number is not coerced away. */
     readonly startupTimeoutMs: string;
     readonly toolCallTimeoutMs: string;
-    /** Fields this editor does not render (`closeTimeoutMs`, `reconnect`), carried through untouched. */
+    readonly closeTimeoutMs: string;
+    /** Reconnect policy; an empty number means the client's default. */
+    readonly reconnectEnabled: boolean;
+    readonly initialDelayMs: string;
+    readonly maxDelayMs: string;
+    readonly maxAttempts: string;
+    /** Fields this editor does not render, carried through untouched. */
     readonly extra: Readonly<Record<string, unknown>>;
     /** Plaintext values the user chose to move into the credential store. */
     readonly pending: readonly McpPendingSecret[];
 }
 /** A fresh draft. New servers start switched off, so they can be probed first. */
 export declare function emptyDraft(): McpDraft;
+/** `dsh-mcp-client`'s close-timeout default. */
+export declare const DEFAULT_CLOSE_MS = 5000;
+/** `dsh-mcp-client`'s reconnect defaults; Settings resolves them into every entry. */
+export declare const RECONNECT_DEFAULTS: {
+    readonly initialDelayMs: 500;
+    readonly maxDelayMs: 30000;
+    readonly maxAttempts: 10;
+};
 /** A draft over an existing entry. */
 export declare function draftFromEntry(name: string, entry: McpEntry): McpDraft;
 /** What a field-level validation failure names. */
@@ -208,9 +222,14 @@ export type McpDraftError = {
     readonly code: 'malformed';
     readonly where: string;
 } | {
-    readonly field: 'startupTimeoutMs' | 'toolCallTimeoutMs';
+    readonly field: McpNumberField;
     readonly code: 'number';
+} | {
+    readonly field: 'maxDelayMs';
+    readonly code: 'order';
 };
+/** The editor's numeric fields, all positive integers. */
+export type McpNumberField = 'startupTimeoutMs' | 'toolCallTimeoutMs' | 'closeTimeoutMs' | 'initialDelayMs' | 'maxDelayMs' | 'maxAttempts';
 /**
  * The same rules the manager enforces at write time, checked before the
  * round trip so the form can point at the field rather than a Host message.
@@ -226,8 +245,6 @@ export declare function pendingToStore(draft: McpDraft): McpPendingSecret[];
  * the old key in the same write, so the document never holds both.
  */
 export declare function saveOps(draft: McpDraft, original: string | undefined): McpSettingsOp[];
-/** A legal credential reference name for one field of one server. */
-export declare function suggestRef(server: string, field: string, taken?: ReadonlySet<string>): string;
 /**
  * Move one plaintext value into the pending credential list and put its
  * template in its place. A `Bearer <token>` header keeps its scheme word.

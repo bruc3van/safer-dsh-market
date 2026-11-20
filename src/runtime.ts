@@ -12,7 +12,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSource } from './catalog.ts'
 import type { InstalledManager } from './installed.ts'
-import type { McpHostContext } from './contract.ts'
+import type { McpAdoptResult, McpHostContext } from './contract.ts'
 import type {
   MarketCatalogResult,
   MarketEnvironment,
@@ -43,6 +43,7 @@ export class SafeMarketRuntime extends TypertRemoteService {
     private readonly environment: MarketEnvironment,
     private readonly installed: InstalledManager,
     private readonly readMcp: () => McpHostContext,
+    private readonly adopt: (loaderId: string) => Promise<McpAdoptResult>,
   ) {
     super(ctx, 'dshMarketPro')
   }
@@ -143,5 +144,16 @@ export class SafeMarketRuntime extends TypertRemoteService {
   @Remote
   inspectMcp(): McpHostContext {
     return this.readMcp()
+  }
+
+  /**
+   * Move one static MCP row under the manager: its plaintext secrets go to
+   * the credential store and its templated entry is written through
+   * Settings, switched off — all on the Host, so no value crosses the wire.
+   * Switching the static row off is left to the official plugin manager.
+   */
+  @Remote
+  async adoptMcp(request: { readonly loaderId: string }): Promise<McpAdoptResult> {
+    return await this.adopt(request.loaderId)
   }
 }

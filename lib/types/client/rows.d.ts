@@ -19,6 +19,12 @@ export declare const INSTALLED_FILTER = "dsh:installed";
 export declare const SELF_CARD_KEY = "dsh:self";
 /** Card-state key for a review launched from the installed-package view. */
 export declare function installedReviewCardKey(packageName: string): string;
+/** Sort order for the All catalog view. */
+export type MarketSort = 'active' | 'stars' | 'updated';
+/** Combine repository stars with update recency, sinking archived or disabled repositories. */
+export declare function activeHeatScore(item: MarketPlugin, referenceMs: number): number;
+/** Sort rows for the All catalog view by active popularity, stars, or update date. */
+export declare function sortMarketRows(items: readonly MarketPlugin[], sort: MarketSort, referenceAt?: string): MarketPlugin[];
 /** `1998` → `2.0k`: a card has room for the magnitude, not the digits. */
 export declare function starCount(stars: number): string;
 /** Whether one row survives the current query and category filter. */
@@ -34,6 +40,12 @@ export declare function featuredRows(featured: MarketFeatured | undefined, query
  * Schema 3 keeps the repository list distinct from subscription packages.
  */
 export declare function marketRows(items: readonly MarketPlugin[], featured: MarketFeatured | undefined, query: string): readonly MarketPlugin[];
+/**
+ * Count how many plugins in the full catalog match the query across all
+ * categories, so narrowed scopes can tell the user whether widening to All
+ * will yield results.
+ */
+export declare function allCatalogMatchCount(items: readonly MarketPlugin[], featured: MarketFeatured | undefined, query: string, english: boolean): number;
 /**
  * How a row can be installed, from the same two sources the install button
  * reads: the publisher's `install_status` when the feed carries one (schema 3),

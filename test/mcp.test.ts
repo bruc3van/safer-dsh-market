@@ -211,12 +211,12 @@ test('converting a plaintext value stores it as a pending credential and leaves 
   // The user typed over one template afterwards: that secret is no longer named and must not be stored.
   assert.deepEqual(pendingToStore({ ...draft, args: ['--api-key', 'typed', '--token=${credential:B}'] }).map(secret => secret.ref), ['B', 'C'])
 
-  const http = convertToCredential({ ...emptyDraft(), transport: 'streamable-http', url: 'https://x/mcp?key=k%201',
+  const http = convertToCredential({ ...emptyDraft(), transport: 'streamable-http', url: 'https://x/mcp?key=k%261%3D2&v=1',
     headers: [{ key: 'Authorization', value: 'Bearer tok' }] }, 'headers.Authorization', 'H')
   assert.deepEqual(http.headers, [{ key: 'Authorization', value: 'Bearer ${credential:H}' }])
   const url = convertToCredential(http, 'url', 'U')
-  assert.equal(url.url, 'https://x/mcp?key=${credential:U}')
-  assert.deepEqual(url.pending.at(-1), { ref: 'U', value: 'k 1' })
+  assert.equal(url.url, 'https://x/mcp?key=${credential:U}&v=1')
+  assert.deepEqual(url.pending.at(-1), { ref: 'U', value: 'k%261%3D2' })
 })
 
 test('credential names are legal and do not collide', () => {

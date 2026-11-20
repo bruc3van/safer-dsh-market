@@ -19,6 +19,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
+  McpAdoptResult,
   McpHostContext,
   MarketCatalogResult,
   MarketEnvironment,
@@ -112,6 +113,7 @@ interface SafeMarketFace {
   setInstalledEnabled(update: { packageName: string; enabled: boolean }): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
   uninstallInstalled(update: { packageName: string }): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
   inspectMcp(): Promise<{ ok: true; value: McpHostContext } | { ok: false; error: { code: string; message: string } }>
+  adoptMcp(request: { loaderId: string }): Promise<{ ok: true; value: McpAdoptResult } | { ok: false; error: { code: string; message: string } }>
 }
 
 /** The slice of the Host's session namespace the folder action calls. */
@@ -419,6 +421,13 @@ export function apply(ctx: ClientContext): void {
       const remote = market
       if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
       const result = await remote.inspectMcp()
+      if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+      return result.value
+    },
+    adopt: async (loaderId) => {
+      const remote = market
+      if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
+      const result = await remote.adoptMcp({ loaderId })
       if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
       return result.value
     },

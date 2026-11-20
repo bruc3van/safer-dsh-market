@@ -34,7 +34,7 @@ import { FEATURED_CATEGORY, SUBSCRIPTION_CATEGORY, isSafeVersion } from '../shap
 import type { MarketLocale } from './copy.ts'
 import { ownedBy, ownedIndexOf, shortName } from './owned.ts'
 import {
-  INSTALLED_FILTER, SELF_CARD_KEY, featuredRows, installedReviewCardKey, marketKey, marketRows, matches, pageOf, starCount, stateOf,
+  INSTALLED_FILTER, SELF_CARD_KEY, allCatalogMatchCount, featuredRows, installedReviewCardKey, marketKey, marketRows, matches, pageOf, sortMarketRows, starCount, stateOf, type MarketSort,
 } from './rows.ts'
 import { SkillsView } from './SkillsView.tsx'
 import { McpView } from './McpView.tsx'
@@ -469,11 +469,72 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
   )
 }
 
+function MarketEmptyState({ icon, badge, title, description, primaryAction, secondaryAction }: {
+  icon: 'scope' | 'search' | 'installed'
+  badge?: string
+  title: string
+  description: string
+  primaryAction?: { label: string; count?: number; arrow?: boolean; onClick: () => void }
+  secondaryAction?: { label: string; onClick: () => void }
+}): ReactElement {
+  return (
+    <div className="dsh_market_empty" role="status" aria-live="polite">
+      <div className="dsh_market_emptyIcon" aria-hidden="true">
+        {icon === 'scope' && (
+          <svg viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m20 20-4.2-4.2" />
+            <path d="M11 8.5v5M8.5 11h5" />
+          </svg>
+        )}
+        {icon === 'search' && (
+          <svg viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m20 20-4.2-4.2" />
+            <path d="M8.8 11h4.4" />
+          </svg>
+        )}
+        {icon === 'installed' && (
+          <svg viewBox="0 0 24 24">
+            <path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z" />
+            <path d="M4 7.5 12 12l8-4.5M12 12v9" />
+          </svg>
+        )}
+      </div>
+      {badge !== undefined && <span className="dsh_market_emptyBadge">{badge}</span>}
+      <h3 className="dsh_market_emptyTitle">{title}</h3>
+      <p className="dsh_market_emptyDesc">{description}</p>
+      {(primaryAction !== undefined || secondaryAction !== undefined) && (
+        <div className="dsh_market_emptyActions">
+          {primaryAction !== undefined && (
+            <button type="button" className="dsh_market_primary dsh_market_emptyAction" onClick={primaryAction.onClick}>
+              <span>{primaryAction.label}</span>
+              {primaryAction.count !== undefined && <span className="dsh_market_emptyCount">{primaryAction.count}</span>}
+              {primaryAction.arrow && (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14m-5-5 5 5-5 5" />
+                </svg>
+              )}
+            </button>
+          )}
+          {secondaryAction !== undefined && (
+            <button type="button" className="dsh_market_ghost dsh_market_emptyAction" onClick={secondaryAction.onClick}>
+              {secondaryAction.label}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** The installed set as a card grid, with its own status lines above it. */
-function InstalledCards({ t, installed, needle, snapshot, cards, installBusy, readiness, onReview, onCheckUpdate, availableUpdates }: {
+function InstalledCards({ t, installed, needle, catalog, english, snapshot, cards, installBusy, readiness, onReview, onCheckUpdate, availableUpdates, onSwitchToAll, onSwitchToFeatured, onClearFilters }: {
   t: MarketLocale
   installed: ReturnType<typeof useInstalled>
   needle: string
+  catalog: MarketCatalog | null
+  english: boolean
   snapshot: SafeMarketSnapshot
   cards: Readonly<Record<string, CardState>>
   installBusy: boolean
@@ -481,6 +542,9 @@ function InstalledCards({ t, installed, needle, snapshot, cards, installBusy, re
   onReview: (item: MarketInstalledPackage, viaNewWorkspace: boolean) => void
   onCheckUpdate?: (packageName: string) => void
   availableUpdates?: Readonly<Record<string, string>>
+  onSwitchToAll: (focusSearch?: boolean, clearQuery?: boolean) => void
+  onSwitchToFeatured?: () => void
+  onClearFilters: () => void
 }): ReactElement {
   const { state, notice, actionError, reload } = installed
   const shown = state.status === 'ready' && state.result.error === ''
@@ -493,6 +557,10 @@ function InstalledCards({ t, installed, needle, snapshot, cards, installBusy, re
         item.repository,
       ].some(text => text.toLocaleLowerCase().includes(needle))))
     : []
+  const allMatchCount = useMemo(() => {
+    if (catalog === null || shown.length > 0 || needle === '') return 0
+    return allCatalogMatchCount(catalog.items, catalog.featured, needle, english)
+  }, [catalog, shown.length, needle, english])
   return (
     <>
       <p className="dsh_market_installedBody">{t('installed.body')}</p>
@@ -513,10 +581,37 @@ function InstalledCards({ t, installed, needle, snapshot, cards, installBusy, re
         <p className="dsh_market_status" data-error="true">{t('installed.failed', { reason: state.result.error })}</p>
       )}
       {state.status === 'ready' && state.result.error === '' && state.result.packages.length === 0 && (
-        <p className="dsh_market_status">{t('installed.empty')}</p>
+        <MarketEmptyState
+          icon="installed"
+          title={t('empty.installedTitle')}
+          description={t('empty.installedHint')}
+          primaryAction={{
+            label: t('empty.switchToAll'),
+            count: catalog?.items.length,
+            arrow: true,
+            onClick: () => onSwitchToAll(false, true),
+          }}
+          secondaryAction={onSwitchToFeatured ? { label: t('empty.browseFeatured'), onClick: onSwitchToFeatured } : undefined}
+        />
       )}
       {state.status === 'ready' && state.result.error === '' && state.result.packages.length > 0 && shown.length === 0 && (
-        <p className="dsh_market_status">{t('empty')}</p>
+        <MarketEmptyState
+          icon="scope"
+          badge={allMatchCount > 0 ? t('empty.allFound', { count: String(allMatchCount) }) : undefined}
+          title={t('empty.installedSearchTitle')}
+          description={allMatchCount > 0
+            ? t('empty.installedHasAll', { installed: String(state.result.packages.length), count: String(allMatchCount) })
+            : t('empty.installedNoAll')}
+          primaryAction={catalog !== null
+            ? {
+                label: t('empty.switchToAll'),
+                count: allMatchCount > 0 ? allMatchCount : undefined,
+                arrow: true,
+                onClick: () => onSwitchToAll(allMatchCount === 0),
+              }
+            : { label: t('filter.clear'), onClick: onClearFilters }}
+          secondaryAction={catalog !== null ? { label: t('filter.clear'), onClick: onClearFilters } : undefined}
+        />
       )}
       {shown.length > 0 && (
         <ul className="dsh_market_cards dsh_market_cardsUniform">
@@ -574,8 +669,10 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
   // to All (see `scope` below), so no feed can open on an empty page.
   const [category, setCategory] = useState(FEATURED_CATEGORY)
   const [filterCategory, setFilterCategory] = useState('')
+  const [sort, setSort] = useState<MarketSort>('active')
   const [page, setPage] = useState(0)
   const resultsRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const installed = useInstalled({ t, active: enabled, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled })
   useEffect(() => { if (installedRevision > 0) installed.reload() }, [installedRevision, installed.reload])
   useLayoutEffect(() => {
@@ -662,10 +759,16 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
     ? []
     : featuredSelected
       ? featuredRows(catalog.featured, needle, english, scope)
-      : marketRows(catalog.items, catalog.featured, needle)
-        .filter(item => matches(item, needle, scope, english))
-        .sort((a, b) => b.stars - a.stars)
-        .map(item => ({ item })), [catalog, installedSelected, featuredSelected, needle, english, scope])
+      : sortMarketRows(
+        marketRows(catalog.items, catalog.featured, needle).filter(item => matches(item, needle, scope, english)),
+        sort,
+        catalog.fetchedAt,
+      ).map(item => ({ item })), [catalog, installedSelected, featuredSelected, needle, english, scope, sort])
+  const allMatchCount = useMemo(() => {
+    if (catalog === null || installedSelected || shown.length > 0) return 0
+    if (!featuredSelected && scope === '') return 0
+    return allCatalogMatchCount(catalog.items, catalog.featured, needle, english)
+  }, [catalog, installedSelected, shown.length, featuredSelected, scope, needle, english])
   const paged = pageOf(shown, page)
   useLayoutEffect(() => {
     resultsRef.current?.scrollTo({ top: 0, behavior: 'instant' })
@@ -673,7 +776,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
   useEffect(() => {
     setPage(0)
     resultsRef.current?.scrollTo({ top: 0 })
-  }, [catalog, category, filterCategory, query, english])
+  }, [catalog, category, filterCategory, sort, query, english])
 
   if (!snapshot.settingsReady) {
     return <p className="dsh_market_status" role="status">{t('loading')}</p>
@@ -716,6 +819,29 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
     }), viaNewWorkspace)
   }
 
+  const clearFilters = (): void => {
+    setQuery('')
+    setFilterCategory('')
+  }
+
+  const switchToAll = (focusSearch = false, clearQuery = false): void => {
+    if (clearQuery) setQuery('')
+    setFilterCategory('')
+    setCategory('')
+    if (focusSearch) {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    }
+  }
+
+  const switchToFeatured = (): void => {
+    setQuery('')
+    setFilterCategory('')
+    setCategory(FEATURED_CATEGORY)
+  }
+
+  const hasFilters = query.trim() !== '' || scope !== ''
+
   return (
     <div className="dsh_market_page dsh_market_fixedPage">
       <div className="dsh_market_controls">
@@ -753,7 +879,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
         <div className="dsh_market_scope" role="group" aria-label={t('filter.scope')}>
           {catalog?.featured !== undefined && (
             <button type="button" className="dsh_market_scopeButton" aria-pressed={featuredSelected}
-              onClick={() => { setQuery(''); setFilterCategory(''); setCategory(FEATURED_CATEGORY) }}>
+              onClick={switchToFeatured}>
               {t('featured.chip')} <span>{catalog.featured.count}</span>
             </button>
           )}
@@ -762,12 +888,13 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
             {t('installed.chip')} <span>{installed.count}</span>
           </button>
           <button type="button" className="dsh_market_scopeButton" aria-pressed={allSelected}
-            onClick={() => { setFilterCategory(''); setCategory('') }}>
+            onClick={() => switchToAll(false)}>
             {t('all')} {catalog !== null && <span>{catalog.items.length}</span>}
           </button>
         </div>
         <div className="dsh_market_filterActions">
           <input
+            ref={searchInputRef}
             className="dsh_market_search dsh_market_filterSearch"
             type="search"
             spellCheck={false}
@@ -780,6 +907,13 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
             value={scope} onChange={setFilterCategory} label={t('filter.category')} className="dsh_market_category"
             options={[{ value: '', label: t('filter.allCategories') }, ...filterCategories
               .map(entry => ({ value: entry.key, label: english ? entry.en : entry.zh, count: entry.count }))]} />}
+          {allSelected && catalog !== null && <MarketSelector
+            value={sort} onChange={setSort} label={t('filter.sort')} className="dsh_market_sort"
+            options={[
+              { value: 'active', label: t('filter.sort.active') },
+              { value: 'stars', label: t('filter.sort.stars') },
+              { value: 'updated', label: t('filter.sort.updated') },
+            ]} />}
         </div>
 
       </div>
@@ -792,6 +926,8 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
             t={t}
             installed={installed}
             needle={needle}
+            catalog={catalog}
+            english={english}
             snapshot={snapshot}
             cards={cards}
             installBusy={installBusy}
@@ -799,6 +935,9 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
             onReview={reviewInstalledPackage}
             onCheckUpdate={onCheckUpdate}
             availableUpdates={availableUpdates}
+            onSwitchToAll={switchToAll}
+            onSwitchToFeatured={catalog?.featured !== undefined ? switchToFeatured : undefined}
+            onClearFilters={clearFilters}
           />
           )
         : state.status === 'error'
@@ -815,22 +954,70 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
               </div>
               )
             : (
-              <p className="dsh_market_status" aria-busy={refreshing ? 'true' : undefined} aria-live="polite">
-                {refreshing
-                  ? t('refreshing')
-                  : shown.length === 0
-                    ? t('empty')
-                    : query.trim() !== '' || scope !== ''
+              <>
+                {(refreshing || shown.length > 0) && (
+                  <p className="dsh_market_status" aria-busy={refreshing ? 'true' : undefined} aria-live="polite">
+                    {refreshing
+                      ? t('refreshing')
+                      : hasFilters
                         ? t('filter.results', { shown: String(shown.length) })
-                      : featuredSelected && catalog.featured !== undefined
-                        ? t('featured.summary', { count: String(catalog.featured.count) })
-                        : t('summary', {
-                          total: String(catalog.items.length),
-                          categories: String(catalog.categories.filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY).length),
-                        })}
-                {(query.trim() !== '' || scope !== '') && <button type="button" className="dsh_market_clearFilters"
-                  onClick={() => { setQuery(''); setFilterCategory('') }}>{t('filter.clear')}</button>}
-              </p>
+                        : featuredSelected && catalog.featured !== undefined
+                          ? t('featured.summary', { count: String(catalog.featured.count) })
+                          : t('summary', {
+                            total: String(catalog.items.length),
+                            categories: String(catalog.categories.filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY).length),
+                          })}
+                    {hasFilters && shown.length > 0 && <button type="button" className="dsh_market_clearFilters"
+                      onClick={clearFilters}>{t('filter.clear')}</button>}
+                  </p>
+                )}
+                {shown.length === 0 && (
+                  featuredSelected
+                    ? (
+                      <MarketEmptyState
+                        icon="scope"
+                        badge={needle !== '' && allMatchCount > 0 ? t('empty.allFound', { count: String(allMatchCount) }) : undefined}
+                        title={t('empty.featuredTitle')}
+                        description={needle === ''
+                          ? t('empty.featuredScope', { total: String(catalog.items.length) })
+                          : allMatchCount > 0
+                            ? t('empty.featuredHasAll', { featured: String(catalog.featured?.count ?? 0), count: String(allMatchCount) })
+                            : t('empty.featuredNoAll', { featured: String(catalog.featured?.count ?? 0), total: String(catalog.items.length) })}
+                        primaryAction={{
+                          label: t('empty.switchToAll'),
+                          count: needle === '' ? catalog.items.length : allMatchCount > 0 ? allMatchCount : undefined,
+                          arrow: true,
+                          onClick: () => switchToAll(needle !== '' && allMatchCount === 0),
+                        }}
+                        secondaryAction={hasFilters ? { label: t('filter.clear'), onClick: clearFilters } : undefined}
+                      />
+                      )
+                    : scope !== '' && allMatchCount > 0
+                      ? (
+                        <MarketEmptyState
+                          icon="scope"
+                          badge={t('empty.allCategoriesFound', { count: String(allMatchCount) })}
+                          title={t('empty.allTitle')}
+                          description={t('empty.allCategoryHint', { count: String(allMatchCount) })}
+                          primaryAction={{
+                            label: t('empty.allCategories'),
+                            count: allMatchCount,
+                            arrow: true,
+                            onClick: () => setFilterCategory(''),
+                          }}
+                          secondaryAction={{ label: t('filter.clear'), onClick: clearFilters }}
+                        />
+                        )
+                      : (
+                        <MarketEmptyState
+                          icon="search"
+                          title={t('empty.allTitle')}
+                          description={t('empty.allHint', { total: String(catalog.items.length) })}
+                          primaryAction={hasFilters ? { label: t('filter.clear'), onClick: clearFilters } : undefined}
+                        />
+                        )
+                )}
+              </>
               )}
 
       {!installedSelected && shown.length > 0 && (

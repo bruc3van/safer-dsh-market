@@ -1,14 +1,14 @@
-interface MenuOption {
-    value: string;
+interface MenuOption<T extends string = string> {
+    value: T;
     label: string;
     count?: number;
 }
 /** Shared theme-aware single-choice menu for marketplace controls. */
-export declare function MarketSelector({ value, onChange, label, options, className }: {
-    value: string;
-    onChange: (value: string) => void;
+export declare function MarketSelector<T extends string = string>({ value, onChange, label, options, className }: {
+    value: T;
+    onChange: (value: T) => void;
     label: string;
-    options: readonly MenuOption[];
+    options: readonly MenuOption<T>[];
     className: string;
 }): import("react").JSX.Element;
 export {};

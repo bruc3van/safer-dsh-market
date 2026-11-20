@@ -25,6 +25,106 @@ export function installedReviewCardKey(packageName: string): string {
   return `dsh:review:${packageName}`
 }
 
+/** Sort order for the All catalog view. */
+export type MarketSort = 'active' | 'stars' | 'updated'
+
+const DAY_MS = 86_400_000
+const ACTIVE_DECAY_DAYS = 30
+const ACTIVE_DECAY_EXPONENT = 1.5
+const ISO_DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T ])/
+
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28
+  return month === 4 || month === 6 || month === 9 || month === 11 ? 30 : 31
+}
+
+function safeStars(stars: number): number {
+  return Number.isFinite(stars) && stars > 0 ? stars : 0
+}
+
+function parseDayMs(value: string): number {
+  const match = ISO_DAY_PATTERN.exec(value)
+  if (match !== null) {
+    const year = Number(match[1])
+    const month = Number(match[2])
+    const day = Number(match[3])
+    if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return Number.NaN
+    return Date.UTC(year, month - 1, day)
+  }
+  return Date.parse(value)
+}
+
+function pushedDayOf(value: string): string {
+  const match = ISO_DAY_PATTERN.exec(value)
+  if (match !== null) {
+    const year = Number(match[1])
+    const month = Number(match[2])
+    const day = Number(match[3])
+    if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return ''
+    return value.slice(0, 10)
+  }
+  const ms = Date.parse(value)
+  if (!Number.isFinite(ms)) return ''
+  const date = new Date(ms)
+  const year = date.getUTCFullYear()
+  if (year < 0 || year > 9999) return ''
+  return `${String(year).padStart(4, '0')}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function compareDesc(a: string, b: string): number {
+  return a === b ? 0 : b > a ? 1 : -1
+}
+
+/** Combine repository stars with update recency, sinking archived or disabled repositories. */
+export function activeHeatScore(item: MarketPlugin, referenceMs: number): number {
+  const stars = safeStars(item.stars)
+  if (item.archived || item.disabled || stars === 0 || !Number.isFinite(referenceMs)) return 0
+  const pushedMs = parseDayMs(item.pushedAt)
+  if (!Number.isFinite(pushedMs)) return 0
+  const ageDays = Math.max(0, (referenceMs - pushedMs) / DAY_MS)
+  return stars / ((1 + ageDays / ACTIVE_DECAY_DAYS) ** ACTIVE_DECAY_EXPONENT)
+}
+
+/** Sort rows for the All catalog view by active popularity, stars, or update date. */
+export function sortMarketRows(items: readonly MarketPlugin[], sort: MarketSort, referenceAt = ''): MarketPlugin[] {
+  if (items.length <= 1) return [...items]
+  if (sort === 'stars') {
+    return items
+      .map(item => ({ item, stars: safeStars(item.stars), day: pushedDayOf(item.pushedAt) }))
+      .sort((a, b) =>
+        b.stars - a.stars
+        || compareDesc(a.day, b.day)
+        || a.item.fullName.localeCompare(b.item.fullName))
+      .map(entry => entry.item)
+  }
+  if (sort === 'updated') {
+    return items
+      .map(item => ({ item, stars: safeStars(item.stars), day: pushedDayOf(item.pushedAt) }))
+      .sort((a, b) =>
+        compareDesc(a.day, b.day)
+        || b.stars - a.stars
+        || a.item.fullName.localeCompare(b.item.fullName))
+      .map(entry => entry.item)
+  }
+  const parsedRef = referenceAt === '' ? Number.NaN : parseDayMs(referenceAt)
+  const referenceMs = Number.isFinite(parsedRef) ? parsedRef : Date.now()
+  return items
+    .map(item => ({
+      item,
+      inactive: item.archived || item.disabled ? 1 : 0,
+      score: activeHeatScore(item, referenceMs),
+      day: pushedDayOf(item.pushedAt),
+      stars: safeStars(item.stars),
+    }))
+    .sort((a, b) =>
+      a.inactive - b.inactive
+      || b.score - a.score
+      || compareDesc(a.day, b.day)
+      || b.stars - a.stars
+      || a.item.fullName.localeCompare(b.item.fullName))
+    .map(entry => entry.item)
+}
+
 /** `1998` → `2.0k`: a card has room for the magnitude, not the digits. */
 export function starCount(stars: number): string {
   if (stars < 1_000) return String(stars)
@@ -59,6 +159,26 @@ export function marketRows(items: readonly MarketPlugin[], featured: MarketFeatu
   if (query === '' || featured === undefined || featured.categories !== undefined) return items
   const listed = new Set(items.map(item => item.fullName.toLowerCase()))
   return [...items, ...featured.entries.map(entry => entry.item).filter(item => !listed.has(item.fullName.toLowerCase()))]
+}
+
+/**
+ * Count how many plugins in the full catalog match the query across all
+ * categories, so narrowed scopes can tell the user whether widening to All
+ * will yield results.
+ */
+export function allCatalogMatchCount(
+  items: readonly MarketPlugin[],
+  featured: MarketFeatured | undefined,
+  query: string,
+  english: boolean,
+): number {
+  const rows = marketRows(items, featured, query)
+  if (query === '') return rows.length
+  let count = 0
+  for (const item of rows) {
+    if (matches(item, query, '', english)) count += 1
+  }
+  return count
 }
 
 /**

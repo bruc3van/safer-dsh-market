@@ -11,11 +11,11 @@
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react'
 import type { McpToolGroup, McpUnmanagedServer } from '../contract.ts'
 import type { MarketLocale } from './copy.ts'
-import { staticKey, type McpController, type McpProbeState, type McpSnapshot } from './mcpController.ts'
+import { staticKey, type McpAdoptNote, type McpController, type McpProbeState, type McpSnapshot } from './mcpController.ts'
 import {
   canProbe, canRestart, commandLine, commandRisks, convertToCredential, draftFromEntry, draftPlaintext, emptyDraft,
   isConfigured, isEnabled, pendingToStore, splitCommandLine, statusError, statusKind, suggestRef, summarize, targetOf,
-  transportOf, validateDraft,
+  DEFAULT_CLOSE_MS, RECONNECT_DEFAULTS, transportOf, validateDraft,
   type McpDraft, type McpDraftError, type McpPair, type McpRow, type McpStatus,
 } from './mcpModel.ts'
 
@@ -28,12 +28,26 @@ const TOOL_HEAVY = 40
 function reasonText(t: MarketLocale, raw: string): string {
   switch (raw) {
     case 'settings-unavailable': return t('mcp.reason.settings')
+    case 'settings-readonly': return t('mcp.reason.settingsReadonly')
     case 'namespace-missing': return t('mcp.reason.namespace')
     case 'manager-unavailable': return t('mcp.reason.manager')
     case 'credentials-unavailable': return t('mcp.reason.credentials')
     case 'plugins-unavailable': return t('mcp.reason.plugins')
     case 'name-conflict': return t('mcp.reason.nameConflict')
-    default: return raw
+    case 'adopt-unavailable': return t('mcp.reason.adopt')
+    case 'overridden': return t('mcp.static.overridden')
+    default:
+      // Host refusals arrive wrapped (`<code>: <message>`); name the ones this page raises.
+      if (/\bsettings-unavailable\b/.test(raw)) return t('mcp.reason.settings')
+      if (/\bsettings-readonly\b/.test(raw)) return t('mcp.reason.settingsReadonly')
+      if (/\bmanager-unavailable\b/.test(raw)) return t('mcp.reason.manager')
+      if (/\bcredentials-unavailable\b/.test(raw)) return t('mcp.reason.credentials')
+      if (/\bname-taken\b/.test(raw)) return t('mcp.reason.nameTaken')
+      if (/\bnot-found\b/.test(raw)) return t('mcp.reason.notFound')
+      if (/\bblocked-expression\b/.test(raw)) return t('mcp.adopt.blocked.expression')
+      if (/\bblocked-name\b/.test(raw)) return t('mcp.adopt.blocked.name')
+      if (/\bblocked-transport\b/.test(raw)) return t('mcp.adopt.blocked.transport')
+      return raw
   }
 }
 
@@ -108,6 +122,17 @@ export function McpView({ t, controller, onBrowsePlugins }: {
   const loading = snapshot.mode === 'loading'
   const filterCount = (value: Filter) => snapshot.rows.filter(row => matchesFilter(row, value)).length
     + (value === 'all' ? unmanaged.length : 0)
+  const canOpenDocument = !loading && snapshot.mode !== 'legacy' && snapshot.mode !== 'error'
+    && snapshot.hasSettingsDocument && controller.supports('openDocument')
+  const [openingDocument, setOpeningDocument] = useState(false)
+  const [documentError, setDocumentError] = useState('')
+  const openDocument = async () => {
+    setOpeningDocument(true)
+    setDocumentError('')
+    const failure = await controller.openSettingsDocument()
+    setOpeningDocument(false)
+    setDocumentError(failure)
+  }
 
   return (
     <div className="dsh_market_page dsh_market_fixedPage">
@@ -118,6 +143,13 @@ export function McpView({ t, controller, onBrowsePlugins }: {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" /></svg>
             {t('mcp.refresh')}
           </button>
+          {canOpenDocument && (
+            <button className="dsh_market_headerAction" type="button" title={t('mcp.openDocument.hint')} disabled={openingDocument}
+              onClick={() => { void openDocument() }}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></svg>
+              {t('mcp.openDocument')}
+            </button>
+          )}
           {writable && (
             <button className="dsh_market_install dsh_market_mcpAdd" type="button" onClick={() => setEditing({ row: null })}>
               {t('mcp.add')}
@@ -147,6 +179,9 @@ export function McpView({ t, controller, onBrowsePlugins }: {
       <div className="dsh_market_results" aria-busy={loading}>
         {loading && <p className="dsh_market_status" role="status">{t('mcp.loading')}</p>}
         <PageNotices t={t} snapshot={snapshot} totalTools={totalTools} />
+        {documentError !== '' && (
+          <p className="dsh_market_status" role="alert" data-error="true">{t('mcp.openDocument.failed', { reason: reasonText(t, documentError) })}</p>
+        )}
         {!loading && snapshot.mode !== 'legacy' && snapshot.mode !== 'error' && snapshot.rows.length === 0 && unmanaged.length === 0 && (
           <div className="dsh_market_notice">
             <p className="dsh_market_noticeBody">{t('mcp.empty')}</p>
@@ -171,7 +206,7 @@ export function McpView({ t, controller, onBrowsePlugins }: {
             <ul className="dsh_market_cards">
               {statics.map(server => (
                 <StaticCard key={server.entryId} t={t} server={server} tools={ownsTools(server) ? toolsOf.get(server.serverName) : undefined}
-                  conflict={managedNames.has(server.serverName)} snapshot={snapshot} controller={controller} />
+                  conflict={managedNames.has(server.serverName)} snapshot={snapshot} controller={controller} writable={writable} />
               ))}
             </ul>
           </section>
@@ -207,25 +242,77 @@ function PageNotices({ t, snapshot, totalTools }: { t: MarketLocale; snapshot: M
   )
 }
 
-function ToolList({ t, tools }: { t: MarketLocale; tools: McpToolGroup | undefined }): ReactElement | null {
+function ToolsButton({ t, name, tools }: { t: MarketLocale; name: string; tools: McpToolGroup | undefined }): ReactElement | null {
   const [open, setOpen] = useState(false)
-  if (tools === undefined || tools.tools.length === 0) return null
+  const hasTools = tools !== undefined && tools.tools.length > 0
+  useEffect(() => {
+    if (!hasTools && open) setOpen(false)
+  }, [hasTools, open])
+  if (!hasTools) return null
   return (
-    <div className="dsh_market_mcpTools">
-      <button type="button" className="dsh_market_chip" aria-expanded={open} onClick={() => setOpen(value => !value)}>
-        {open ? t('mcp.tools.hide') : t('mcp.tools.show', { count: String(tools.tools.length) })}
+    <>
+      <button type="button" className="dsh_market_chip dsh_market_mcpToolsButton" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        {t('mcp.tools.show', { count: String(tools.tools.length) })}
       </button>
-      {open && (
-        <ul className="dsh_market_mcpToolList">
-          {tools.tools.map(tool => (
-            <li key={tool.name}>
-              <code>{tool.name}</code>
-              {tool.description !== '' && <span>{tool.description}</span>}
-            </li>
-          ))}
-        </ul>
+      {open && <ToolsDialog t={t} name={name} tools={tools} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
+/** Above this many tools the dialog offers a filter box. */
+const TOOL_FILTER = 8
+
+function ToolsDialog({ t, name, tools, onClose }: {
+  t: MarketLocale; name: string; tools: McpToolGroup; onClose: () => void
+}): ReactElement {
+  const id = useId()
+  const dialog = useRef<HTMLDialogElement>(null)
+  const filter = useRef<HTMLInputElement>(null)
+  const list = useRef<HTMLOListElement>(null)
+  const [query, setQuery] = useState('')
+  useEffect(() => {
+    if (!dialog.current?.open) dialog.current?.showModal()
+    ;(filter.current ?? list.current)?.focus({ preventScroll: true })
+  }, [])
+  const close = () => {
+    dialog.current?.close()
+    onClose()
+  }
+  const needle = query.trim().toLowerCase()
+  const shown = needle === '' ? tools.tools
+    : tools.tools.filter(tool => tool.name.toLowerCase().includes(needle) || tool.description.toLowerCase().includes(needle))
+  return (
+    <dialog ref={dialog} className="dsh_market_directPanel dsh_market_mcpToolsDialog" aria-labelledby={id}
+      onCancel={(event) => { event.preventDefault(); close() }}
+      onClick={(event) => { if (event.target === event.currentTarget) close() }}>
+      <div className="dsh_market_directHead">
+        <div className="dsh_market_installHeading">
+          <h3 id={id}>{t('mcp.tools.title', { name })}</h3>
+          <small>{t('mcp.tools.count', { count: String(tools.tools.length) })}</small>
+        </div>
+        <button type="button" className="dsh_market_directClose" aria-label={t('mcp.tools.close')} onClick={close}>
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        </button>
+      </div>
+      {tools.tools.length > TOOL_FILTER && (
+        <input ref={filter} className="dsh_market_search dsh_market_mcpToolsFilter" type="search" spellCheck={false} value={query}
+          placeholder={t('mcp.tools.filter')} aria-label={t('mcp.tools.filter')} onChange={(event) => setQuery(event.target.value)} />
       )}
-    </div>
+      {shown.length === 0
+        ? <p className="dsh_market_mcpToolsEmpty">{t('mcp.tools.noMatch')}</p>
+        : (
+          <ol ref={list} className="dsh_market_mcpToolList" tabIndex={0} aria-label={t('mcp.tools.title', { name })}>
+            {shown.map(tool => (
+              <li key={tool.name}>
+                <span className="dsh_market_mcpToolName">{tool.name}</span>
+                <span className="dsh_market_mcpToolDesc" data-empty={tool.description === '' ? 'true' : undefined}>
+                  {tool.description === '' ? t('mcp.tools.noDescription') : tool.description}
+                </span>
+              </li>
+            ))}
+          </ol>
+          )}
+    </dialog>
   )
 }
 
@@ -256,6 +343,36 @@ function ProbeResult({ t, probe }: { t: MarketLocale; probe: McpProbeState | und
   )
 }
 
+/** What moving this row from a static one did; shown until the page reloads. */
+function AdoptNote({ t, note }: { t: MarketLocale; note: McpAdoptNote | undefined }): ReactElement | null {
+  if (note === undefined) return null
+  const reason = reasonText(t, note.error ?? '')
+  const refs = [...note.stored, ...note.reused]
+  const failed = note.state === 'disable-failed' || note.state === 'enable-failed'
+  return (
+    <>
+      <p className={failed ? 'dsh_market_cardError' : 'dsh_market_cardNotice'} role="status">
+        {note.state === 'enabled' ? t('mcp.adopted.enabled')
+          : note.state === 'kept-off' ? t('mcp.adopted.keptOff')
+            : note.state === 'restart' ? t('mcp.adopted.restart')
+              : note.state === 'disable-failed' ? t('mcp.adopted.disableFailed', { reason })
+                : t('mcp.adopted.enableFailed', { reason })}
+      </p>
+      {refs.length > 0 && <p className="dsh_market_cardNotice">{t('mcp.adopted.stored', { refs: refs.join(', ') })}</p>}
+      {note.dropped.length > 0 && (
+        <p className="dsh_market_cardNotice" data-warning="true">{t('mcp.adopted.dropped', { fields: note.dropped.join(', ') })}</p>
+      )}
+    </>
+  )
+}
+
+/** Where a configured credential's value comes from, in the page's words. */
+function sourceLabel(t: MarketLocale, source: string | undefined): string {
+  if (source === 'file') return t('mcp.cred.source.file')
+  if (source === 'env') return t('mcp.cred.source.env')
+  return source ?? ''
+}
+
 function Credentials({ t, row, snapshot, controller }: {
   t: MarketLocale; row: McpRow; snapshot: McpSnapshot; controller: McpController
 }): ReactElement | null {
@@ -263,7 +380,18 @@ function Credentials({ t, row, snapshot, controller }: {
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [clearingRef, setClearingRef] = useState<string | null>(null)
   if (row.refs.length === 0) return null
+  const canClear = controller.supports('unsetCredential')
+  const clear = async (ref: string) => {
+    if (saving) return
+    setSaving(true)
+    setError('')
+    const failure = await controller.clearCredential(ref)
+    setSaving(false)
+    setClearingRef(null)
+    if (failure !== '') setError(t('mcp.cred.clearFailed', { reason: reasonText(t, failure) }))
+  }
   const save = async (ref: string) => {
     if (value === '' || saving) return
     setSaving(true)
@@ -284,18 +412,40 @@ function Credentials({ t, row, snapshot, controller }: {
         {row.refs.map((ref) => {
           const info = snapshot.credentials[ref]
           const configured = info?.configured === true
+          const source = configured ? sourceLabel(t, info?.source) : ''
+          // An environment value is not the store's to remove; unset would leave it in force.
+          const clearable = canClear && configured && info?.writable === true && info.source !== 'env'
           return (
             <li key={ref}>
               <code>{ref}</code>
               <span className="dsh_market_mcpCredState" data-configured={configured ? 'true' : 'false'}>
-                {configured ? (info?.masked ? `${t('mcp.cred.configured')} · ${info.masked}` : t('mcp.cred.configured')) : t('mcp.cred.missing')}
+                {configured
+                  ? [t('mcp.cred.configured'), source, info?.masked].filter(part => part !== undefined && part !== '').join(' · ')
+                  : t('mcp.cred.missing')}
               </span>
-              {info?.writable === true && editingRef !== ref && (
+              {info?.writable === true && editingRef !== ref && clearingRef !== ref && (
                 <button type="button" className="dsh_market_chip" disabled={saving}
-                  onClick={() => { setEditingRef(ref); setValue(''); setError('') }}>
+                  onClick={() => { setEditingRef(ref); setValue(''); setError(''); setClearingRef(null) }}>
                   {configured ? t('mcp.cred.update') : t('mcp.cred.set')}
                 </button>
               )}
+              {clearable && editingRef !== ref && (clearingRef === ref
+                ? (
+                  <>
+                    <button type="button" className="dsh_market_chip dsh_market_mcpCredDanger" disabled={saving} onClick={() => { void clear(ref) }}>
+                      {saving ? t('mcp.cred.clearing') : t('mcp.cred.clearConfirm')}
+                    </button>
+                    <button type="button" className="dsh_market_chip" disabled={saving} onClick={() => setClearingRef(null)}>
+                      {t('mcp.cancel')}
+                    </button>
+                  </>
+                  )
+                : (
+                  <button type="button" className="dsh_market_chip" disabled={saving} title={t('mcp.cred.clearHint')}
+                    onClick={() => { setClearingRef(ref); setEditingRef(null); setValue(''); setError('') }}>
+                    {t('mcp.cred.clear')}
+                  </button>
+                  ))}
               {info?.writable === false && <span className="dsh_market_meta">{t('mcp.cred.readonly')}</span>}
               {editingRef === ref && (
                 <form className="dsh_market_mcpCredForm" onSubmit={(event) => { event.preventDefault(); void save(ref) }}>
@@ -337,7 +487,7 @@ function McpCard({ t, row, snapshot, controller, writable, tools, onEdit }: {
   // diagnostic would only repeat it.
   const showError = lastError !== '' && kind !== 'connected' && !(row.status?.state === 'waiting-credentials' && row.refs.length > 0)
   return (
-    <li className="dsh_market_card dsh_market_mcpCard">
+    <li className="dsh_market_card dsh_market_mcpCard" data-confirming={confirming ? 'true' : undefined}>
       <div className="dsh_market_head">
         <span className="dsh_market_name" title={row.name}>{row.name}</span>
         <span className="dsh_market_mcpState" data-kind={kind}>{statusLabel(t, row.status)}</span>
@@ -345,21 +495,24 @@ function McpCard({ t, row, snapshot, controller, writable, tools, onEdit }: {
       <div className="dsh_market_meta dsh_market_skillBadges">
         <span className="dsh_market_categoryTag">{t(`mcp.source.${row.source}`)}</span>
         {row.entry && <span className="dsh_market_categoryTag">{transportLabel(t, transportOf(row.entry))}</span>}
+        <ToolsButton t={t} name={row.name} tools={tools} />
       </div>
       {target !== '' && <p className="dsh_market_mcpCode" title={target}>{target}</p>}
-      {row.source === 'registered' && <p className="dsh_market_cardNotice">{t('mcp.registeredHint')}</p>}
-      {row.source === 'retained' && <p className="dsh_market_cardNotice">{t('mcp.retainedHint')}</p>}
-      {kind === 'locked' && row.source !== 'retained' && <p className="dsh_market_cardError">{t('mcp.lockedHint')}</p>}
-      {showError && <p className="dsh_market_cardError" title={lastError}>{t('mcp.lastError', { reason: lastError })}</p>}
-      {row.plaintext.length > 0 && <p className="dsh_market_cardNotice" data-warning="true">{t('mcp.plaintext', { fields: row.plaintext.join(', ') })}</p>}
-      <Credentials t={t} row={row} snapshot={snapshot} controller={controller} />
-      <ToolList t={t} tools={tools} />
-      <ProbeResult t={t} probe={probe} />
-      {actionError !== undefined && (
-        <p className="dsh_market_cardError" role="alert">
-          {/conflict/i.test(actionError) ? t('mcp.conflict') : t('mcp.actionFailed', { reason: reasonText(t, actionError) })}
-        </p>
-      )}
+      <div className="dsh_market_mcpBody">
+        {row.source === 'registered' && <p className="dsh_market_cardNotice">{t('mcp.registeredHint')}</p>}
+        {row.source === 'retained' && <p className="dsh_market_cardNotice">{t('mcp.retainedHint')}</p>}
+        {kind === 'locked' && row.source !== 'retained' && <p className="dsh_market_cardError">{t('mcp.lockedHint')}</p>}
+        {showError && <p className="dsh_market_cardError" title={lastError}>{t('mcp.lastError', { reason: lastError })}</p>}
+        {row.plaintext.length > 0 && <p className="dsh_market_cardNotice" data-warning="true">{t('mcp.plaintext', { fields: row.plaintext.join(', ') })}</p>}
+        <AdoptNote t={t} note={snapshot.adopted[row.name]} />
+        <Credentials t={t} row={row} snapshot={snapshot} controller={controller} />
+        <ProbeResult t={t} probe={probe} />
+        {actionError !== undefined && (
+          <p className="dsh_market_cardError" role="alert">
+            {/conflict/i.test(actionError) ? t('mcp.conflict') : t('mcp.actionFailed', { reason: reasonText(t, actionError) })}
+          </p>
+        )}
+      </div>
       <div className="dsh_market_foot">
         {confirming
           ? (
@@ -412,15 +565,26 @@ function McpCard({ t, row, snapshot, controller, writable, tools, onEdit }: {
   )
 }
 
-function StaticCard({ t, server, tools, conflict, snapshot, controller }: {
+function StaticCard({ t, server, tools, conflict, snapshot, controller, writable }: {
   t: MarketLocale; server: McpUnmanagedServer; tools: McpToolGroup | undefined; conflict: boolean
-  snapshot: McpSnapshot; controller: McpController
+  snapshot: McpSnapshot; controller: McpController; writable: boolean
 }): ReactElement {
+  const [confirmingAdopt, setConfirmingAdopt] = useState(false)
   const key = staticKey(server.loaderId)
   const toggle = snapshot.staticToggles?.[server.loaderId]
   const busy = snapshot.busy[key]
   const error = snapshot.errors[key]
   const notice = snapshot.notices[key]
+  const adoptedNote = snapshot.adopted[server.serverName]
+  const adoptedStopped = adoptedNote !== undefined && !server.enabled
+    && (adoptedNote.state === 'enabled' || adoptedNote.state === 'kept-off')
+  // Adoption switches a running row off through the plugin manager, so a
+  // running row needs that switch; a stopped one only needs the Host verb.
+  const adoptVisible = writable && controller.supports('adopt') && !conflict
+  const toggleVisible = toggle?.available === true && snapshot.mode !== 'readonly'
+  const showFoot = confirmingAdopt || adoptVisible || toggleVisible
+  const adoptBlocked = server.adoptBlocker !== '' ? t(`mcp.adopt.blocked.${server.adoptBlocker}`)
+    : server.enabled && toggle?.available !== true ? t('mcp.adopt.locked') : ''
   // Starting a static row over an enabled managed server of the same name
   // would fail both; the controller refuses it too, this only explains why.
   const blocked = !server.enabled && snapshot.rows.some(row => row.name === server.serverName && row.entry?.enabled !== false)
@@ -434,7 +598,7 @@ function StaticCard({ t, server, tools, conflict, snapshot, controller }: {
         : server.phase === 'pending' || server.phase === 'loading' ? t('mcp.static.loading') : t('mcp.static.stopped')
   const target = server.transport === 'stdio' ? commandLine(server.command, server.args) : server.url
   return (
-    <li className="dsh_market_card dsh_market_mcpCard">
+    <li className="dsh_market_card dsh_market_mcpCard" data-confirming={confirmingAdopt ? 'true' : undefined}>
       <div className="dsh_market_head">
         <span className="dsh_market_name" title={server.entryId}>{server.serverName || server.entryId}</span>
         <span className="dsh_market_mcpState" data-kind={state}>{label}</span>
@@ -442,30 +606,59 @@ function StaticCard({ t, server, tools, conflict, snapshot, controller }: {
       <div className="dsh_market_meta dsh_market_skillBadges">
         <span className="dsh_market_categoryTag">{t('mcp.source.static')}</span>
         <span className="dsh_market_categoryTag">{transportLabel(t, server.transport)}</span>
+        <ToolsButton t={t} name={server.serverName || server.entryId} tools={tools} />
       </div>
       {target !== '' && <p className="dsh_market_mcpCode" title={target}>{target}</p>}
-      {server.envKeys.length > 0 && <p className="dsh_market_meta">{t('mcp.static.env', { keys: server.envKeys.join(', ') })}</p>}
-      {server.headerKeys.length > 0 && <p className="dsh_market_meta">{t('mcp.static.headers', { keys: server.headerKeys.join(', ') })}</p>}
-      {conflict && <p className="dsh_market_cardError">{t('mcp.static.conflict', { name: server.serverName })}</p>}
-      {server.plaintextSecrets.length > 0 && (
-        <p className="dsh_market_cardNotice" data-warning="true">{t('mcp.static.plaintext', { fields: server.plaintextSecrets.join(', ') })}</p>
-      )}
-      <ToolList t={t} tools={tools} />
-      {toggle?.available === false && <p className="dsh_market_meta">{t(`mcp.static.readonly.${toggle.reason}`)}</p>}
-      {notice === 'restart-required' && <p className="dsh_market_cardNotice" role="status">{t('mcp.static.restartRequired')}</p>}
-      {error !== undefined && (
-        <p className="dsh_market_cardError" role="alert">
-          {error === 'overridden' ? t('mcp.static.overridden') : t('mcp.actionFailed', { reason: reasonText(t, error) })}
-        </p>
-      )}
-      {toggle?.available === true && snapshot.mode !== 'readonly' && (
+      <div className="dsh_market_mcpBody">
+        {server.envKeys.length > 0 && <p className="dsh_market_meta">{t('mcp.static.env', { keys: server.envKeys.join(', ') })}</p>}
+        {server.headerKeys.length > 0 && <p className="dsh_market_meta">{t('mcp.static.headers', { keys: server.headerKeys.join(', ') })}</p>}
+        {conflict && (adoptedStopped
+          ? <p className="dsh_market_cardNotice">{t('mcp.static.adopted', { name: server.serverName })}</p>
+          : <p className="dsh_market_cardError">{t('mcp.static.conflict', { name: server.serverName })}</p>)}
+        {server.plaintextSecrets.length > 0 && (
+          <p className="dsh_market_cardNotice" data-warning="true">{t('mcp.static.plaintext', { fields: server.plaintextSecrets.join(', ') })}</p>
+        )}
+        {toggle?.available === false && <p className="dsh_market_meta">{t(`mcp.static.readonly.${toggle.reason}`)}</p>}
+        {notice === 'restart-required' && <p className="dsh_market_cardNotice" role="status">{t('mcp.static.restartRequired')}</p>}
+        {error !== undefined && (
+          <p className="dsh_market_cardError" role="alert">
+            {error === 'overridden' ? t('mcp.static.overridden') : t('mcp.actionFailed', { reason: reasonText(t, error) })}
+          </p>
+        )}
+      </div>
+      {showFoot && (
         <div className="dsh_market_foot">
-          <button type="button" className="dsh_market_ghost" disabled={busy !== undefined || blocked}
-            title={blocked ? t('mcp.reason.nameConflict') : undefined}
-            onClick={() => { void controller.setStaticEnabled(server.loaderId, !server.enabled) }}>
-            {busy === 'enable' ? t('mcp.enabling') : busy === 'disable' ? t('mcp.disabling')
-              : server.enabled ? t('mcp.disable') : t('mcp.enable')}
-          </button>
+          {confirmingAdopt
+            ? (
+              <>
+                <span className="dsh_market_cardNotice" aria-live="polite">{t('mcp.adopt.confirm')}</span>
+                <button type="button" className="dsh_market_ghost" disabled={busy !== undefined}
+                  onClick={() => { void controller.adopt(server.loaderId).then(() => setConfirmingAdopt(false)) }}>
+                  {busy === 'adopt' ? t('mcp.adopting') : t('mcp.confirm')}
+                </button>
+                <button type="button" className="dsh_market_ghost" disabled={busy !== undefined} onClick={() => setConfirmingAdopt(false)}>
+                  {t('mcp.cancel')}
+                </button>
+              </>
+              )
+            : (
+              <>
+                {adoptVisible && (
+                  <button type="button" className="dsh_market_ghost" disabled={busy !== undefined || adoptBlocked !== ''}
+                    title={adoptBlocked !== '' ? adoptBlocked : t('mcp.adopt.hint')} onClick={() => setConfirmingAdopt(true)}>
+                    {t('mcp.adopt')}
+                  </button>
+                )}
+                {toggleVisible && (
+                  <button type="button" className="dsh_market_ghost" disabled={busy !== undefined || blocked}
+                    title={blocked ? t('mcp.reason.nameConflict') : undefined}
+                    onClick={() => { void controller.setStaticEnabled(server.loaderId, !server.enabled) }}>
+                    {busy === 'enable' ? t('mcp.enabling') : busy === 'disable' ? t('mcp.disabling')
+                      : server.enabled ? t('mcp.disable') : t('mcp.enable')}
+                  </button>
+                )}
+              </>
+              )}
         </div>
       )}
     </li>
@@ -480,8 +673,12 @@ function errorText(t: MarketLocale, error: McpDraftError): string {
     case 'env':
     case 'headers': return t(`mcp.error.pairs.${error.code}`)
     case 'template': return t('mcp.error.template', { where: error.where })
+    case 'maxDelayMs': return error.code === 'order' ? t('mcp.error.delayOrder') : t('mcp.error.number')
     case 'startupTimeoutMs':
-    case 'toolCallTimeoutMs': return t('mcp.error.number')
+    case 'toolCallTimeoutMs':
+    case 'closeTimeoutMs':
+    case 'initialDelayMs':
+    case 'maxAttempts': return t('mcp.error.number')
   }
 }
 
@@ -536,7 +733,7 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
   const [touched, setTouched] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [advanced, setAdvanced] = useState(original.startupTimeoutMs !== '' || original.toolCallTimeoutMs !== '')
+  const [advanced, setAdvanced] = useState([original.startupTimeoutMs, original.toolCallTimeoutMs, original.closeTimeoutMs, original.initialDelayMs, original.maxDelayMs, original.maxAttempts].some(text => text !== '') || !original.reconnectEnabled)
   useEffect(() => {
     if (!dialog.current?.open) dialog.current?.showModal()
   }, [])
@@ -587,7 +784,15 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
   }
   const save = async () => {
     setTouched(true)
-    if (errors.length > 0 || !canSave) return
+    if (errors.length > 0) {
+      if (errors.some(error => error.field === 'startupTimeoutMs' || error.field === 'toolCallTimeoutMs'
+        || error.field === 'closeTimeoutMs' || error.field === 'initialDelayMs'
+        || error.field === 'maxDelayMs' || error.field === 'maxAttempts')) {
+        setAdvanced(true)
+      }
+      return
+    }
+    if (!canSave) return
     setSaving(true)
     setSaveError('')
     const outcome = await controller.save({ ...draft, name: draft.name.trim() }, row?.name)
@@ -723,6 +928,26 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
               <input inputMode="numeric" value={draft.toolCallTimeoutMs} onChange={event => set({ toolCallTimeoutMs: event.target.value })} />
               {errorOf('toolCallTimeoutMs') && <span className="dsh_market_cardError">{errorOf('toolCallTimeoutMs')}</span>}
             </label>
+            <label className="dsh_market_mcpField">
+              <span>{t('mcp.field.closeTimeout')}</span>
+              <input inputMode="numeric" value={draft.closeTimeoutMs} placeholder={String(DEFAULT_CLOSE_MS)} onChange={event => set({ closeTimeoutMs: event.target.value })} />
+              {errorOf('closeTimeoutMs') && <span className="dsh_market_cardError">{errorOf('closeTimeoutMs')}</span>}
+            </label>
+            <label className="dsh_market_optionCheck dsh_market_mcpCheck">
+              <input type="checkbox" checked={draft.reconnectEnabled} onChange={event => set({ reconnectEnabled: event.target.checked })} />
+              <span>{t('mcp.field.reconnect')}</span>
+            </label>
+            {!draft.reconnectEnabled && <small className="dsh_market_meta">{t('mcp.field.reconnectOff')}</small>}
+            <div className="dsh_market_mcpFieldRow">
+              {([['initialDelayMs', 'mcp.field.initialDelay'], ['maxDelayMs', 'mcp.field.maxDelay'], ['maxAttempts', 'mcp.field.maxAttempts']] as const).map(([field, label]) => (
+                <label key={field} className="dsh_market_mcpField">
+                  <span>{t(label)}</span>
+                  <input inputMode="numeric" value={draft[field]} disabled={!draft.reconnectEnabled}
+                    placeholder={String(RECONNECT_DEFAULTS[field])} onChange={event => set({ [field]: event.target.value })} />
+                  {errorOf(field) && <span className="dsh_market_cardError">{errorOf(field)}</span>}
+                </label>
+              ))}
+            </div>
           </div>
         </details>
         {needsTrust && (

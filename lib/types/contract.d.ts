@@ -876,7 +876,37 @@ export interface McpUnmanagedServer {
     readonly phase: 'pending' | 'loading' | 'active' | 'failed' | 'disposed' | 'unloading' | null;
     /** Config paths that hold a secret in the clear (`args[3]`, `env.API_KEY`, …). */
     readonly plaintextSecrets: readonly string[];
+    /** Why the row cannot be moved under the manager as it stands, or `''`. */
+    readonly adoptBlocker: McpAdoptBlocker;
 }
+/**
+ * Why a static row cannot become a managed entry: an unknown transport, a
+ * server name the manager would refuse, or an `!!js` expression other than a
+ * plain `process.env.NAME` read.
+ */
+export type McpAdoptBlocker = '' | 'transport' | 'name' | 'expression';
+/** What moving one static row under the manager did. */
+export interface McpAdoptResult {
+    /** The managed entry's name (the static row's `serverName`). */
+    readonly name: string;
+    /** Credential references written by this adoption. */
+    readonly stored: readonly string[];
+    /** References that already held the same value and were reused. */
+    readonly reused: readonly string[];
+    /** Config fields the manager does not accept, left behind. */
+    readonly dropped: readonly string[];
+}
+/** Strict wire codec for one adoption request. */
+export declare const mcpAdoptRequestSchema: z.ZodReadonly<z.ZodObject<{
+    loaderId: z.ZodString;
+}, z.core.$strip>>;
+/** Strict wire codec for one adoption result. */
+export declare const mcpAdoptResultSchema: z.ZodReadonly<z.ZodObject<{
+    name: z.ZodString;
+    stored: z.ZodReadonly<z.ZodArray<z.ZodString>>;
+    reused: z.ZodReadonly<z.ZodArray<z.ZodString>>;
+    dropped: z.ZodReadonly<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>>;
 /** One registered MCP tool, as the model sees its name. */
 export interface McpTool {
     readonly name: string;
@@ -925,6 +955,12 @@ export declare const mcpHostContextSchema: z.ZodReadonly<z.ZodObject<{
             unloading: "unloading";
         }>, z.ZodNull]>;
         plaintextSecrets: z.ZodReadonly<z.ZodArray<z.ZodString>>;
+        adoptBlocker: z.ZodEnum<{
+            "": "";
+            name: "name";
+            transport: "transport";
+            expression: "expression";
+        }>;
     }, z.core.$strip>>>>;
     tools: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
         server: z.ZodString;

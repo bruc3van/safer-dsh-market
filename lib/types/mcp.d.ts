@@ -10,13 +10,19 @@
  *   on a machine that runs several.
  * - **Live tools.** The global tool view, grouped by server namespace.
  *
- * Read-only by construction: nothing here writes the profile or the Loader.
+ * The scan never writes: it touches neither the profile nor the Loader.
  * Static rows are masked before they leave the Host — only env and header
  * NAMES travel, and a secret-looking argument or URL query value is replaced.
+ *
+ * The one write is {@link adoptMcp}: it moves a static row under the manager
+ * by storing its plaintext secrets in the credential store and writing the
+ * templated entry through Settings, both on this side of the wire, so the
+ * values still never reach the browser. Switching the static row off stays
+ * with the official plugin manager, which the browser calls next.
  * @module dsh-market-pro/mcp
  */
 import type { Context } from '@deepseek-ai/cordis';
-import type { McpHostContext, McpToolGroup, McpUnmanagedServer } from './contract.ts';
+import type { McpAdoptBlocker, McpAdoptResult, McpHostContext, McpToolGroup, McpUnmanagedServer } from './contract.ts';
 /** The Loader entry fields this scan reads, structurally. */
 export interface McpLoaderEntry {
     readonly id: string;
@@ -32,6 +38,45 @@ export interface McpLoaderEntry {
 }
 /** Reduce one static `dsh-mcp-client` row to its masked, wire-safe view. */
 export declare function unmanagedOf(entry: McpLoaderEntry): McpUnmanagedServer;
+/** One plaintext value the adoption moves into the credential store. */
+export interface McpAdoptSecret {
+    /** What the credential reference is named after (`api-key`, `GITHUB_TOKEN`, …). */
+    readonly label: string;
+    readonly value: string;
+}
+/** A static row, translated into a manager entry whose secrets await their references. */
+export interface McpAdoptPlan {
+    readonly name: string;
+    readonly secrets: readonly McpAdoptSecret[];
+    /** Fields the manager does not accept, by config path; they are left behind. */
+    readonly dropped: readonly string[];
+    /** The entry, with secret `i` replaced by the template of `refs[i]`. */
+    build(refs: readonly string[]): Record<string, unknown>;
+}
+/**
+ * Translate one static `dsh-mcp-client` config into a manager entry.
+ *
+ * Every plaintext secret the scan would mask becomes a credential slot; a
+ * `process.env.NAME` expression becomes `${credential:NAME}`; any other
+ * expression, an unknown transport or an illegal server name blocks it.
+ */
+export declare function adoptionPlan(config: unknown): McpAdoptPlan | {
+    readonly blocker: Exclude<McpAdoptBlocker, ''>;
+};
+/** Why one static config cannot be adopted, or `''`. */
+export declare function adoptBlockerOf(config: unknown): McpAdoptBlocker;
+/**
+ * Move one static row under the manager.
+ *
+ * Secrets go to the credential store first — each under a fresh reference,
+ * or an existing one that already holds the same value — then the templated
+ * entry is written switched off, so it never races the static row for its
+ * server name; the browser turns it on once the static row has stopped. A
+ * failure before the write leaves Settings untouched.
+ * @param loaderId - the static row's full Loader identity.
+ * @throws Error when the row is unknown or blocked, the name is taken, or a store refuses.
+ */
+export declare function adoptMcp(ctx: Context, entries: Iterable<McpLoaderEntry>, loaderId: string): Promise<McpAdoptResult>;
 /**
  * Group `mcp__<server>__<tool>` names under their server. A known server name
  * wins by longest prefix (server names may themselves contain `__`); anything

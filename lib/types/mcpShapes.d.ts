@@ -38,6 +38,8 @@ export declare function isSecretUrl(url: string): boolean;
  * a `--token=…` form.
  */
 export declare function secretArgIndexes(args: readonly string[]): number[];
+/** A legal credential reference name for one field of one server. */
+export declare function suggestRef(server: string, field: string, taken?: ReadonlySet<string>): string;
 /** What a masked value renders as. */
 export declare const MASK = "\u2022\u2022\u2022\u2022\u2022\u2022";
 /** Mask one argument, keeping a `--flag=` prefix legible. */

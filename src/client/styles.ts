@@ -439,7 +439,8 @@ export const cssText = `
 }
 .dsh_market_search.dsh_market_filterSearch,
 .dsh_market_search.dsh_market_skillSearch,
-.dsh_market_category .dsh_market_modeTrigger { height: 36px; }
+.dsh_market_category .dsh_market_modeTrigger,
+.dsh_market_sort .dsh_market_modeTrigger { height: 36px; }
 .dsh_market_scope {
   display: inline-flex; flex: none; gap: 2px; padding: 3px; border-radius: 9px;
   background: var(--dsw-alias-interactive-bg-hover);
@@ -453,18 +454,22 @@ export const cssText = `
   background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-primary);
 }
 .dsh_market_scopeButton span { opacity: .65; font-variant-numeric: tabular-nums; }
-.dsh_market_category {
+.dsh_market_category,
+.dsh_market_sort {
   display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%;
   font-size: 12px; color: var(--dsw-alias-label-secondary);
 }
 /* The menu's current value already says what it filters, so the label is
    kept for screen readers only (the menu is labelled by it). */
-.dsh_market_category > span {
+.dsh_market_category > span,
+.dsh_market_sort > span {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip-path: inset(50%); white-space: nowrap;
 }
-.dsh_market_category .dsh_market_modeControl { min-width: 0; }
-.dsh_market_category .dsh_market_modeTrigger { width: 200px; }
+.dsh_market_category .dsh_market_modeControl,
+.dsh_market_sort .dsh_market_modeControl { min-width: 0; }
+.dsh_market_category .dsh_market_modeTrigger { width: 180px; }
+.dsh_market_sort .dsh_market_modeTrigger { min-width: 112px; max-width: 170px; }
 .dsh_market_selectLabel { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dsh_market_modeMenu { max-height: min(320px, 45vh); overflow-y: auto; overscroll-behavior: contain; }
 .dsh_market_modeMenu button { gap: 10px; }
@@ -475,6 +480,134 @@ export const cssText = `
 .dsh_market_clearFilters {
   border: 0; background: none; padding: 2px 0; font: inherit;
   color: var(--dsw-alias-label-secondary); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+/* Empty state: a calm, centred focal card that explains the active scope
+   and offers one-click recovery (switching to All or clearing filters). */
+@keyframes dsh_market_emptyIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.dsh_market_empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 40px 24px 36px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, color-mix(in srgb, var(--dsw-alias-state-business-primary) 5%, transparent), transparent 72%),
+    var(--dsw-alias-bg-layer-3);
+  animation: dsh_market_emptyIn .18s ease-out;
+}
+.dsh_market_emptyIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 2px;
+  border-radius: 14px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+}
+.dsh_market_emptyIcon svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dsh_market_emptyBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);
+  color: var(--dsw-alias-state-business-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.dsh_market_emptyBadge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.dsh_market_emptyTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+}
+.dsh_market_emptyDesc {
+  margin: 0;
+  max-width: 440px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+  text-wrap: balance;
+}
+.dsh_market_emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dsh_market_emptyAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 18px;
+  font-weight: 500;
+}
+.dsh_market_emptyAction:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
+}
+.dsh_market_emptyAction svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform .15s ease;
+}
+.dsh_market_emptyAction:hover:not(:disabled) svg {
+  transform: translateX(2px);
+}
+.dsh_market_emptyCount {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dsh_market_empty { animation: none; }
+  .dsh_market_emptyAction svg { transition: none; }
 }
 /* A quiet footer under the list: the range on the left, a compact pager on
    the right — the same hairline-and-tertiary voice as the tab strip. */
@@ -1057,6 +1190,9 @@ export const cssText = `
 @container (max-width: 440px) {
   .dsh_market_cards { grid-template-columns: minmax(0, 1fr); }
   .dsh_market_search.dsh_market_skillSearch { flex-basis: 100%; }
+  .dsh_market_empty { padding: 28px 16px 24px; }
+  .dsh_market_emptyActions { width: 100%; }
+  .dsh_market_emptyActions > button { flex: 1 1 auto; }
 }
 
 /* The MCP page: the installed cards' shape, plus a monospace target line,
@@ -1086,17 +1222,59 @@ export const cssText = `
   background: var(--dsw-alias-bg-layer-1); font-size: 12px; line-height: 18px;
 }
 .dsh_market_mcpProbe p { margin: 0; }
-.dsh_market_mcpTools { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-.dsh_market_mcpToolList {
-  list-style: none; margin: 0; padding: 8px 10px; width: 100%; box-sizing: border-box;
-  max-height: 220px; overflow: auto; border-radius: 8px; background: var(--dsw-alias-bg-layer-1);
-  display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 18px;
-}
-.dsh_market_mcpToolList li { display: flex; flex-direction: column; min-width: 0; }
-.dsh_market_mcpToolList code, .dsh_market_mcpCreds code, .dsh_market_mcpSecrets code {
+.dsh_market_mcpCreds code, .dsh_market_mcpSecrets code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere;
 }
-.dsh_market_mcpToolList span { color: var(--dsw-alias-label-tertiary); }
+/* Every MCP card has one fixed height so the grid reads as an even list;
+   the variable middle (notices, credentials, probe result) scrolls inside
+   the card, and the tool count sits at the right end of the badge row. */
+.dsh_market_card.dsh_market_mcpCard { height: 208px; box-sizing: border-box; overflow: hidden; }
+.dsh_market_card.dsh_market_mcpCard[data-confirming="true"] { height: auto; min-height: 208px; }
+.dsh_market_mcpCard > .dsh_market_head, .dsh_market_mcpCard > .dsh_market_skillBadges,
+.dsh_market_mcpCard > .dsh_market_mcpCode, .dsh_market_mcpCard > .dsh_market_foot { flex: none; }
+.dsh_market_mcpBody {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 6px;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+}
+.dsh_market_mcpBody > p { margin: 0; }
+.dsh_market_skillBadges .dsh_market_mcpToolsButton { margin-left: auto; padding: 2px 10px; }
+/* The tools sheet: a fixed-size dialog whose list alone scrolls. */
+.dsh_market_directPanel.dsh_market_mcpToolsDialog {
+  width: min(640px, calc(100vw - 32px)); height: min(600px, 82vh); padding: 0; overflow: hidden;
+}
+.dsh_market_mcpToolsDialog[open] { display: flex; flex-direction: column; }
+.dsh_market_mcpToolsDialog .dsh_market_directHead { flex: none; padding: 20px 24px 12px; }
+.dsh_market_mcpToolsDialog .dsh_market_installHeading h3 { margin: 0; font-size: 16px; line-height: 24px; color: var(--dsw-alias-label-primary); }
+.dsh_market_mcpToolList:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
+.dsh_market_mcpToolsDialog .dsh_market_mcpToolsFilter { flex: none; height: 34px; margin: 0 24px 12px; width: auto; }
+.dsh_market_mcpToolsDialog .dsh_market_mcpToolsEmpty { margin: 0; padding: 24px; text-align: center; color: var(--dsw-alias-label-tertiary); }
+.dsh_market_mcpToolList {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  list-style: none; margin: 0; padding: 4px 12px 16px; counter-reset: mcp-tool;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+}
+.dsh_market_mcpToolList li {
+  counter-increment: mcp-tool;
+  display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 4px; row-gap: 2px;
+  padding: 10px 12px; border-radius: 8px;
+}
+.dsh_market_mcpToolList li + li { box-shadow: inset 0 1px 0 var(--dsw-alias-border-l2); }
+.dsh_market_mcpToolList li:hover { background: var(--dsw-alias-interactive-bg-hover); box-shadow: none; }
+.dsh_market_mcpToolList li:hover + li { box-shadow: none; }
+.dsh_market_mcpToolList li::before {
+  content: counter(mcp-tool, decimal-leading-zero); grid-row: 1 / span 2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 20px;
+  color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums;
+}
+.dsh_market_mcpToolName {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 20px; font-weight: 600;
+  color: var(--dsw-alias-label-primary); overflow-wrap: anywhere;
+}
+.dsh_market_mcpToolDesc {
+  font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary);
+  white-space: pre-line; overflow-wrap: anywhere;
+}
+.dsh_market_mcpToolDesc[data-empty="true"] { color: var(--dsw-alias-label-tertiary); font-style: italic; }
 .dsh_market_mcpCreds { display: flex; flex-direction: column; gap: 4px; }
 .dsh_market_mcpCreds ul, .dsh_market_mcpSecrets ul, .dsh_market_mcpPending {
   list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;
@@ -1109,6 +1287,10 @@ export const cssText = `
 .dsh_market_mcpCredForm { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
 .dsh_market_mcpCredForm input { flex: 1 1 160px; }
 .dsh_market_mcpEditor { width: min(600px, calc(100vw - 32px)); }
+.dsh_market_mcpFieldRow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 10px; }
+@container (max-width: 440px) { .dsh_market_mcpFieldRow { grid-template-columns: minmax(0, 1fr); } }
+.dsh_market_mcpFieldRow input:disabled { opacity: .5; }
+.dsh_market_chip.dsh_market_mcpCredDanger { border-color: var(--dsw-alias-state-error-primary); color: var(--dsw-alias-state-error-primary); }
 .dsh_market_mcpForm { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
 .dsh_market_mcpField {
   display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; border: 0; min-width: 0;

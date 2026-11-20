@@ -18,6 +18,8 @@ import { adoptStyles, cssText, STYLE_ID } from '../src/client/styles.ts'
 import {
   INSTALLED_FILTER,
   SELF_CARD_KEY,
+  activeHeatScore,
+  allCatalogMatchCount,
   featuredRows,
   hasInstallTarget,
   installState,
@@ -25,6 +27,7 @@ import {
   marketRows,
   matches,
   matchesSkill,
+  sortMarketRows,
   starCount,
   stateOf,
 } from '../src/client/rows.ts'
@@ -333,6 +336,103 @@ test('a search in All also reaches picks the shortlist does not carry', () => {
   assert.deepEqual(marketRows([listed], picks, ''), [listed])
   assert.deepEqual(marketRows([listed], picks, 'md2word'), [listed, offList])
   assert.deepEqual(marketRows([listed], undefined, 'md2word'), [listed])
+})
+
+test('allCatalogMatchCount reports how many full-catalog plugins match across categories', () => {
+  const notify = plugin({ fullName: 'a/notify', name: 'notify', description: '桌面通知提醒', category: 'tools', categoryZh: '工具', categoryEn: 'Tools' })
+  const calendar = plugin({ fullName: 'b/calendar', name: 'calendar', description: '日程与通知同步', category: 'productivity', categoryZh: '效率', categoryEn: 'Productivity' })
+  const offList = plugin({ fullName: 'c/alert', name: 'alert', description: 'Webhook 通知', category: FEATURED_CATEGORY })
+  const legacyPicks: MarketFeatured = {
+    titleZh: '编辑精选', titleEn: "Editor's Picks", updatedAt: '', count: 1,
+    entries: [{ item: offList, reason: '' }],
+  }
+  const subscriptionPicks: MarketFeatured = { ...legacyPicks, categories: [] }
+
+  assert.equal(allCatalogMatchCount([notify, calendar], subscriptionPicks, '', false), 2)
+  assert.equal(allCatalogMatchCount([notify, calendar], subscriptionPicks, '通知', false), 2)
+  assert.equal(allCatalogMatchCount([notify, calendar], legacyPicks, '通知', false), 3)
+  assert.equal(allCatalogMatchCount([notify, calendar], subscriptionPicks, 'tools', true), 1)
+  assert.equal(allCatalogMatchCount([notify, calendar], subscriptionPicks, '工具', false), 1)
+  assert.equal(allCatalogMatchCount([notify, calendar], subscriptionPicks, 'nonesuch', false), 0)
+})
+
+test('sortMarketRows orders All rows by active heat, stars, or update date', () => {
+  const ref = '2026-11-19T22:00:00Z'
+  const freshHot = plugin({ fullName: 'a/fresh-hot', stars: 500, pushedAt: '2026-11-18' })
+  const staleGiant = plugin({ fullName: 'b/stale-giant', stars: 2000, pushedAt: '2026-05-01' })
+  const archivedGiant = plugin({ fullName: 'c/archived-giant', stars: 5000, pushedAt: '2026-11-19', archived: true })
+  const disabledGiant = plugin({ fullName: 'd/disabled-giant', stars: 4000, pushedAt: '2026-11-19', disabled: true })
+  const todaySmall = plugin({ fullName: 'e/today-small', stars: 20, pushedAt: '2026-11-19' })
+  const todayZero = plugin({ fullName: 'f/today-zero', stars: 0, pushedAt: '2026-11-19' })
+  const noDate = plugin({ fullName: 'g/no-date', stars: 100, pushedAt: '' })
+  const rows = [staleGiant, archivedGiant, todayZero, noDate, freshHot, disabledGiant, todaySmall]
+
+  // Active heat rewards maintained popular plugins and sinks archived/disabled rows.
+  assert.ok(activeHeatScore(freshHot, Date.UTC(2026, 10, 19)) > activeHeatScore(staleGiant, Date.UTC(2026, 10, 19)))
+  assert.equal(activeHeatScore(archivedGiant, Date.UTC(2026, 10, 19)), 0)
+  assert.equal(activeHeatScore(disabledGiant, Date.UTC(2026, 10, 19)), 0)
+  assert.deepEqual(
+    sortMarketRows(rows, 'active', ref).map(item => item.fullName),
+    ['a/fresh-hot', 'b/stale-giant', 'e/today-small', 'f/today-zero', 'g/no-date', 'c/archived-giant', 'd/disabled-giant'],
+  )
+
+  // Stars breaks ties by latest update day.
+  const tieOld = plugin({ fullName: 'z/tie-old', stars: 100, pushedAt: '2026-10-01' })
+  const tieNew = plugin({ fullName: 'a/tie-new', stars: 100, pushedAt: '2026-11-10' })
+  assert.deepEqual(
+    sortMarketRows([tieOld, tieNew], 'stars', ref).map(item => item.fullName),
+    ['a/tie-new', 'z/tie-old'],
+  )
+  assert.deepEqual(
+    sortMarketRows(rows, 'stars', ref).map(item => item.fullName),
+    ['c/archived-giant', 'd/disabled-giant', 'b/stale-giant', 'a/fresh-hot', 'g/no-date', 'e/today-small', 'f/today-zero'],
+  )
+
+  // Recently updated sorts by day descending and breaks same-day ties by stars descending.
+  assert.deepEqual(
+    sortMarketRows(rows, 'updated', ref).map(item => item.fullName),
+    ['c/archived-giant', 'd/disabled-giant', 'e/today-small', 'f/today-zero', 'a/fresh-hot', 'b/stale-giant', 'g/no-date'],
+  )
+
+  // Input order is not mutated.
+  assert.equal(rows[0], staleGiant)
+})
+
+test('sortMarketRows handles non-finite stars, invalid dates, and non-ISO dates safely', () => {
+  const ref = '2026-11-19T22:00:00Z'
+  const valid = plugin({ fullName: 'a/valid', stars: 50, pushedAt: '2026-11-10' })
+  const nanStars = plugin({ fullName: 'b/nan-stars', stars: Number.NaN, pushedAt: '2026-11-19' })
+  const infStars = plugin({ fullName: 'c/inf-stars', stars: Number.POSITIVE_INFINITY, pushedAt: '2026-11-19' })
+  const overflowDate = plugin({ fullName: 'd/overflow-date', stars: 500, pushedAt: '2026-02-31' })
+  const bogusDate = plugin({ fullName: 'e/bogus-date', stars: 500, pushedAt: '2026-ab-cd' })
+  const rfcDate = plugin({ fullName: 'f/rfc-date', stars: 50, pushedAt: 'Thu, 19 Nov 2026 00:00:00 GMT' })
+
+  assert.equal(activeHeatScore(nanStars, Date.UTC(2026, 10, 19)), 0)
+  assert.equal(activeHeatScore(infStars, Date.UTC(2026, 10, 19)), 0)
+  assert.equal(activeHeatScore(overflowDate, Date.UTC(2026, 10, 19)), 0)
+  assert.equal(activeHeatScore(bogusDate, Date.UTC(2026, 10, 19)), 0)
+  assert.equal(activeHeatScore(valid, Number.NaN), 0)
+  assert.ok(activeHeatScore(rfcDate, Date.UTC(2026, 10, 19)) > activeHeatScore(valid, Date.UTC(2026, 10, 19)))
+
+  const mixed = [bogusDate, nanStars, overflowDate, valid, infStars, rfcDate]
+  assert.deepEqual(
+    sortMarketRows(mixed, 'active', ref).map(item => item.fullName),
+    ['f/rfc-date', 'a/valid', 'b/nan-stars', 'c/inf-stars', 'd/overflow-date', 'e/bogus-date'],
+  )
+  assert.deepEqual(
+    sortMarketRows(mixed, 'stars', ref).map(item => item.fullName),
+    ['d/overflow-date', 'e/bogus-date', 'f/rfc-date', 'a/valid', 'b/nan-stars', 'c/inf-stars'],
+  )
+  assert.deepEqual(
+    sortMarketRows(mixed, 'updated', ref).map(item => item.fullName),
+    ['f/rfc-date', 'b/nan-stars', 'c/inf-stars', 'a/valid', 'd/overflow-date', 'e/bogus-date'],
+  )
+
+  // Empty referenceAt falls back to current time without throwing or producing NaN scores.
+  assert.deepEqual(
+    sortMarketRows([valid, overflowDate], 'active', '').map(item => item.fullName),
+    ['a/valid', 'd/overflow-date'],
+  )
 })
 
 /** One installed package, with the fields the status label reads. */

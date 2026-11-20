@@ -15,7 +15,7 @@
  * Host stream open.
  * @module dsh-market-pro/client/mcpController
  */
-import type { McpHostContext } from '../contract.ts'
+import type { McpAdoptResult, McpHostContext } from '../contract.ts'
 import {
   buildRows, entryRefs, pendingToStore, saveOps, serversOf,
   type McpCredentialInfo, type McpDraft, type McpRow, type McpServerView, type McpSettingsOp, type McpSettingsView,
@@ -44,14 +44,18 @@ export interface McpManagerFace {
 
 /** `ctx.remote.settings`, structurally (the subset this page uses). */
 export interface McpSettingsFace {
-  describe(): Promise<Reply<{ writable: boolean; namespaces: readonly McpSettingsView[] }>>
+  describe(): Promise<Reply<{ writable: boolean; hasDocument?: boolean; namespaces: readonly McpSettingsView[] }>>
   mutate(ns: string, ops: McpSettingsOp[], expectedRevision?: number): Promise<Reply<McpSettingsView>>
+  /** Open the provider-held Settings document in the Host's native text editor. */
+  openSettingsDocument?(signal?: AbortSignal): Promise<Reply<{ opened: true }>>
 }
 
 /** `ctx.remote.credentials`, structurally. */
 export interface McpCredentialsFace {
   describe(refs: string[]): Promise<Reply<Record<string, McpCredentialInfo>>>
   set(ref: string, value: string): Promise<Reply<void>>
+  /** Remove a stored value; an environment fallback then applies again. */
+  unset?(ref: string): Promise<Reply<void>>
 }
 
 /** One row of the official plugin manager's `listPlugins` (the subset this page reads). */
@@ -87,6 +91,8 @@ export interface McpHosts {
   credentials(): McpCredentialsFace | undefined
   plugins?(): McpPluginsFace | undefined
   inspect(): Promise<McpHostContext>
+  /** This market's Host adoption verb (`dshMarketPro.adoptMcp`); throws on refusal. */
+  adopt?(loaderId: string): Promise<McpAdoptResult>
 }
 
 /** Whether, and why not, one static row can be switched through the plugin manager. */
@@ -118,6 +124,8 @@ export interface McpSnapshot {
   readonly watchError: string
   readonly settings: McpSettingsView | null
   readonly settingsError: string
+  /** Whether Settings reports a local document the Host can open. */
+  readonly hasSettingsDocument: boolean
   readonly rows: readonly McpRow[]
   readonly credentials: Readonly<Record<string, McpCredentialInfo>>
   /** Row name → the verb in flight. */
@@ -132,6 +140,23 @@ export interface McpSnapshot {
    * when this Host exposes no plugin manager.
    */
   readonly staticToggles: Readonly<Record<string, McpStaticToggle>> | null
+  /** Managed row name → what moving it from a static row did, until the page reloads. */
+  readonly adopted: Readonly<Record<string, McpAdoptNote>>
+}
+
+/**
+ * The outcome of one adoption, as its managed card reports it.
+ * - `enabled`: the static row stopped and the managed entry took over.
+ * - `kept-off`: the static row was already off, so the entry stays off too.
+ * - `restart`: the static row stops only after a DSH restart; enable the entry then.
+ * - `disable-failed` / `enable-failed`: the entry exists, switched off; `error` says why.
+ */
+export interface McpAdoptNote {
+  readonly state: 'enabled' | 'kept-off' | 'restart' | 'disable-failed' | 'enable-failed'
+  readonly stored: readonly string[]
+  readonly reused: readonly string[]
+  readonly dropped: readonly string[]
+  readonly error?: string
 }
 
 /** What a save reports back to the editor. */
@@ -156,8 +181,20 @@ export interface McpController {
   save(draft: McpDraft, original: string | undefined): Promise<McpSaveOutcome>
   /** Store one credential value; resolves to an error message, or '' on success. */
   setCredential(ref: string, value: string): Promise<string>
+  /** Remove one stored credential; resolves to an error message, or '' on success. */
+  clearCredential(ref: string): Promise<string>
   /** Switch one static `dsh-mcp-client` row through the official plugin manager. */
   setStaticEnabled(loaderId: string, enabled: boolean): Promise<void>
+  /**
+   * Move one static row under the manager: the Host stores its secrets and
+   * writes the entry switched off, the static row is switched off through
+   * the plugin manager, and the entry is switched on once it has stopped.
+   */
+  adopt(loaderId: string): Promise<void>
+  /** Open the Host's Settings document in its native editor; resolves to an error message, or ''. */
+  openSettingsDocument(): Promise<string>
+  /** Which optional Host verbs this runtime offers. */
+  supports(feature: 'adopt' | 'unsetCredential' | 'openDocument'): boolean
   /** Re-read the Host facts after a plugin change elsewhere; a no-op while no page is attached. */
   invalidate(): void
   /** A Settings document changed elsewhere (`settings/document-updated`). */
@@ -171,7 +208,7 @@ export const staticKey = (loaderId: string): string => `static:${loaderId}`
 
 const initial: McpSnapshot = {
   mode: 'loading', host: null, hostError: '', views: null, watchError: '', settings: null, settingsError: '',
-  rows: [], credentials: {}, busy: {}, errors: {}, probes: {}, notices: {}, staticToggles: null,
+  hasSettingsDocument: false, rows: [], credentials: {}, busy: {}, errors: {}, probes: {}, notices: {}, staticToggles: null, adopted: {},
 }
 
 /** Credential descriptions travel in batches of at most this many references. */
@@ -224,6 +261,11 @@ export function createMcpController(hosts: McpHosts, options: McpControllerOptio
     set({ [key]: value === undefined ? rest : { ...rest, [name]: value } } as Partial<McpSnapshot>)
   }
 
+  const patchAdopted = (name: string, value: McpAdoptNote | undefined): void => {
+    const { [name]: _dropped, ...rest } = state.adopted
+    set({ adopted: value === undefined ? rest : { ...rest, [name]: value } })
+  }
+
   const loadCredentials = async (): Promise<void> => {
     const remote = hosts.credentials()
     const refs = [...new Set(Object.values(serversOf(state.settings?.value)).flatMap(entryRefs))]
@@ -246,7 +288,7 @@ export function createMcpController(hosts: McpHosts, options: McpControllerOptio
     if (ns === null || ns === undefined) return
     if (remote === undefined) {
       writable = false
-      set({ settingsError: 'settings-unavailable' })
+      set({ settingsError: 'settings-unavailable', hasSettingsDocument: false })
       return
     }
     const seq = ++settingsSeq
@@ -255,15 +297,15 @@ export function createMcpController(hosts: McpHosts, options: McpControllerOptio
       if (seq !== settingsSeq) return
       if (!reply.ok) {
         writable = false
-        set({ settingsError: failure(reply) })
+        set({ settingsError: failure(reply), hasSettingsDocument: false })
         return
       }
       writable = reply.value.writable
       const view = reply.value.namespaces.find(candidate => candidate.ns === ns) ?? null
-      set({ settings: view, settingsError: view === null ? 'namespace-missing' : '' })
+      set({ settings: view, settingsError: view === null ? 'namespace-missing' : '', hasSettingsDocument: reply.value.hasDocument !== false })
       await loadCredentials()
     } catch (error) {
-      if (seq === settingsSeq) set({ settingsError: message(error) })
+      if (seq === settingsSeq) set({ settingsError: message(error), hasSettingsDocument: false })
     }
   }
 
@@ -472,7 +514,11 @@ export function createMcpController(hosts: McpHosts, options: McpControllerOptio
     },
     setEnabled: (name, enabled) => verb(name, enabled ? 'enable' : 'disable',
       async () => outcomeError(await mutate([{ op: 'set', path: ['servers', name, 'enabled'], value: enabled }]))),
-    remove: name => verb(name, 'remove', async () => outcomeError(await mutate([{ op: 'unset', path: ['servers', name] }]))),
+    remove: name => verb(name, 'remove', async () => {
+      const outcome = await mutate([{ op: 'unset', path: ['servers', name] }])
+      if (outcome.ok && Object.hasOwn(state.adopted, name)) patchAdopted(name, undefined)
+      return outcomeError(outcome)
+    }),
     restart: name => verb(name, 'restart', async () => {
       const manager = hosts.manager()
       if (manager === undefined) return 'manager-unavailable'
@@ -558,6 +604,74 @@ export function createMcpController(hosts: McpHosts, options: McpControllerOptio
         return ''
       } catch (error) {
         return message(error)
+      }
+    },
+    async clearCredential(ref) {
+      const remote = hosts.credentials()
+      if (remote?.unset === undefined) return 'credentials-unavailable'
+      try {
+        const reply = await remote.unset(ref)
+        if (!reply.ok) return failure(reply)
+        await loadCredentials()
+        return ''
+      } catch (error) {
+        return message(error)
+      }
+    },
+    async adopt(loaderId) {
+      const key = staticKey(loaderId)
+      const server = state.host?.unmanaged.find(item => item.loaderId === loaderId)
+      await verb(key, 'adopt', async () => {
+        if (hosts.adopt === undefined || server === undefined) return 'adopt-unavailable'
+        if (state.rows.some(row => row.name === server.serverName)) return 'name-taken'
+        const plugins = hosts.plugins?.()
+        if (server.enabled && (plugins === undefined || state.staticToggles?.[loaderId]?.available !== true)) return 'plugins-unavailable'
+        const result = await hosts.adopt(loaderId)
+        await loadSettings()
+        const note = (state: McpAdoptNote['state'], error?: string): void => {
+          patchAdopted(result.name, { state, stored: result.stored, reused: result.reused, dropped: result.dropped, ...(error === undefined ? {} : { error }) })
+        }
+        if (!server.enabled || plugins === undefined) {
+          note('kept-off')
+        } else {
+          try {
+            const reply = await plugins.setPluginEnabled(loaderId, false)
+            if (!reply.ok) note('disable-failed', failure(reply))
+            else if (reply.value.application === 'applied') {
+              let outcome = await mutate([{ op: 'set', path: ['servers', result.name, 'enabled'], value: true }])
+              if (!outcome.ok && outcome.conflict) {
+                outcome = await mutate([{ op: 'set', path: ['servers', result.name, 'enabled'], value: true }])
+              }
+              if (outcome.ok) note('enabled')
+              else note('enable-failed', outcome.message)
+            } else if (reply.value.application === 'restart-required') {
+              note('restart')
+            } else {
+              note('disable-failed', reply.value.error?.code ?? reply.value.application)
+            }
+          } catch (error) {
+            note('disable-failed', message(error))
+          }
+        }
+        await loadHost()
+        return ''
+      })
+    },
+    async openSettingsDocument() {
+      const remote = hosts.settings()
+      if (remote?.openSettingsDocument === undefined) return 'settings-unavailable'
+      try {
+        const reply = await remote.openSettingsDocument()
+        return reply.ok ? '' : failure(reply)
+      } catch (error) {
+        return message(error)
+      }
+    },
+    supports(feature) {
+      switch (feature) {
+        case 'adopt': return hosts.adopt !== undefined
+        case 'unsetCredential': return typeof hosts.credentials()?.unset === 'function'
+        case 'openDocument': return typeof hosts.settings()?.openSettingsDocument === 'function'
       }
     },
   }

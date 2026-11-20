@@ -15,7 +15,7 @@
  * Host stream open.
  * @module dsh-market-pro/client/mcpController
  */
-import type { McpHostContext } from '../contract.ts';
+import type { McpAdoptResult, McpHostContext } from '../contract.ts';
 import { type McpCredentialInfo, type McpDraft, type McpRow, type McpServerView, type McpSettingsOp, type McpSettingsView } from './mcpModel.ts';
 type Reply<T> = {
     ok: true;
@@ -59,14 +59,21 @@ export interface McpManagerFace {
 export interface McpSettingsFace {
     describe(): Promise<Reply<{
         writable: boolean;
+        hasDocument?: boolean;
         namespaces: readonly McpSettingsView[];
     }>>;
     mutate(ns: string, ops: McpSettingsOp[], expectedRevision?: number): Promise<Reply<McpSettingsView>>;
+    /** Open the provider-held Settings document in the Host's native text editor. */
+    openSettingsDocument?(signal?: AbortSignal): Promise<Reply<{
+        opened: true;
+    }>>;
 }
 /** `ctx.remote.credentials`, structurally. */
 export interface McpCredentialsFace {
     describe(refs: string[]): Promise<Reply<Record<string, McpCredentialInfo>>>;
     set(ref: string, value: string): Promise<Reply<void>>;
+    /** Remove a stored value; an environment fallback then applies again. */
+    unset?(ref: string): Promise<Reply<void>>;
 }
 /** One row of the official plugin manager's `listPlugins` (the subset this page reads). */
 export interface McpPluginRow {
@@ -101,6 +108,8 @@ export interface McpHosts {
     credentials(): McpCredentialsFace | undefined;
     plugins?(): McpPluginsFace | undefined;
     inspect(): Promise<McpHostContext>;
+    /** This market's Host adoption verb (`dshMarketPro.adoptMcp`); throws on refusal. */
+    adopt?(loaderId: string): Promise<McpAdoptResult>;
 }
 /** Whether, and why not, one static row can be switched through the plugin manager. */
 export type McpStaticToggle = {
@@ -136,6 +145,8 @@ export interface McpSnapshot {
     readonly watchError: string;
     readonly settings: McpSettingsView | null;
     readonly settingsError: string;
+    /** Whether Settings reports a local document the Host can open. */
+    readonly hasSettingsDocument: boolean;
     readonly rows: readonly McpRow[];
     readonly credentials: Readonly<Record<string, McpCredentialInfo>>;
     /** Row name → the verb in flight. */
@@ -150,6 +161,22 @@ export interface McpSnapshot {
      * when this Host exposes no plugin manager.
      */
     readonly staticToggles: Readonly<Record<string, McpStaticToggle>> | null;
+    /** Managed row name → what moving it from a static row did, until the page reloads. */
+    readonly adopted: Readonly<Record<string, McpAdoptNote>>;
+}
+/**
+ * The outcome of one adoption, as its managed card reports it.
+ * - `enabled`: the static row stopped and the managed entry took over.
+ * - `kept-off`: the static row was already off, so the entry stays off too.
+ * - `restart`: the static row stops only after a DSH restart; enable the entry then.
+ * - `disable-failed` / `enable-failed`: the entry exists, switched off; `error` says why.
+ */
+export interface McpAdoptNote {
+    readonly state: 'enabled' | 'kept-off' | 'restart' | 'disable-failed' | 'enable-failed';
+    readonly stored: readonly string[];
+    readonly reused: readonly string[];
+    readonly dropped: readonly string[];
+    readonly error?: string;
 }
 /** What a save reports back to the editor. */
 export type McpSaveOutcome = {
@@ -176,8 +203,20 @@ export interface McpController {
     save(draft: McpDraft, original: string | undefined): Promise<McpSaveOutcome>;
     /** Store one credential value; resolves to an error message, or '' on success. */
     setCredential(ref: string, value: string): Promise<string>;
+    /** Remove one stored credential; resolves to an error message, or '' on success. */
+    clearCredential(ref: string): Promise<string>;
     /** Switch one static `dsh-mcp-client` row through the official plugin manager. */
     setStaticEnabled(loaderId: string, enabled: boolean): Promise<void>;
+    /**
+     * Move one static row under the manager: the Host stores its secrets and
+     * writes the entry switched off, the static row is switched off through
+     * the plugin manager, and the entry is switched on once it has stopped.
+     */
+    adopt(loaderId: string): Promise<void>;
+    /** Open the Host's Settings document in its native editor; resolves to an error message, or ''. */
+    openSettingsDocument(): Promise<string>;
+    /** Which optional Host verbs this runtime offers. */
+    supports(feature: 'adopt' | 'unsetCredential' | 'openDocument'): boolean;
     /** Re-read the Host facts after a plugin change elsewhere; a no-op while no page is attached. */
     invalidate(): void;
     /** A Settings document changed elsewhere (`settings/document-updated`). */

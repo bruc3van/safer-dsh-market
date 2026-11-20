@@ -7,6 +7,7 @@
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
 import { SAFE_MARKET_INVOCATIONS } from '../contract.ts'
 import type {
+  McpAdoptResult,
   McpHostContext,
   MarketCatalogResult,
   MarketEnvironment,
@@ -44,6 +45,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     setInstalledEnabled: (update: SetInstalledEnabledUpdate) => Promise<RemoteResult<MarketInstalledResult>>
     uninstallInstalled: (update: UninstallInstalledUpdate) => Promise<RemoteResult<MarketInstalledResult>>
     inspectMcp: () => Promise<RemoteResult<McpHostContext>>
+    adoptMcp: (request: { loaderId: string }) => Promise<RemoteResult<McpAdoptResult>>
   }
   interface TypertRemoteMap {
     'dshMarketPro/getCatalog': (force: boolean, signal?: AbortSignal) => Promise<RemoteResult<MarketCatalogResult>>
@@ -55,6 +57,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'dshMarketPro/setInstalledEnabled': (update: SetInstalledEnabledUpdate) => Promise<RemoteResult<MarketInstalledResult>>
     'dshMarketPro/uninstallInstalled': (update: UninstallInstalledUpdate) => Promise<RemoteResult<MarketInstalledResult>>
     'dshMarketPro/inspectMcp': () => Promise<RemoteResult<McpHostContext>>
+    'dshMarketPro/adoptMcp': (request: { loaderId: string }) => Promise<RemoteResult<McpAdoptResult>>
   }
   interface TypertRemoteNamespaceMap {
     dshMarketPro: TypertRemoteNamespace$6473684d61726b657450726f

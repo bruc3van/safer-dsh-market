@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react'
 
-interface MenuOption { value: string; label: string; count?: number }
+interface MenuOption<T extends string = string> { value: T; label: string; count?: number }
 
 /** Shared theme-aware single-choice menu for marketplace controls. */
-export function MarketSelector({ value, onChange, label, options, className }: {
-  value: string
-  onChange: (value: string) => void
+export function MarketSelector<T extends string = string>({ value, onChange, label, options, className }: {
+  value: T
+  onChange: (value: T) => void
   label: string
-  options: readonly MenuOption[]
+  options: readonly MenuOption<T>[]
   className: string
 }) {
   const [open, setOpen] = useState(false)

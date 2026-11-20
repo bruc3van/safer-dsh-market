@@ -9,11 +9,11 @@
  * @module dsh-market-pro/client/mcpModel
  */
 import {
-  CREDENTIAL_REF_PATTERN, SERVER_NAME_PATTERN, credentialRefsIn, credentialTemplate, isSecretField, isSecretUrl,
-  malformedTemplate, maskArg, maskUrl, secretArgIndexes,
+  SERVER_NAME_PATTERN, credentialRefsIn, credentialTemplate, isSecretField, isSecretUrl,
+  malformedTemplate, maskArg, maskUrl, secretArgIndexes, suggestRef,
 } from '../mcpShapes.ts'
 
-export { credentialTemplate }
+export { credentialTemplate, suggestRef }
 
 /** One server's runtime status, as `mcpManager.watch` reports it. */
 export type McpStatus =
@@ -293,7 +293,13 @@ export interface McpDraft {
   /** Text fields, so a half-typed number is not coerced away. */
   readonly startupTimeoutMs: string
   readonly toolCallTimeoutMs: string
-  /** Fields this editor does not render (`closeTimeoutMs`, `reconnect`), carried through untouched. */
+  readonly closeTimeoutMs: string
+  /** Reconnect policy; an empty number means the client's default. */
+  readonly reconnectEnabled: boolean
+  readonly initialDelayMs: string
+  readonly maxDelayMs: string
+  readonly maxAttempts: string
+  /** Fields this editor does not render, carried through untouched. */
   readonly extra: Readonly<Record<string, unknown>>
   /** Plaintext values the user chose to move into the credential store. */
   readonly pending: readonly McpPendingSecret[]
@@ -303,18 +309,30 @@ export interface McpDraft {
 export function emptyDraft(): McpDraft {
   return {
     name: '', transport: 'stdio', command: '', args: [], cwd: '', env: [], url: '', headers: [],
-    enabled: false, startupTimeoutMs: '', toolCallTimeoutMs: '', extra: {}, pending: [],
+    enabled: false, startupTimeoutMs: '', toolCallTimeoutMs: '', closeTimeoutMs: '',
+    reconnectEnabled: true, initialDelayMs: '', maxDelayMs: '', maxAttempts: '', extra: {}, pending: [],
   }
 }
 
 /** The manager's schema default for `startupTimeoutMs`; a resolved value equal to it is not an edit. */
 const DEFAULT_STARTUP_MS = 30_000
+/** `dsh-mcp-client`'s close-timeout default. */
+export const DEFAULT_CLOSE_MS = 5_000
+
+/** `dsh-mcp-client`'s reconnect defaults; Settings resolves them into every entry. */
+export const RECONNECT_DEFAULTS = { initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 } as const
+
+/** A resolved number as editor text: empty when unset or equal to its default. */
+const numberText = (value: unknown, fallback?: number): string =>
+  typeof value === 'number' && value !== fallback ? String(value) : ''
 
 /** A draft over an existing entry. */
 export function draftFromEntry(name: string, entry: McpEntry): McpDraft {
   const extra: Record<string, unknown> = {}
-  if (entry.closeTimeoutMs !== undefined) extra.closeTimeoutMs = entry.closeTimeoutMs
-  if (entry.reconnect !== undefined) extra.reconnect = entry.reconnect
+  const reconnect = entry.reconnect ?? {}
+  const unknownReconnect = Object.fromEntries(Object.entries(reconnect)
+    .filter(([key]) => key !== 'enabled' && !Object.hasOwn(RECONNECT_DEFAULTS, key)))
+  if (Object.keys(unknownReconnect).length > 0) extra.reconnect = unknownReconnect
   return {
     name,
     transport: transportOf(entry) === 'streamable-http' ? 'streamable-http' : 'stdio',
@@ -328,6 +346,11 @@ export function draftFromEntry(name: string, entry: McpEntry): McpDraft {
     startupTimeoutMs: entry.startupTimeoutMs === undefined || entry.startupTimeoutMs === DEFAULT_STARTUP_MS
       ? '' : String(entry.startupTimeoutMs),
     toolCallTimeoutMs: entry.toolCallTimeoutMs === undefined ? '' : String(entry.toolCallTimeoutMs),
+    closeTimeoutMs: numberText(entry.closeTimeoutMs, DEFAULT_CLOSE_MS),
+    reconnectEnabled: reconnect.enabled !== false,
+    initialDelayMs: numberText(reconnect.initialDelayMs, RECONNECT_DEFAULTS.initialDelayMs),
+    maxDelayMs: numberText(reconnect.maxDelayMs, RECONNECT_DEFAULTS.maxDelayMs),
+    maxAttempts: numberText(reconnect.maxAttempts, RECONNECT_DEFAULTS.maxAttempts),
     extra,
     pending: [],
   }
@@ -352,7 +375,13 @@ export type McpDraftError =
   | { readonly field: 'url'; readonly code: 'required' | 'scheme' }
   | { readonly field: 'env' | 'headers'; readonly code: 'key' | 'duplicate' }
   | { readonly field: 'template'; readonly code: 'malformed'; readonly where: string }
-  | { readonly field: 'startupTimeoutMs' | 'toolCallTimeoutMs'; readonly code: 'number' }
+  | { readonly field: McpNumberField; readonly code: 'number' }
+  | { readonly field: 'maxDelayMs'; readonly code: 'order' }
+
+/** The editor's numeric fields, all positive integers. */
+export type McpNumberField = 'startupTimeoutMs' | 'toolCallTimeoutMs' | 'closeTimeoutMs' | 'initialDelayMs' | 'maxDelayMs' | 'maxAttempts'
+const NUMBER_FIELDS: readonly McpNumberField[] = ['startupTimeoutMs', 'toolCallTimeoutMs', 'closeTimeoutMs', 'initialDelayMs', 'maxDelayMs', 'maxAttempts']
+const RECONNECT_NUMBER_FIELDS: ReadonlySet<McpNumberField> = new Set(['initialDelayMs', 'maxDelayMs', 'maxAttempts'])
 
 const MAX_TIMER = 2_147_483_647
 
@@ -381,11 +410,22 @@ export function validateDraft(draft: McpDraft, taken: ReadonlySet<string>): McpD
   for (const [value, where] of draftStrings(draft)) {
     if (malformedTemplate(value) !== undefined) errors.push({ field: 'template', code: 'malformed', where })
   }
-  for (const timer of ['startupTimeoutMs', 'toolCallTimeoutMs'] as const) {
-    const text = draft[timer].trim()
+  const bad = new Set<McpNumberField>()
+  for (const field of NUMBER_FIELDS) {
+    if (!draft.reconnectEnabled && RECONNECT_NUMBER_FIELDS.has(field)) continue
+    const text = draft[field].trim()
     if (text === '') continue
     const value = Number(text)
-    if (!Number.isInteger(value) || value < 1 || value > MAX_TIMER) errors.push({ field: timer, code: 'number' })
+    const max = field === 'maxAttempts' ? Number.MAX_SAFE_INTEGER : MAX_TIMER
+    if (!Number.isInteger(value) || value < 1 || value > max) {
+      errors.push({ field, code: 'number' })
+      bad.add(field)
+    }
+  }
+  if (draft.reconnectEnabled && !bad.has('initialDelayMs') && !bad.has('maxDelayMs')) {
+    const initial = draft.initialDelayMs.trim() === '' ? RECONNECT_DEFAULTS.initialDelayMs : Number(draft.initialDelayMs)
+    const ceiling = draft.maxDelayMs.trim() === '' ? RECONNECT_DEFAULTS.maxDelayMs : Number(draft.maxDelayMs)
+    if (initial > ceiling) errors.push({ field: 'maxDelayMs', code: 'order' })
   }
   return errors
 }
@@ -405,7 +445,20 @@ export function entryFromDraft(draft: McpDraft): Record<string, unknown> {
   entry.enabled = draft.enabled
   if (draft.startupTimeoutMs.trim() !== '') entry.startupTimeoutMs = Number(draft.startupTimeoutMs)
   if (draft.toolCallTimeoutMs.trim() !== '') entry.toolCallTimeoutMs = Number(draft.toolCallTimeoutMs)
-  return { ...draft.extra, ...entry }
+  if (draft.closeTimeoutMs.trim() !== '') entry.closeTimeoutMs = Number(draft.closeTimeoutMs)
+  const reconnect: Record<string, unknown> = { ...(draft.extra.reconnect as Record<string, unknown> | undefined) }
+  if (!draft.reconnectEnabled) reconnect.enabled = false
+  // A disabled policy keeps its valid numbers: switching it back on restores them.
+  for (const field of ['initialDelayMs', 'maxDelayMs', 'maxAttempts'] as const) {
+    const text = draft[field].trim()
+    if (text === '') continue
+    const value = Number(text)
+    const max = field === 'maxAttempts' ? Number.MAX_SAFE_INTEGER : MAX_TIMER
+    if (Number.isInteger(value) && value >= 1 && value <= max) reconnect[field] = value
+  }
+  const { reconnect: _carried, ...extra } = draft.extra
+  if (Object.keys(reconnect).length > 0) entry.reconnect = reconnect
+  return { ...extra, ...entry }
 }
 
 /** The credentials a save must store first: pending ones whose template the draft still names. */
@@ -429,16 +482,6 @@ export function saveOps(draft: McpDraft, original: string | undefined): McpSetti
   if (original !== undefined && original !== name) ops.push({ op: 'unset', path: ['servers', original] })
   ops.push({ op: 'set', path: ['servers', name], value: entryFromDraft(draft) })
   return ops
-}
-
-/** A legal credential reference name for one field of one server. */
-export function suggestRef(server: string, field: string, taken: ReadonlySet<string> = new Set()): string {
-  const clean = (text: string) => text.toUpperCase().replace(/[^A-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '')
-  let base = ['MCP', clean(server), clean(field) || 'TOKEN'].filter(part => part !== '').join('_')
-  if (!CREDENTIAL_REF_PATTERN.test(base)) base = `MCP_${base}`
-  let ref = base
-  for (let index = 2; taken.has(ref); index += 1) ref = `${base}_${index}`
-  return ref
 }
 
 const URL_SECRET = /([?&][^=&#]*(?:key|token|secret|password|auth)[^=&#]*=)([^&#]+)/gi
@@ -477,8 +520,7 @@ export function convertToCredential(draft: McpDraft, where: string, ref: string)
     // The first plaintext secret parameter; one already templated is skipped.
     const match = [...draft.url.matchAll(URL_SECRET)].find(found => credentialRefsIn(found[2]!).length === 0)
     if (match === undefined) return draft
-    let value = match[2]!
-    try { value = decodeURIComponent(value) } catch { /* keep the raw text */ }
+    const value = match[2]!
     const at = match.index! + match[1]!.length
     const url = `${draft.url.slice(0, at)}${template}${draft.url.slice(at + match[2]!.length)}`
     return { ...draft, url, pending: [...draft.pending, { ref, value }] }

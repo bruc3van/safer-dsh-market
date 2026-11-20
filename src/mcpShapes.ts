@@ -96,6 +96,16 @@ export function secretArgIndexes(args: readonly string[]): number[] {
   return indexes
 }
 
+/** A legal credential reference name for one field of one server. */
+export function suggestRef(server: string, field: string, taken: ReadonlySet<string> = new Set()): string {
+  const clean = (text: string) => text.toUpperCase().replace(/[^A-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '')
+  let base = ['MCP', clean(server), clean(field) || 'TOKEN'].filter(part => part !== '').join('_')
+  if (!CREDENTIAL_REF_PATTERN.test(base)) base = `MCP_${base}`
+  let ref = base
+  for (let index = 2; taken.has(ref); index += 1) ref = `${base}_${index}`
+  return ref
+}
+
 /** What a masked value renders as. */
 export const MASK = '••••••'
 

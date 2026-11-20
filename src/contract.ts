@@ -464,7 +464,41 @@ export interface McpUnmanagedServer {
   readonly phase: 'pending' | 'loading' | 'active' | 'failed' | 'disposed' | 'unloading' | null
   /** Config paths that hold a secret in the clear (`args[3]`, `env.API_KEY`, …). */
   readonly plaintextSecrets: readonly string[]
+  /** Why the row cannot be moved under the manager as it stands, or `''`. */
+  readonly adoptBlocker: McpAdoptBlocker
 }
+
+/**
+ * Why a static row cannot become a managed entry: an unknown transport, a
+ * server name the manager would refuse, or an `!!js` expression other than a
+ * plain `process.env.NAME` read.
+ */
+export type McpAdoptBlocker = '' | 'transport' | 'name' | 'expression'
+
+/** What moving one static row under the manager did. */
+export interface McpAdoptResult {
+  /** The managed entry's name (the static row's `serverName`). */
+  readonly name: string
+  /** Credential references written by this adoption. */
+  readonly stored: readonly string[]
+  /** References that already held the same value and were reused. */
+  readonly reused: readonly string[]
+  /** Config fields the manager does not accept, left behind. */
+  readonly dropped: readonly string[]
+}
+
+/** Strict wire codec for one adoption request. */
+export const mcpAdoptRequestSchema = z.object({
+  loaderId: z.string().min(1).max(1024),
+}).readonly()
+
+/** Strict wire codec for one adoption result. */
+export const mcpAdoptResultSchema = z.object({
+  name: z.string(),
+  stored: z.array(z.string()).readonly(),
+  reused: z.array(z.string()).readonly(),
+  dropped: z.array(z.string()).readonly(),
+}).readonly()
 
 /** One registered MCP tool, as the model sees its name. */
 export interface McpTool {
@@ -511,6 +545,7 @@ export const mcpHostContextSchema = z.object({
     enabled: z.boolean(),
     phase: fiberPhaseSchema,
     plaintextSecrets: z.array(z.string()).readonly(),
+    adoptBlocker: z.enum(['', 'transport', 'name', 'expression']),
   }).readonly()).readonly(),
   tools: z.array(z.object({
     server: z.string(),
@@ -693,6 +728,30 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
       mode: 'strict',
       typeSymbol: 'dsh-market-pro#McpHostContext',
       create: () => mcpHostContextSchema,
+    },
+  },
+  {
+    id: 'dsh-market-pro#dshMarketPro/adoptMcp',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
+    method: 'adoptMcp',
+    invocation: { kind: 'direct' },
+    parameters: [
+      {
+        name: 'request',
+        wire: 'request',
+        source: 'json',
+        codec: {
+          mode: 'strict',
+          typeSymbol: 'dsh-market-pro#McpAdoptRequest',
+          create: () => mcpAdoptRequestSchema,
+        },
+      },
+    ],
+    result: {
+      mode: 'strict',
+      typeSymbol: 'dsh-market-pro#McpAdoptResult',
+      create: () => mcpAdoptResultSchema,
     },
   },
 ]
