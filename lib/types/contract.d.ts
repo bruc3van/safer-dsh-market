@@ -855,5 +855,85 @@ export declare const setInstalledEnabledUpdateSchema: z.ZodReadonly<z.ZodObject<
 export declare const uninstallInstalledUpdateSchema: z.ZodReadonly<z.ZodObject<{
     packageName: z.ZodString;
 }, z.core.$strip>>;
+/** One `dsh-mcp-client` row composed straight into the profile, outside the manager. */
+export interface McpUnmanagedServer {
+    /** The Loader entry id (patch-addressable). */
+    readonly entryId: string;
+    /** The Loader's full entry identity — what the official plugin manager's `listPlugins` names `entryId`. */
+    readonly loaderId: string;
+    readonly serverName: string;
+    readonly transport: 'stdio' | 'streamable-http' | 'unknown';
+    readonly command: string;
+    /** Arguments with secret-looking values masked on the Host. */
+    readonly args: readonly string[];
+    /** Environment variable NAMES only; values never leave the Host. */
+    readonly envKeys: readonly string[];
+    /** Endpoint with secret query values masked. */
+    readonly url: string;
+    /** Header NAMES only. */
+    readonly headerKeys: readonly string[];
+    readonly enabled: boolean;
+    readonly phase: 'pending' | 'loading' | 'active' | 'failed' | 'disposed' | 'unloading' | null;
+    /** Config paths that hold a secret in the clear (`args[3]`, `env.API_KEY`, …). */
+    readonly plaintextSecrets: readonly string[];
+}
+/** One registered MCP tool, as the model sees its name. */
+export interface McpTool {
+    readonly name: string;
+    readonly description: string;
+}
+/** The live tools one server namespace contributes to the global view. */
+export interface McpToolGroup {
+    readonly server: string;
+    readonly tools: readonly McpTool[];
+}
+/** The MCP facts only the Host can answer. */
+export interface McpHostContext {
+    /** The `dsh-mcp-manager` Loader entry id — its Settings namespace — or null when the runtime has none. */
+    readonly managerEntry: string | null;
+    readonly managerActive: boolean;
+    readonly unmanaged: readonly McpUnmanagedServer[];
+    readonly tools: readonly McpToolGroup[];
+    /** Why the tool view could not be read, when it could not. */
+    readonly toolsError: string;
+}
+/** Strict wire codec for the MCP Host read. */
+export declare const mcpHostContextSchema: z.ZodReadonly<z.ZodObject<{
+    managerEntry: z.ZodUnion<readonly [z.ZodString, z.ZodNull]>;
+    managerActive: z.ZodBoolean;
+    unmanaged: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+        entryId: z.ZodString;
+        loaderId: z.ZodString;
+        serverName: z.ZodString;
+        transport: z.ZodEnum<{
+            unknown: "unknown";
+            stdio: "stdio";
+            "streamable-http": "streamable-http";
+        }>;
+        command: z.ZodString;
+        args: z.ZodReadonly<z.ZodArray<z.ZodString>>;
+        envKeys: z.ZodReadonly<z.ZodArray<z.ZodString>>;
+        url: z.ZodString;
+        headerKeys: z.ZodReadonly<z.ZodArray<z.ZodString>>;
+        enabled: z.ZodBoolean;
+        phase: z.ZodUnion<readonly [z.ZodEnum<{
+            pending: "pending";
+            loading: "loading";
+            active: "active";
+            failed: "failed";
+            disposed: "disposed";
+            unloading: "unloading";
+        }>, z.ZodNull]>;
+        plaintextSecrets: z.ZodReadonly<z.ZodArray<z.ZodString>>;
+    }, z.core.$strip>>>>;
+    tools: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+        server: z.ZodString;
+        tools: z.ZodReadonly<z.ZodArray<z.ZodReadonly<z.ZodObject<{
+            name: z.ZodString;
+            description: z.ZodString;
+        }, z.core.$strip>>>>;
+    }, z.core.$strip>>>>;
+    toolsError: z.ZodString;
+}, z.core.$strip>>;
 /** The dshMarketPro Remote namespace's strict invocation descriptors. */
 export declare const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[];

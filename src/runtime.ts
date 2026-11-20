@@ -12,6 +12,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSource } from './catalog.ts'
 import type { InstalledManager } from './installed.ts'
+import type { McpHostContext } from './contract.ts'
 import type {
   MarketCatalogResult,
   MarketEnvironment,
@@ -41,6 +42,7 @@ export class SafeMarketRuntime extends TypertRemoteService {
     private readonly readSkills: (sessionId: string, signal: AbortSignal) => Promise<MarketSkillsResult>,
     private readonly environment: MarketEnvironment,
     private readonly installed: InstalledManager,
+    private readonly readMcp: () => McpHostContext,
   ) {
     super(ctx, 'dshMarketPro')
   }
@@ -131,5 +133,15 @@ export class SafeMarketRuntime extends TypertRemoteService {
   @Remote
   async uninstallInstalled(update: UninstallInstalledUpdate): Promise<MarketInstalledResult> {
     return await this.installed.uninstall(update.packageName)
+  }
+
+  /**
+   * The MCP facts the official manager and Settings Remotes do not carry:
+   * the manager's own entry id, unmanaged static rows (masked), and the live
+   * MCP tools. Read-only and local, so not gated on the market switch.
+   */
+  @Remote
+  inspectMcp(): McpHostContext {
+    return this.readMcp()
   }
 }

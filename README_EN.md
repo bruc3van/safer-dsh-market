@@ -17,6 +17,7 @@ A third-party plugin marketplace for DeepSeek Harness (DSH), powered by the veri
 - **Manage & Update Installed Plugins**: View all installed plugins in one place, enable or disable them instantly without restarting, uninstall, or check for and install newer versions.
 - **Post-Install AI Review**: Prepare a review draft in your conversation input box (sent only when you confirm) to have your AI agent inspect installed plugin files for network calls, credential access, scripts, and other potential risks.
 - **Skills Browser**: Browse and search skills available in the active conversation by source (Project, User, Bundled, etc.) and see how each skill can be invoked.
+- **MCP Management**: Built on DSH's official MCP manager (DSH ≥ 0.2.2-rc.2) — live connection status and tools per server; add, edit, enable/disable, test and restart servers; move plaintext secrets into credentials in one click. Static MCP rows written straight into the profile are listed read-only with risk notes.
 
 ## Installation
 
