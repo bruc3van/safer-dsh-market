@@ -100,6 +100,11 @@ export declare const zh: {
     readonly empty: "没有符合当前筛选的插件";
     readonly failed: "读取插件目录失败：{reason}";
     readonly retry: "重试";
+    readonly 'crash.title': "插件市场Pro 页面出错了";
+    readonly 'crash.hint': "页面渲染失败。可以先点「重试」；若仍然失败，请复制错误信息并附到 GitHub issue。";
+    readonly 'crash.copy': "复制错误信息";
+    readonly 'crash.copied': "已复制";
+    readonly 'crash.copyFailed': "无法自动复制，已选中技术详情，请手动复制。";
     readonly stale: "刷新失败，暂时显示上次加载的插件目录。";
     readonly summary: "{total} 个收录仓库 · {categories} 个分类";
     readonly 'filter.scope': "插件范围";
