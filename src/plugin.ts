@@ -36,6 +36,8 @@ import { SafeMarketRuntime } from './runtime.ts'
 import { registerSafeMarketSettings } from './settings.ts'
 import { readSkills } from './skills.ts'
 import { adoptMcp, inspectMcpContext, type McpLoaderEntry } from './mcp.ts'
+import { registerMarketAiSkill } from './aiSkill.ts'
+import { registerMarketAiTool } from './aiTools.ts'
 import { adoptDomainState, initialDomainState, safeMarketDomainSpec, type SafeMarketDomainState } from './store.ts'
 import { TYPERT_MANIFEST } from './typert.ts'
 import type { SafeMarketSettingsUpdate } from './contract.ts'
@@ -75,13 +77,17 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
   // call, so toggling it in the Web settings takes effect immediately.
   const settings = registerSafeMarketSettings(ctx, resolved)
   const readSettings = () => settings.get()
+  let syncAiAssistant: (() => void) | undefined
   const writeSettings = async (update: SafeMarketSettingsUpdate) => {
     // Write the field the update names. The wire codec (a discriminated
     // union) has already rejected any unknown field, so the computed key can
     // only be a real one — and the day a second field joins the union, it is
     // written under its own name instead of silently becoming `enabled`.
     await settings.update({ [update.field]: update.value })
-    return settings.get()
+    const next = settings.get()
+    syncAiAssistant?.()
+    if (update.field === 'enabled' && next.enabled) catalog.warmup()
+    return next
   }
 
   // The reduction's durable seat. The domain opens asynchronously, so the
@@ -201,6 +207,28 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     }
   }, 'dsh-market-pro: catalog cache')
 
+  const readMcp = () => inspectMcpContext(ctx, ctx.loader.entries() as Iterable<McpLoaderEntry>)
+
+  const aiSkill = registerMarketAiSkill(ctx, {
+    profile: profile.name,
+    readSettings,
+  })
+  const aiTool = registerMarketAiTool(ctx, {
+    profile: profile.name,
+    readSettings,
+    readCatalog: (force, signal) => catalog.read(force, signal),
+    listInstalled: () => installed.list(),
+    readMcp,
+  })
+  syncAiAssistant = () => {
+    aiSkill.sync()
+    aiTool.sync()
+  }
+  ctx.on('loader/volatile-update', () => {
+    syncAiAssistant?.()
+    if (readSettings().enabled) catalog.warmup()
+  })
+
   new SafeMarketRuntime(
     ctx,
     catalog,
@@ -209,7 +237,7 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     (sessionId, signal) => readSkills(ctx, sessionId, signal),
     { profile: profile.name, version: readSelfVersion() },
     installed,
-    () => inspectMcpContext(ctx, ctx.loader.entries() as Iterable<McpLoaderEntry>),
+    readMcp,
     loaderId => adoptMcp(ctx, ctx.loader.entries() as Iterable<McpLoaderEntry>, loaderId),
   )
 

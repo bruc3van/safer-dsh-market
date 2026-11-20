@@ -26,6 +26,7 @@ import type {
   MarketInstalledResult,
   MarketSkillsResult,
   SafeMarketSettings,
+  SafeMarketSettingsUpdate,
 } from '../contract.ts'
 import { createClientCatalogCache } from './catalogCache.ts'
 import { createDirectInstaller, type InstallHost } from './directInstall.ts'
@@ -110,6 +111,7 @@ interface SafeMarketFace {
   listSkills(sessionId: string, signal?: AbortSignal): Promise<{ ok: true; value: MarketSkillsResult } | { ok: false; error: { code: string; message: string } }>
   describe(): Promise<{ ok: true; value: MarketEnvironment } | { ok: false; error: { code: string; message: string } }>
   getSettings(): Promise<{ ok: true; value: SafeMarketSettings } | { ok: false; error: { code: string; message: string } }>
+  updateSettings(update: SafeMarketSettingsUpdate): Promise<{ ok: true; value: SafeMarketSettings } | { ok: false; error: { code: string; message: string } }>
   listInstalled(): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
   setInstalledEnabled(update: { packageName: string; enabled: boolean }): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
   uninstallInstalled(update: { packageName: string }): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
@@ -123,7 +125,7 @@ interface SessionPathFace {
   openWorkspacePath(request: { path: string }): Promise<{ ok: true; value: { opened: true } } | { ok: false; error: { code: string; message: string } }>
 }
 
-const defaultSettings = (): SafeMarketSettings => ({ enabled: false })
+const defaultSettings = (): SafeMarketSettings => ({ enabled: false, aiAssistantEnabled: true })
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => { setTimeout(resolve, ms) })
@@ -180,6 +182,20 @@ export function apply(ctx: ClientContext): void {
     } catch (error) {
       if (market === remote && generation === settingsGeneration) reportError('settings read', error)
     }
+  }
+
+  const updateSettings = async (update: SafeMarketSettingsUpdate): Promise<SafeMarketSettings> => {
+    const remote = market
+    if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
+    const generation = ++settingsGeneration
+    const result = await remote.updateSettings(update)
+    if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+    if (market === remote && generation === settingsGeneration) {
+      scope.set({ ...scope.getSnapshot(), value: result.value, settingsReady: true })
+    }
+    if (update.field === 'aiAssistantEnabled') refreshSkills()
+    if (update.field === 'enabled' && !result.value.enabled) catalogCache.invalidate()
+    return result.value
   }
 
   /**
@@ -442,12 +458,17 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.remote.$on('plugin-manager/changed', () => { mcp.invalidate() }), 'dsh-market-pro: mcp plugin changes')
   // Forwarded Host events: an edit made elsewhere (another window, the
   // settings file, a credential rotation) reaches the open page.
-  ctx.effect(() => ctx.remote.$on('settings/document-updated', () => { mcp.settingsChanged() }), 'dsh-market-pro: mcp settings changes')
+  ctx.effect(() => ctx.remote.$on('settings/document-updated', () => {
+    mcp.settingsChanged()
+    void loadSettings()
+    refreshSkills()
+  }), 'dsh-market-pro: mcp settings changes')
   ctx.effect(() => ctx.remote.$on('credentials/reference-updated', () => { mcp.credentialsChanged() }), 'dsh-market-pro: mcp credential changes')
 
   const globalSkills = skillsFor()
   const injectMarket = (): MarketSectionInjected => ({
     hooks: { scope },
+    updateSettings,
     directInstaller,
     pluginUpdater,
     loadCatalog,

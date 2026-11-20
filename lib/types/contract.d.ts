@@ -166,10 +166,18 @@ export interface SafeMarketSettings {
      * asks first, because turning it on is what starts reaching GitHub.
      */
     readonly enabled: boolean;
+    /**
+     * Whether the built-in AI assistant (the `dsh-market-pro` skill and the
+     * read-only `dsh_market_pro` discovery tool) is active for conversations.
+     */
+    readonly aiAssistantEnabled: boolean;
 }
 /** One field update sent through the plugin-owned settings Remote. */
 export type SafeMarketSettingsUpdate = {
     readonly field: 'enabled';
+    readonly value: boolean;
+} | {
+    readonly field: 'aiAssistantEnabled';
     readonly value: boolean;
 };
 /** Live state of one loader entry an installed bundle introduces. */
@@ -757,10 +765,14 @@ export declare const marketEnvironmentSchema: z.ZodReadonly<z.ZodObject<{
 /** Strict wire codec for the resolved settings section. */
 export declare const safeMarketSettingsSchema: z.ZodReadonly<z.ZodObject<{
     enabled: z.ZodBoolean;
+    aiAssistantEnabled: z.ZodBoolean;
 }, z.core.$strip>>;
 /** Strict wire codec for one field update. */
 export declare const safeMarketSettingsUpdateSchema: z.ZodDiscriminatedUnion<[z.ZodReadonly<z.ZodObject<{
     field: z.ZodLiteral<"enabled">;
+    value: z.ZodBoolean;
+}, z.core.$strip>>, z.ZodReadonly<z.ZodObject<{
+    field: z.ZodLiteral<"aiAssistantEnabled">;
     value: z.ZodBoolean;
 }, z.core.$strip>>], "field">;
 /** Strict wire codec for an npm package name. */

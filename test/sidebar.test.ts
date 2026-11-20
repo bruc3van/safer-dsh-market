@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { Context } from '@deepseek-ai/cordis'
 import { en, zh } from '../src/client/locales.ts'
+import { cssText } from '../src/client/styles.ts'
 
 // Transform JSX for Node's test runner; production keeps React external.
 const result = await build({
@@ -13,6 +14,13 @@ const result = await build({
 })
 const { registerMarketNavigation, MarketMain, registerMarketSidebar, MarketSidebar, registerMarketPluginTab, MarketPluginTab, MARKET_TAB_ID } = await import(
   `data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`
+)
+const backToTopBundle = await build({
+  entryPoints: [fileURLToPath(new URL('../src/client/BackToTop.tsx', import.meta.url))],
+  bundle: true, write: false, platform: 'node', format: 'esm',
+})
+const { resolveBackToTopScroller, scrollResultsContainerToTop } = await import(
+  `data:text/javascript;base64,${Buffer.from(backToTopBundle.outputFiles[0].text).toString('base64')}`
 )
 
 test('official Plugins tab waits for declaration and keeps review separate from owner installation', async () => {
@@ -51,6 +59,7 @@ test('official Plugins tab waits for declaration and keeps review separate from 
     install: () => { throw new Error('not a review') },
     update: () => { throw new Error('not a market action') }, openPackage: () => {},
   })
+  assert.equal(page.props.className, 'dsh_market_pluginTab')
   const tabMarket = page.props.children.props.children
   assert.equal(tabMarket.props.install, review)
   assert.equal(tabMarket.props.update, undefined)
@@ -94,6 +103,7 @@ test('left navigation pairs its destination, returns to conversation, and cleans
   assert.equal(row.label(), 'DSH Market Pro')
   assert.equal(main.component, MarketMain)
   const page = MarketMain(main.entry.inject())
+  assert.equal(page.props.className, 'dsh_market_main')
   const mainMarket = page.props.children.props.children
   assert.equal(mainMarket.props.loadCatalog, face.loadCatalog)
   mainMarket.props.close()
@@ -171,4 +181,80 @@ test('sidebar dismissal closes its own tab after the shared market hand-off', ()
   assert.equal(closed, 0)
   market.props.close()
   assert.equal(closed, 1)
+})
+
+function fakeScrollHost(options: {
+  scrollTop?: number
+  ancestors?: Record<string, any>
+  descendants?: Record<string, any>
+} = {}) {
+  const calls: Array<ScrollToOptions | undefined> = []
+  const host = {
+    scrollTop: options.scrollTop ?? 0,
+    calls,
+    scrollTo(arg?: ScrollToOptions) { calls.push(arg) },
+    closest(selector: string) { return options.ancestors?.[selector] ?? null },
+    querySelector(selector: string) { return options.descendants?.[selector] ?? null },
+  }
+  return host
+}
+
+test('scrollResultsContainerToTop ignores hidden plugin panels instead of jumping the shared host scroller', () => {
+  const hostBody = fakeScrollHost({ scrollTop: 600 })
+  const pluginTab = fakeScrollHost()
+  const hiddenPanel = fakeScrollHost()
+
+  const hiddenList = fakeScrollHost({
+    scrollTop: 0,
+    ancestors: { '[hidden]': hiddenPanel, '.dsh_market_pluginTab': pluginTab, '[data-plugin-body]': hostBody },
+  })
+  scrollResultsContainerToTop(hiddenList, 'instant')
+  assert.deepEqual(hostBody.calls, [], 'hidden Plugins panel must not scroll shared [data-plugin-body]')
+
+  const visibleList = fakeScrollHost({
+    scrollTop: 0,
+    ancestors: { '.dsh_market_pluginTab': pluginTab, '[data-plugin-body]': hostBody },
+  })
+  scrollResultsContainerToTop(visibleList, 'instant')
+  assert.deepEqual(hostBody.calls, [{ top: 0, behavior: 'instant' }])
+
+  const standaloneList = fakeScrollHost({
+    scrollTop: 0,
+    ancestors: { '[data-plugin-body]': hostBody },
+  })
+  scrollResultsContainerToTop(standaloneList)
+  assert.equal(hostBody.calls.length, 1, 'standalone surface without .dsh_market_pluginTab must not scroll [data-plugin-body]')
+
+  const scrolledOwnList = fakeScrollHost({
+    scrollTop: 220,
+    ancestors: { '[hidden]': hiddenPanel, '.dsh_market_pluginTab': pluginTab, '[data-plugin-body]': hostBody },
+  })
+  scrollResultsContainerToTop(scrolledOwnList, 'instant')
+  assert.deepEqual(scrolledOwnList.calls, [{ top: 0, behavior: 'instant' }])
+  assert.equal(hostBody.calls.length, 1)
+})
+
+test('resolveBackToTopScroller delegates to [data-plugin-body] inside MarketPluginTab and keeps sticky positioning', () => {
+  const hostBody = fakeScrollHost({ scrollTop: 500 })
+  const pluginTab = fakeScrollHost()
+  const innerList = fakeScrollHost({ scrollTop: 320 })
+
+  const pluginTabRoot = fakeScrollHost({
+    ancestors: { '.dsh_market_pluginTab': pluginTab, '[data-plugin-body]': hostBody },
+    descendants: { '[role="tabpanel"]:not([hidden]) .dsh_market_results': innerList },
+  })
+  assert.equal(resolveBackToTopScroller(pluginTabRoot), hostBody)
+
+  const hiddenPluginTabRoot = fakeScrollHost({
+    ancestors: { '[hidden]': fakeScrollHost(), '.dsh_market_pluginTab': pluginTab, '[data-plugin-body]': hostBody },
+    descendants: { '[role="tabpanel"]:not([hidden]) .dsh_market_results': innerList },
+  })
+  assert.equal(resolveBackToTopScroller(hiddenPluginTabRoot), null)
+
+  const standaloneRoot = fakeScrollHost({
+    descendants: { '[role="tabpanel"]:not([hidden]) .dsh_market_results': innerList },
+  })
+  assert.equal(resolveBackToTopScroller(standaloneRoot), innerList)
+
+  assert.match(cssText, /\.dsh_market_pluginTab\s+\.dsh_market_backToTop\s*\{[^}]*position:\s*sticky/)
 })

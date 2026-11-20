@@ -16,7 +16,7 @@ import type { SkillsSessionSource } from './skillsSubscription.ts';
 import { type ReactElement } from 'react';
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots';
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store';
-import type { MarketCatalog, MarketInstalledResult, MarketSkillsResult, SafeMarketSettings } from '../contract.ts';
+import type { MarketCatalog, MarketInstalledResult, MarketSkillsResult, SafeMarketSettings, SafeMarketSettingsUpdate } from '../contract.ts';
 import type { McpController } from './mcpController.ts';
 /** The live snapshot the section renders from: the switch plus the deployment facts. */
 export interface SafeMarketSnapshot {
@@ -76,6 +76,8 @@ export interface MarketSectionInjected {
     hooks: {
         scope: SafeMarketSource;
     };
+    /** Persist one marketplace setting field and return the updated snapshot. */
+    updateSettings?: (update: SafeMarketSettingsUpdate) => Promise<SafeMarketSettings>;
     /** Read the reduced catalog; `force` bypasses the refresh interval. */
     loadCatalog: (force: boolean) => Promise<{
         catalog: MarketCatalog | null;
@@ -124,4 +126,4 @@ export type MarketSectionProps = {
     close: () => void;
 } & InjectFace<MarketSectionInjected> & PropsLocale<'settings.dshMarketPro'>;
 /** The Marketplace section. */
-export declare function MarketSection({ useScope, loadCatalog, peekCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, mcp, close, t, }: MarketSectionProps): ReactElement;
+export declare function MarketSection({ useScope, updateSettings, loadCatalog, peekCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, mcp, close, t, }: MarketSectionProps): ReactElement;

@@ -2,21 +2,27 @@
 
 <img src="./assets/logo.svg" alt="DSH Market Pro logo" width="96" height="96" />
 
-**Curated plugins, skills, and MCP servers: browse, install, configure, update, and review with AI.**
+**An agent-native plugin marketplace for DSH: built-in AI discovery skill & read-only search tool, plus plugins, skills, MCP servers, and security review in one place.**
 
 [中文](./README.md) | English
 
-A third-party plugin marketplace for DeepSeek Harness (DSH), powered by the verified community catalog [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro). Discover, install, update, inspect session skills, manage MCP servers, and run post-install AI security reviews in one place.
+An AI-native third-party plugin marketplace for DeepSeek Harness (DSH), powered by the verified community catalog [awesome-dsh-plugin-pro](https://github.com/bruc3van/awesome-dsh-plugin-pro). In addition to visual browsing, one-click installation, version updates, skills inspection, managed MCP configuration, and post-install AI security review, it equips your **DSH Agent to search the catalog, compare options, inspect installed capabilities, and guide safe installation right inside chat** — no manual sifting required.
 
 ![Marketplace main view](./assets/screenshots/marketplace.png)
 
 ## Key Features
 
+- **Agent-Native AI Plugin Discovery (Built-in Skill + Read-Only Tool)**:
+  - Enabled by default as soon as `dsh-market-pro` is installed: automatically registers the built-in **`dsh-market-pro`** skill and read-only **`dsh_market_pro`** search tool into DSH sessions, and cleans them up automatically when disabled or uninstalled.
+  - **Discover plugins in conversation**: describe what you need in natural language, invoke **`/dsh-market-pro`** directly, or click **Ask AI to pick** in the marketplace toolbar.
+  - **Environment-aware layered search**: searches cached editor's picks and 28,000+ community repositories (by relevance, activity, stars, or recency), checks currently installed plugins and MCP servers to avoid duplicates, and compares install paths and prerequisites.
+  - **Safe confirmation-first installation**: the discovery tool is strictly read-only and treats all catalog text as untrusted data; after you confirm, the agent hands verified install targets to the official `plugin_manager` tool (preserving native approval prompts) and can follow up with a read-only security review.
+  - **Instant settings toggle**: turn the AI assistant or online catalog on/off anytime from **DSH Market Pro → Settings**, persisted per profile with immediate effect.
 - **Curated & Full Catalog**: Filters out unrelated projects and topic riders. Opens on editor's picks while offering the full verified catalog with category filters, keyword/package search, **Active & popular / Most stars / Recently updated** sorting in **All**, and guided cross-scope switching when a narrower view has no matches.
 - **One-Click Install**: Install and enable plugins directly from their cards; for repositories without direct install metadata, generate a prompt draft so your AI agent can verify and install them for you.
 - **Manage & Update Installed Plugins**: View all installed plugins in one place, enable or disable them instantly without restarting, uninstall, or check for and install newer versions.
 - **Post-Install AI Review**: Prepare a review draft in your conversation input box (sent only when you confirm) to have your AI agent inspect installed plugin files for network calls, credential access, scripts, and other potential risks.
-- **Skills Browser**: Browse and search skills available in the active conversation by source (Project, User, Bundled, etc.) and see how each skill can be invoked.
+- **Skills Browser**: Browse and search skills available in the active conversation by source (Project, User, Bundled — including the built-in `dsh-market-pro` skill) and see how each skill can be invoked.
 - **MCP Management**: Built on DSH's official MCP manager (DSH ≥ 0.2.2-rc.2) to manage every MCP server in one view:
   - Inspect live connection states and browse or search each server's exposed tools in a dedicated **Tools dialog**;
   - Add, edit, enable/disable, probe, and restart servers, including **auto-reconnect** and **close-timeout** settings;
@@ -27,9 +33,39 @@ A third-party plugin marketplace for DeepSeek Harness (DSH), powered by the veri
 
 1. Open the **Plugins** page from the left navigation bar in DSH.
 2. Enter **`dsh-market-pro`** in the official plugin installation interface to install and enable it.
-3. Once installed, open **DSH Market Pro** anytime from the left navigation bar, the Plugins page tab, or the right sidebar inside a conversation.
+3. Once installed, open **DSH Market Pro** anytime from the left navigation bar, the Plugins page tab, or the right sidebar inside a conversation — or simply ask DSH in chat / run **`/dsh-market-pro`** to let your agent pick plugins for you.
+
+## Chat-Native AI Discovery Examples
+
+With the AI assistant enabled by default, just ask in any DSH conversation:
+
+```text
+Check which plugins I already have installed, then recommend active DSH plugins for diagramming and Word/PDF document export.
+```
+
+Or invoke the bundled skill explicitly:
+
+```text
+/dsh-market-pro Recommend a practical plugin and MCP setup for frontend engineering and API debugging
+```
+
+Your agent uses the read-only `dsh_market_pro` tool to:
+
+1. **Inspect your environment** (`environment`) to see installed plugins and MCP servers and avoid duplicates.
+2. **Search curated & full catalogs** (`featured` / `search` / `detail`) to verify install targets, activity, and prerequisites.
+3. **Compare and install safely** — presenting 2–4 tailored options and invoking the official `plugin_manager` only after your confirmation, followed by an optional read-only security review.
+
+![Chat-native AI plugin discovery](./assets/screenshots/marketplace-ai-chat.png)
+
+> To turn this capability off or back on anytime, open **DSH Market Pro → Settings** and toggle **AI Plugin Discovery Assistant (Agent-Native)**.
 
 ## Interface Preview
+
+### Marketplace Settings (AI Assistant & Catalog Switches)
+
+Toggle **AI Plugin Discovery Assistant (Agent-Native)** and **Online Community Catalog** from the **Settings** tab with immediate effect and per-profile persistence, or jump straight into chat to try AI discovery.
+
+![Marketplace settings view](./assets/screenshots/marketplace-settings.png)
 
 ### Full Catalog & Sorting
 

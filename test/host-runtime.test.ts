@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { boot, getDshRuntimeVersion, initProfile, readProfilePatches } from '@deepseek-ai/dsh-app-boot'
 import ConfigEditor from '@deepseek-ai/dsh-config-editor'
 import Settings from '@deepseek-ai/dsh-settings'
+import SkillRegistry from '@deepseek-ai/dsh-skill'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import * as Market from '../lib/index.js'
 import { initialDomainState } from '../src/store.ts'
@@ -43,6 +44,7 @@ test('built market boots, registers RPCs, and persists settings and plugin toggl
     await writeFile(join(bundle, 'cordis.patch.yml'), JSON.stringify([{ insert: [
       { id: 'config-editor', name: 'cordis:editor' },
       { id: 'settings', name: 'cordis:settings' },
+      { id: 'skills', name: 'cordis:skills' },
       { id: 'typert', name: 'cordis:typert' },
       { id: 'renamed-market', name: 'cordis:market', config: { profile: 'web' } },
     ] }]))
@@ -55,12 +57,11 @@ test('built market boots, registers RPCs, and persists settings and plugin toggl
       const ctx = await boot('test', join(dir, 'cordis.yml'), readProfilePatches('test', profile), ctx => {
         ctx.provide('profileContext', profile)
         ctx.provide('appReady', { onReady: listener => { listener(); return () => {} } })
-        ctx.provide('skills', {})
         ctx.provide('storageDomain', { open: async () => ({
           global: { get: () => initialDomainState, set: async () => {} }, close: async () => {},
         }) })
         Object.assign(ctx.loader.builtins, {
-          editor: ConfigEditor, settings: Settings, typert: TypertRegistry, market: Market,
+          editor: ConfigEditor, settings: Settings, skills: SkillRegistry, typert: TypertRegistry, market: Market,
           demo: ctx => { ctx.provide('marketTestDemo', true) },
         })
       })
@@ -71,7 +72,8 @@ test('built market boots, registers RPCs, and persists settings and plugin toggl
     }
     const first = await start()
     const market = first.get('dshMarketPro')
-    assert.deepEqual(market.getSettings(), { enabled: true })
+    assert.deepEqual(market.getSettings(), { enabled: true, aiAssistantEnabled: true })
+    assert.equal((await first.skills.list()).some(skill => skill.name === 'dsh-market-pro'), true)
     assert.equal(market.describe().profile, 'test')
     assert.equal(first.settings.describe().find(row => row.ns === 'renamed-market').autoGenerate, false)
     for (const descriptor of SAFE_MARKET_INVOCATIONS) {
@@ -115,23 +117,28 @@ test('built market boots, registers RPCs, and persists settings and plugin toggl
     assert.equal(first.get('marketTestDemo'), undefined)
     await market.updateSettings({ field: 'enabled', value: false })
     await assert.rejects(market.getCatalog(false, new AbortController().signal), /disabled/)
-    assert.deepEqual(await market.updateSettings({ field: 'enabled', value: true }), { enabled: true })
-    assert.deepEqual(market.getSettings(), { enabled: true }, 'the original service must observe live edits')
+    assert.deepEqual(await market.updateSettings({ field: 'enabled', value: true }), { enabled: true, aiAssistantEnabled: true })
+    assert.deepEqual(market.getSettings(), { enabled: true, aiAssistantEnabled: true }, 'the original service must observe live edits')
+    assert.deepEqual(await market.updateSettings({ field: 'aiAssistantEnabled', value: false }), { enabled: true, aiAssistantEnabled: false })
+    assert.equal((await first.skills.list()).some(skill => skill.name === 'dsh-market-pro'), false, 'disabling AI assistant withdraws the built-in skill immediately')
     assert.match(await readFile(profile.patchPath, 'utf8'), /enabled: true/)
     await first.fiber.dispose()
     const second = await start()
-    assert.deepEqual(second.get('dshMarketPro').getSettings(), { enabled: true })
+    assert.deepEqual(second.get('dshMarketPro').getSettings(), { enabled: true, aiAssistantEnabled: false })
+    assert.equal((await second.skills.list()).some(skill => skill.name === 'dsh-market-pro'), false)
     assert.equal(second.get('marketTestDemo'), undefined, 'the user patch must keep the plugin disabled after restart')
     const enabled = await second.get('dshMarketPro').setInstalledEnabled({ packageName: 'test-user-bundle', enabled: true })
     assert.equal(enabled.error, '')
     assert.equal(enabled.packages[0].entries[0].phase, 'active')
     assert.equal(second.get('marketTestDemo'), true)
     await second.get('dshMarketPro').updateSettings({ field: 'enabled', value: false })
-    assert.deepEqual(second.get('dshMarketPro').getSettings(), { enabled: false })
+    await second.get('dshMarketPro').updateSettings({ field: 'aiAssistantEnabled', value: true })
+    assert.deepEqual(second.get('dshMarketPro').getSettings(), { enabled: false, aiAssistantEnabled: true })
+    assert.equal((await second.skills.list()).some(skill => skill.name === 'dsh-market-pro'), true)
     await second.fiber.dispose()
     const third = await start()
     assert.equal(third.get('marketTestDemo'), true, 'the plugin must stay enabled after restart')
-    assert.deepEqual(third.get('dshMarketPro').getSettings(), { enabled: false })
+    assert.deepEqual(third.get('dshMarketPro').getSettings(), { enabled: false, aiAssistantEnabled: true })
   } finally {
     for (const ctx of contexts.reverse()) await ctx.fiber.dispose()
     if (previousHome === undefined) delete process.env.DSH_HOME

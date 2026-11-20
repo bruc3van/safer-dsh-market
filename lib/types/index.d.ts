@@ -47,6 +47,8 @@ export type { MarketCatalog, MarketCatalogResult, MarketCategory, MarketEnvironm
 export interface Config {
     /** Live, profile-persisted permission to fetch the community catalog. */
     enabled: Volatile<boolean>;
+    /** Live, profile-persisted switch for the built-in AI assistant (skill and read-only search tool). */
+    aiAssistantEnabled: Volatile<boolean>;
     /** A complete market-catalog (schema 3) or legacy market-v2 JSON URL. */
     catalogBase: string;
     /** Legacy schema-2 row limit. Schema 3 always returns the complete catalog. */
@@ -66,11 +68,13 @@ export interface Config {
  */
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     enabled: z<boolean, boolean, "volatile-defined">;
+    aiAssistantEnabled: z<boolean, boolean, "volatile-defined">;
     catalogBase: z<string, string, "defined">;
     marketSize: z<number, number, "defined">;
     profile: z<string, string, "defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
     enabled: z<boolean, boolean, "volatile-defined">;
+    aiAssistantEnabled: z<boolean, boolean, "volatile-defined">;
     catalogBase: z<string, string, "defined">;
     marketSize: z<number, number, "defined">;
     profile: z<string, string, "defined">;

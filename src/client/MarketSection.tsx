@@ -30,6 +30,7 @@ import type {
   MarketPlugin,
   MarketSkillsResult,
   SafeMarketSettings,
+  SafeMarketSettingsUpdate,
 } from '../contract.ts'
 import { FEATURED_CATEGORY, SUBSCRIPTION_CATEGORY, isSafeVersion } from '../shapes.ts'
 import type { MarketLocale } from './copy.ts'
@@ -39,9 +40,10 @@ import {
 } from './rows.ts'
 import { SkillsView } from './SkillsView.tsx'
 import { McpView } from './McpView.tsx'
+import { SettingsView } from './SettingsView.tsx'
 import type { McpController } from './mcpController.ts'
 import { MarketMoreActions } from './MarketMoreActions.tsx'
-import { BackToTop } from './BackToTop.tsx'
+import { BackToTop, scrollResultsContainerToTop } from './BackToTop.tsx'
 import { PluginLogo } from './PluginLogo.tsx'
 import { buildInstallPrompt, buildReviewPrompt, type ReviewTarget } from './reviewPrompt.ts'
 import { useSearchDock } from './useSearchDock.ts'
@@ -87,6 +89,8 @@ export interface MarketSectionInjected {
   directInstaller?: DirectInstaller
   pluginUpdater?: PluginUpdater
   hooks: { scope: SafeMarketSource }
+  /** Persist one marketplace setting field and return the updated snapshot. */
+  updateSettings?: (update: SafeMarketSettingsUpdate) => Promise<SafeMarketSettings>
   /** Read the reduced catalog; `force` bypasses the refresh interval. */
   loadCatalog: (force: boolean) => Promise<{ catalog: MarketCatalog | null; stale: boolean; error: string }>
   /** Synchronously read the last cached catalog in this client, if any. */
@@ -144,7 +148,8 @@ type CardState =
   | { readonly status: 'staged' }
   | { readonly status: 'error'; readonly message: string }
 
-type Page = 'plugins' | 'skills' | 'mcp'
+type Page = 'plugins' | 'skills' | 'mcp' | 'settings'
+const AI_PICK_CARD_KEY = 'dsh:ai-pick'
 
 type InstalledState =
   | { readonly status: 'loading' }
@@ -600,11 +605,12 @@ function MarketLoadingState({ t, mode, installedCount = 0, onViewInstalled }: {
 }
 
 /** The installed set as a card grid, with its own status lines above it. */
-function InstalledCards({ t, installed, needle, catalog, english, snapshot, cards, installBusy, readiness, onReview, onCheckUpdate, availableUpdates, onSwitchToAll, onSwitchToFeatured, onClearFilters }: {
+function InstalledCards({ t, installed, needle, catalog, catalogEnabled = true, english, snapshot, cards, installBusy, readiness, onReview, onCheckUpdate, availableUpdates, onSwitchToAll, onSwitchToFeatured, onOpenSettings, onClearFilters }: {
   t: MarketLocale
   installed: ReturnType<typeof useInstalled>
   needle: string
   catalog: MarketCatalog | null
+  catalogEnabled?: boolean
   english: boolean
   snapshot: SafeMarketSnapshot
   cards: Readonly<Record<string, CardState>>
@@ -615,6 +621,7 @@ function InstalledCards({ t, installed, needle, catalog, english, snapshot, card
   availableUpdates?: Readonly<Record<string, string>>
   onSwitchToAll: (focusSearch?: boolean, clearQuery?: boolean) => void
   onSwitchToFeatured?: () => void
+  onOpenSettings?: () => void
   onClearFilters: () => void
 }): ReactElement {
   const { state, notice, actionError, reload } = installed
@@ -656,13 +663,17 @@ function InstalledCards({ t, installed, needle, catalog, english, snapshot, card
           icon="installed"
           title={t('empty.installedTitle')}
           description={t('empty.installedHint')}
-          primaryAction={{
-            label: t('empty.switchToAll'),
-            count: catalog?.items.length,
-            arrow: true,
-            onClick: () => onSwitchToAll(false, true),
-          }}
-          secondaryAction={onSwitchToFeatured ? { label: t('empty.browseFeatured'), onClick: onSwitchToFeatured } : undefined}
+          primaryAction={catalogEnabled
+            ? {
+                label: t('empty.switchToAll'),
+                count: catalog?.items.length,
+                arrow: true,
+                onClick: () => onSwitchToAll(false, true),
+              }
+            : onOpenSettings
+              ? { label: t('intro.openSettings'), onClick: onOpenSettings }
+              : undefined}
+          secondaryAction={catalogEnabled && onSwitchToFeatured ? { label: t('empty.browseFeatured'), onClick: onSwitchToFeatured } : undefined}
         />
       )}
       {state.status === 'ready' && state.result.error === '' && state.result.packages.length > 0 && shown.length === 0 && (
@@ -708,7 +719,7 @@ function InstalledCards({ t, installed, needle, catalog, english, snapshot, card
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, appliedUpdateRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
+function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, onOpenSettings, directInstaller, setDirectItem, installedRevision, appliedUpdateRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
   setDirectItem: (item: MarketPlugin) => void
   installedRevision: number
   appliedUpdateRevision: number
@@ -730,6 +741,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
   cards: Readonly<Record<string, CardState>>
   installBusy: boolean
   onReviewDraft: (cardKey: string, prompt: string, viaNewWorkspace: boolean) => void
+  onOpenSettings: () => void
 }): ReactElement {
   const enabled = snapshot.settingsReady && snapshot.value.enabled
   const [state, setState] = useState<CatalogState>(() => {
@@ -742,18 +754,25 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
   // answer is a separate flag rather than the `loading` status.
   const [refreshing, setRefreshing] = useState(false)
   const [query, setQuery] = useState('')
-  // The editor's picks are the first view; a catalog without them falls back
-  // to All (see `scope` below), so no feed can open on an empty page.
-  const [category, setCategory] = useState(FEATURED_CATEGORY)
+  // The editor's picks are the first view when the online catalog is enabled;
+  // when the community catalog is disabled, land directly on installed plugins
+  // so local management stays immediately accessible.
+  const [category, setCategory] = useState(() => (snapshot.settingsReady && !enabled ? INSTALLED_FILTER : FEATURED_CATEGORY))
   const [filterCategory, setFilterCategory] = useState('')
   const [sort, setSort] = useState<MarketSort>('active')
   const [page, setPage] = useState(0)
   const resultsRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const installed = useInstalled({ t, active: enabled, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled })
+  const scrollResultsToTop = (behavior?: ScrollBehavior) => {
+    scrollResultsContainerToTop(resultsRef.current, behavior)
+  }
+  const installed = useInstalled({ t, active: snapshot.settingsReady, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled })
+  useEffect(() => {
+    if (snapshot.settingsReady && !enabled) setCategory(INSTALLED_FILTER)
+  }, [snapshot.settingsReady, enabled])
   useEffect(() => { if (installedRevision > 0) installed.reload() }, [installedRevision, installed.reload])
   useLayoutEffect(() => {
-    if (appliedUpdateRevision > 0) resultsRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+    if (appliedUpdateRevision > 0) scrollResultsToTop('instant')
   }, [appliedUpdateRevision])
   useEffect(() => {
     if (installed.state.status === 'ready' && installed.state.result.error === '' && installed.state.result.packages.length > 0) {
@@ -859,28 +878,17 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
   }, [catalog, installedSelected, shown.length, featuredSelected, scope, needle, english])
   const paged = pageOf(shown, page)
   useLayoutEffect(() => {
-    resultsRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+    scrollResultsToTop('instant')
   }, [paged.current])
   useEffect(() => {
     setPage(0)
-    resultsRef.current?.scrollTo({ top: 0 })
+    scrollResultsToTop()
   }, [catalog, category, filterCategory, sort, query, english])
 
   if (!snapshot.settingsReady) {
     return (
       <div className="dsh_market_page">
         <MarketLoadingState t={t} mode="settings" />
-      </div>
-    )
-  }
-
-  if (!enabled) {
-    return (
-      <div className="dsh_market_page">
-        <div className="dsh_market_intro">
-          <p className="dsh_market_introTitle">{t('intro.title')}</p>
-          <p className="dsh_market_introBody">{t('intro.disabled')}</p>
-        </div>
       </div>
     )
   }
@@ -954,18 +962,23 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
           </button>
         </div>
       )}
-        <button
-          type="button"
-          className="dsh_market_headerAction dsh_market_refreshMarket"
-          disabled={state.status === 'loading' || refreshing}
-          aria-busy={refreshing}
-          onClick={() => { load(true); if (installedSelected) installed.reload() }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
-          </svg>
-          {refreshing ? t('refreshing') : t('refresh')}
-        </button>
+        {(enabled || installedSelected) && (
+          <button
+            type="button"
+            className="dsh_market_headerAction dsh_market_refreshMarket"
+            disabled={enabled ? (state.status === 'loading' || refreshing) : installed.state.status === 'loading'}
+            aria-busy={enabled ? refreshing : installed.state.status === 'loading'}
+            onClick={() => {
+              if (enabled) load(true)
+              if (installedSelected) installed.reload()
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
+            </svg>
+            {(enabled ? refreshing : installed.state.status === 'loading') ? t('refreshing') : t('refresh')}
+          </button>
+        )}
 
       <div className="dsh_market_filterBar">
         <div className="dsh_market_scope" role="group" aria-label={t('filter.scope')}>
@@ -984,29 +997,31 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
             {t('installed.chip')} <span>{installed.count}</span>
           </button>
         </div>
-        <div className="dsh_market_filterActions">
-          <input
-            ref={searchInputRef}
-            className="dsh_market_search dsh_market_filterSearch"
-            type="search"
-            spellCheck={false}
-            aria-label={t('search')}
-            placeholder={t('search')}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          {!installedSelected && filterCategories.length > 0 && <MarketSelector
-            value={scope} onChange={setFilterCategory} label={t('filter.category')} className="dsh_market_category"
-            options={[{ value: '', label: t('filter.allCategories') }, ...filterCategories
-              .map(entry => ({ value: entry.key, label: english ? entry.en : entry.zh, count: entry.count }))]} />}
-          {allSelected && catalog !== null && <MarketSelector
-            value={sort} onChange={setSort} label={t('filter.sort')} className="dsh_market_sort"
-            options={[
-              { value: 'active', label: t('filter.sort.active') },
-              { value: 'stars', label: t('filter.sort.stars') },
-              { value: 'updated', label: t('filter.sort.updated') },
-            ]} />}
-        </div>
+        {(enabled || installedSelected) && (
+          <div className="dsh_market_filterActions">
+            <input
+              ref={searchInputRef}
+              className="dsh_market_search dsh_market_filterSearch"
+              type="search"
+              spellCheck={false}
+              aria-label={t('search')}
+              placeholder={t('search')}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            {!installedSelected && filterCategories.length > 0 && <MarketSelector
+              value={scope} onChange={setFilterCategory} label={t('filter.category')} className="dsh_market_category"
+              options={[{ value: '', label: t('filter.allCategories') }, ...filterCategories
+                .map(entry => ({ value: entry.key, label: english ? entry.en : entry.zh, count: entry.count }))]} />}
+            {allSelected && catalog !== null && <MarketSelector
+              value={sort} onChange={setSort} label={t('filter.sort')} className="dsh_market_sort"
+              options={[
+                { value: 'active', label: t('filter.sort.active') },
+                { value: 'stars', label: t('filter.sort.stars') },
+                { value: 'updated', label: t('filter.sort.updated') },
+              ]} />}
+          </div>
+        )}
 
       </div>
 
@@ -1019,6 +1034,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
             installed={installed}
             needle={needle}
             catalog={catalog}
+            catalogEnabled={enabled}
             english={english}
             snapshot={snapshot}
             cards={cards}
@@ -1029,9 +1045,22 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
             availableUpdates={availableUpdates}
             onSwitchToAll={switchToAll}
             onSwitchToFeatured={catalog?.featured !== undefined ? switchToFeatured : undefined}
+            onOpenSettings={onOpenSettings}
             onClearFilters={clearFilters}
           />
           )
+        : !enabled
+          ? (
+            <div className="dsh_market_intro">
+              <p className="dsh_market_introTitle">{t('intro.title')}</p>
+              <p className="dsh_market_introBody">{t('intro.disabled')}</p>
+              <div className="dsh_market_introActions">
+                <button type="button" className="dsh_market_primary" onClick={onOpenSettings}>
+                  {t('intro.openSettings')}
+                </button>
+              </div>
+            </div>
+            )
         : state.status === 'error'
           ? (
             <MarketEmptyState
@@ -1167,8 +1196,8 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
                   {owned !== undefined
                     ? (
                       <button type="button" className="dsh_market_install"
-                        onClick={(event) => {
-                          event.currentTarget.closest('.dsh_market_results')?.scrollTo({ top: 0 })
+                        onClick={() => {
+                          scrollResultsToTop()
                           setCategory(INSTALLED_FILTER)
                         }}>{t('direct.manage')}</button>
                       )
@@ -1212,7 +1241,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
 
 /** The Marketplace section. */
 export function MarketSection({
-  useScope, loadCatalog, peekCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
+  useScope, updateSettings, loadCatalog, peekCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
   listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, mcp, close, t,
 }: MarketSectionProps): ReactElement {
   const snapshot = useScope(value => value)
@@ -1304,6 +1333,7 @@ export function MarketSection({
     { id: 'plugins', label: t('tab.plugins') },
     { id: 'skills', label: t('tab.skills') },
     ...(mcp ? [{ id: 'mcp' as const, label: t('tab.mcp') }] : []),
+    { id: 'settings', label: t('tab.settings') },
   ]
 
   /**
@@ -1341,6 +1371,10 @@ export function MarketSection({
     if (profile === null || !item.fullName) return
     void runReview(SELF_CARD_KEY, buildInstallPrompt(t, { profile, repo: item.fullName, name: item.name }),
       workspaceReadiness.getSnapshot() === 'none').then(ok => { if (ok) closeInstallPanel() })
+  }
+  const aiPickCard = cards[AI_PICK_CARD_KEY]
+  const tryAiAssistant = (): void => {
+    void runReview(AI_PICK_CARD_KEY, t('ai.pickPrompt'), workspaceReadiness.getSnapshot() === 'none')
   }
 
   return (
@@ -1404,7 +1438,25 @@ export function MarketSection({
           </button>
         ))}
       </div>
+      {snapshot.settingsReady && snapshot.value.aiAssistantEnabled && (
+        <button
+          type="button"
+          className="dsh_market_aiPick"
+          disabled={installBusy}
+          onClick={tryAiAssistant}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3 14.3 9.7 21 12 14.3 14.3 12 21 9.7 14.3 3 12 9.7 9.7Z" />
+          </svg>
+          {t('ai.pick')}
+        </button>
+      )}
       </div>
+      {aiPickCard && (aiPickCard.status === 'error' || aiPickCard.status === 'needs-workspace') && page !== 'settings' && (
+        <p className="dsh_market_status" data-error={aiPickCard.status === 'error' ? 'true' : undefined} role="status">
+          {aiPickCard.message}
+        </p>
+      )}
       {/* The Plugins panel stays mounted across tab switches: unmounting it
           would drop the search/filter state and re-pull the catalog on every
           return. The Skills panel remounts per visit, so each visit re-reads
@@ -1437,6 +1489,7 @@ export function MarketSection({
           cards={cards}
           installBusy={installBusy}
           onReviewDraft={runReview}
+          onOpenSettings={() => { setPage('settings') }}
           directInstaller={directInstaller}
         />
       </div>
@@ -1459,6 +1512,24 @@ export function MarketSection({
           aria-labelledby={`${tabsId}-tab-mcp`}
         >
           <McpView t={t} controller={mcp} onBrowsePlugins={() => { setPage('plugins') }} />
+        </div>
+      )}
+      {page === 'settings' && (
+        <div
+          id={`${tabsId}-panel-settings`}
+          className="dsh_market_scroll"
+          role="tabpanel"
+          aria-labelledby={`${tabsId}-tab-settings`}
+        >
+          <SettingsView
+            t={t}
+            settings={snapshot.value}
+            settingsReady={snapshot.settingsReady}
+            updateSettings={updateSettings}
+            onTryAssistant={tryAiAssistant}
+            tryBusy={installBusy}
+            tryMessage={aiPickCard?.status === 'error' || aiPickCard?.status === 'needs-workspace' ? aiPickCard.message : ''}
+          />
         </div>
       )}
       <BackToTop root={searchDock.root} page={page} label={t('backToTop')} />

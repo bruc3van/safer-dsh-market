@@ -42,7 +42,7 @@ type PluginTabInjected = Omit<MarketSectionInjected, 'install'> & {
 /** The owner's install verb is distinct from the market's review-draft verb. */
 export function MarketPluginTab({ install: _install, update: _update, openPackage: _openPackage, stageReview, ...props }:
   PropsRuntime<'plugins.tab'> & InjectFace<PluginTabInjected> & PropsLocale<typeof NS>) {
-  return <div className="dsh_market_main">
+  return <div className="dsh_market_pluginTab">
     <MarketErrorBoundary t={props.t} surface="plugins.tab"><MarketSection {...props} install={stageReview} /></MarketErrorBoundary>
   </div>
 }

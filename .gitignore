@@ -6,3 +6,4 @@ node_modules/
 .verification/
 .playwright-cli/
 output/playwright/catalog-*
+lib/**/*.map
