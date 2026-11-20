@@ -37,6 +37,8 @@ import {
   INSTALLED_FILTER, SELF_CARD_KEY, featuredRows, installedReviewCardKey, marketKey, marketRows, matches, pageOf, starCount, stateOf,
 } from './rows.ts'
 import { SkillsView } from './SkillsView.tsx'
+import { McpView } from './McpView.tsx'
+import type { McpController } from './mcpController.ts'
 import { MarketMoreActions } from './MarketMoreActions.tsx'
 import { BackToTop } from './BackToTop.tsx'
 import { PluginLogo } from './PluginLogo.tsx'
@@ -114,6 +116,8 @@ export interface MarketSectionInjected {
   setInstalledEnabled: (packageName: string, enabled: boolean) => Promise<MarketInstalledResult>
   /** Uninstall one installed package (stops now, finishes on restart). */
   uninstallInstalled: (packageName: string) => Promise<MarketInstalledResult>
+  /** The MCP page's store; absent where the client cannot mount it. */
+  mcp?: McpController
 }
 
 /** Full section props: runtime share + injected face + locale seat. */
@@ -137,7 +141,7 @@ type CardState =
   | { readonly status: 'staged' }
   | { readonly status: 'error'; readonly message: string }
 
-type Page = 'plugins' | 'skills'
+type Page = 'plugins' | 'skills' | 'mcp'
 
 type InstalledState =
   | { readonly status: 'loading' }
@@ -924,7 +928,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
 /** The Marketplace section. */
 export function MarketSection({
   useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
-  listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t,
+  listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, mcp, close, t,
 }: MarketSectionProps): ReactElement {
   const snapshot = useScope(value => value)
   // The slot props carry a translate function, not a locale tag; the
@@ -1014,6 +1018,7 @@ export function MarketSection({
   const pages: readonly { id: Page; label: string }[] = [
     { id: 'plugins', label: t('tab.plugins') },
     { id: 'skills', label: t('tab.skills') },
+    ...(mcp ? [{ id: 'mcp' as const, label: t('tab.mcp') }] : []),
   ]
 
   /**
@@ -1158,6 +1163,16 @@ export function MarketSection({
         >
           <SkillsView t={t} listSkills={listSkills} skillsSession={skillsSession}
             canOpenFolder={canOpenFolder} openFolder={openFolder} />
+        </div>
+      )}
+      {page === 'mcp' && mcp && (
+        <div
+          id={`${tabsId}-panel-mcp`}
+          className="dsh_market_scroll"
+          role="tabpanel"
+          aria-labelledby={`${tabsId}-tab-mcp`}
+        >
+          <McpView t={t} controller={mcp} onBrowsePlugins={() => { setPage('plugins') }} />
         </div>
       )}
       <BackToTop root={searchDock.root} page={page} label={t('backToTop')} />

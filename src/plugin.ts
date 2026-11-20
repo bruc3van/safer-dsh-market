@@ -35,6 +35,7 @@ import { createInstalledManager } from './installed.ts'
 import { SafeMarketRuntime } from './runtime.ts'
 import { registerSafeMarketSettings } from './settings.ts'
 import { readSkills } from './skills.ts'
+import { inspectMcpContext, type McpLoaderEntry } from './mcp.ts'
 import { adoptDomainState, initialDomainState, safeMarketDomainSpec, type SafeMarketDomainState } from './store.ts'
 import { TYPERT_MANIFEST } from './typert.ts'
 import type { SafeMarketSettingsUpdate } from './contract.ts'
@@ -187,6 +188,7 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     (sessionId, signal) => readSkills(ctx, sessionId, signal),
     { profile: profile.name, version: readSelfVersion() },
     installed,
+    () => inspectMcpContext(ctx, ctx.loader.entries() as Iterable<McpLoaderEntry>),
   )
 
   // Strict endpoint registration: the gateway resolves the market's calls

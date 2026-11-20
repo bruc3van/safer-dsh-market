@@ -443,6 +443,82 @@ export const uninstallInstalledUpdateSchema = z.object({
   packageName: packageNameSchema,
 }).readonly()
 
+/** One `dsh-mcp-client` row composed straight into the profile, outside the manager. */
+export interface McpUnmanagedServer {
+  /** The Loader entry id (patch-addressable). */
+  readonly entryId: string
+  /** The Loader's full entry identity — what the official plugin manager's `listPlugins` names `entryId`. */
+  readonly loaderId: string
+  readonly serverName: string
+  readonly transport: 'stdio' | 'streamable-http' | 'unknown'
+  readonly command: string
+  /** Arguments with secret-looking values masked on the Host. */
+  readonly args: readonly string[]
+  /** Environment variable NAMES only; values never leave the Host. */
+  readonly envKeys: readonly string[]
+  /** Endpoint with secret query values masked. */
+  readonly url: string
+  /** Header NAMES only. */
+  readonly headerKeys: readonly string[]
+  readonly enabled: boolean
+  readonly phase: 'pending' | 'loading' | 'active' | 'failed' | 'disposed' | 'unloading' | null
+  /** Config paths that hold a secret in the clear (`args[3]`, `env.API_KEY`, …). */
+  readonly plaintextSecrets: readonly string[]
+}
+
+/** One registered MCP tool, as the model sees its name. */
+export interface McpTool {
+  readonly name: string
+  readonly description: string
+}
+
+/** The live tools one server namespace contributes to the global view. */
+export interface McpToolGroup {
+  readonly server: string
+  readonly tools: readonly McpTool[]
+}
+
+/** The MCP facts only the Host can answer. */
+export interface McpHostContext {
+  /** The `dsh-mcp-manager` Loader entry id — its Settings namespace — or null when the runtime has none. */
+  readonly managerEntry: string | null
+  readonly managerActive: boolean
+  readonly unmanaged: readonly McpUnmanagedServer[]
+  readonly tools: readonly McpToolGroup[]
+  /** Why the tool view could not be read, when it could not. */
+  readonly toolsError: string
+}
+
+const fiberPhaseSchema = z.union([
+  z.enum(['pending', 'loading', 'active', 'failed', 'disposed', 'unloading']),
+  z.null(),
+])
+
+/** Strict wire codec for the MCP Host read. */
+export const mcpHostContextSchema = z.object({
+  managerEntry: z.union([z.string(), z.null()]),
+  managerActive: z.boolean(),
+  unmanaged: z.array(z.object({
+    entryId: z.string(),
+    loaderId: z.string(),
+    serverName: z.string(),
+    transport: z.enum(['stdio', 'streamable-http', 'unknown']),
+    command: z.string(),
+    args: z.array(z.string()).readonly(),
+    envKeys: z.array(z.string()).readonly(),
+    url: z.string(),
+    headerKeys: z.array(z.string()).readonly(),
+    enabled: z.boolean(),
+    phase: fiberPhaseSchema,
+    plaintextSecrets: z.array(z.string()).readonly(),
+  }).readonly()).readonly(),
+  tools: z.array(z.object({
+    server: z.string(),
+    tools: z.array(z.object({ name: z.string(), description: z.string() }).readonly()).readonly(),
+  }).readonly()).readonly(),
+  toolsError: z.string(),
+}).readonly()
+
 /** The dshMarketPro Remote namespace's strict invocation descriptors. */
 export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
   {
@@ -604,6 +680,19 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
       mode: 'strict',
       typeSymbol: 'dsh-market-pro#MarketInstalledResult',
       create: () => marketInstalledResultSchema,
+    },
+  },
+  {
+    id: 'dsh-market-pro#dshMarketPro/inspectMcp',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
+    method: 'inspectMcp',
+    invocation: { kind: 'direct' },
+    parameters: [],
+    result: {
+      mode: 'strict',
+      typeSymbol: 'dsh-market-pro#McpHostContext',
+      create: () => mcpHostContextSchema,
     },
   },
 ]

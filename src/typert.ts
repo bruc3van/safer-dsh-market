@@ -64,6 +64,11 @@ export const TYPERT_MANIFEST: TypertContribution = {
             name: 'uninstallInstalled',
             signature: 'uninstallInstalled(update: UninstallInstalledUpdate): Promise<MarketInstalledResult>',
           },
+          {
+            kind: 'method',
+            name: 'inspectMcp',
+            signature: 'inspectMcp(): McpHostContext',
+          },
         ],
         types: [],
       },

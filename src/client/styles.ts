@@ -1058,6 +1058,85 @@ export const cssText = `
   .dsh_market_cards { grid-template-columns: minmax(0, 1fr); }
   .dsh_market_search.dsh_market_skillSearch { flex-basis: 100%; }
 }
+
+/* The MCP page: the installed cards' shape, plus a monospace target line,
+   a status voice per bucket, and the editor sheet's stacked fields. */
+.dsh_market_skillsHeading .dsh_market_mcpAdd { margin-left: auto; }
+.dsh_market_mcpCard .dsh_market_cardError, .dsh_market_mcpCard .dsh_market_cardNotice,
+.dsh_market_mcpEditor .dsh_market_cardError, .dsh_market_mcpEditor .dsh_market_cardNotice {
+  margin: 0; font-size: 12px; line-height: 18px; overflow-wrap: anywhere;
+}
+.dsh_market_mcpState {
+  flex: none; margin-left: auto; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary);
+}
+.dsh_market_mcpState[data-kind="connected"] { color: var(--dsw-alias-state-success-primary, var(--dsw-alias-state-business-primary)); }
+.dsh_market_mcpState[data-kind="issue"],
+.dsh_market_mcpState[data-kind="locked"] { color: var(--dsw-alias-state-error-primary); }
+.dsh_market_mcpState[data-kind="disabled"],
+.dsh_market_mcpState[data-kind="unknown"] { color: var(--dsw-alias-label-tertiary); }
+.dsh_market_mcpCode {
+  margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 17px;
+  color: var(--dsw-alias-label-secondary);
+}
+.dsh_market_mcpProbe .dsh_market_mcpCode { white-space: normal; overflow-wrap: anywhere; }
+.dsh_market_cardNotice[data-warning="true"] { color: var(--dsw-alias-state-warning-primary, var(--dsw-alias-label-secondary)); }
+.dsh_market_mcpProbe {
+  display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1); font-size: 12px; line-height: 18px;
+}
+.dsh_market_mcpProbe p { margin: 0; }
+.dsh_market_mcpTools { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.dsh_market_mcpToolList {
+  list-style: none; margin: 0; padding: 8px 10px; width: 100%; box-sizing: border-box;
+  max-height: 220px; overflow: auto; border-radius: 8px; background: var(--dsw-alias-bg-layer-1);
+  display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 18px;
+}
+.dsh_market_mcpToolList li { display: flex; flex-direction: column; min-width: 0; }
+.dsh_market_mcpToolList code, .dsh_market_mcpCreds code, .dsh_market_mcpSecrets code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere;
+}
+.dsh_market_mcpToolList span { color: var(--dsw-alias-label-tertiary); }
+.dsh_market_mcpCreds { display: flex; flex-direction: column; gap: 4px; }
+.dsh_market_mcpCreds ul, .dsh_market_mcpSecrets ul, .dsh_market_mcpPending {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;
+}
+.dsh_market_mcpCreds li, .dsh_market_mcpSecrets li {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; line-height: 18px;
+}
+.dsh_market_mcpCredState { color: var(--dsw-alias-state-error-primary); }
+.dsh_market_mcpCredState[data-configured="true"] { color: var(--dsw-alias-label-tertiary); }
+.dsh_market_mcpCredForm { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.dsh_market_mcpCredForm input { flex: 1 1 160px; }
+.dsh_market_mcpEditor { width: min(600px, calc(100vw - 32px)); }
+.dsh_market_mcpForm { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.dsh_market_mcpField {
+  display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; border: 0; min-width: 0;
+  font-size: 13px; line-height: 20px;
+}
+.dsh_market_mcpField > span, .dsh_market_mcpField > legend { font-weight: 500; padding: 0; margin-bottom: 2px; }
+.dsh_market_mcpField input, .dsh_market_mcpField textarea, .dsh_market_mcpCredForm input {
+  box-sizing: border-box; width: 100%; min-width: 0; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px;
+}
+.dsh_market_mcpField textarea { resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.dsh_market_mcpField input:disabled { opacity: .6; }
+.dsh_market_mcpField input:focus-visible, .dsh_market_mcpField textarea:focus-visible, .dsh_market_mcpCredForm input:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px;
+}
+.dsh_market_mcpField > .dsh_market_chip { align-self: flex-start; }
+.dsh_market_mcpPair { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dsh_market_mcpPair input { flex: 1 1 0; }
+.dsh_market_mcpPair .dsh_market_chip { flex: none; }
+.dsh_market_mcpSecrets, .dsh_market_mcpRisk {
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2);
+  font-size: 12px; line-height: 18px;
+}
+.dsh_market_mcpSecrets p, .dsh_market_mcpRisk p { margin: 0; }
+.dsh_market_mcpRisk .dsh_market_directMessage { margin: 0; }
+.dsh_market_mcpCheck { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 `
 
 /**

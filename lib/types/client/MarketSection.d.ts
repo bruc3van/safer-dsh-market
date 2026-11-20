@@ -17,6 +17,7 @@ import { type ReactElement } from 'react';
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots';
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store';
 import type { MarketCatalog, MarketInstalledResult, MarketSkillsResult, SafeMarketSettings } from '../contract.ts';
+import type { McpController } from './mcpController.ts';
 /** The live snapshot the section renders from: the switch plus the deployment facts. */
 export interface SafeMarketSnapshot {
     readonly value: SafeMarketSettings;
@@ -109,10 +110,12 @@ export interface MarketSectionInjected {
     setInstalledEnabled: (packageName: string, enabled: boolean) => Promise<MarketInstalledResult>;
     /** Uninstall one installed package (stops now, finishes on restart). */
     uninstallInstalled: (packageName: string) => Promise<MarketInstalledResult>;
+    /** The MCP page's store; absent where the client cannot mount it. */
+    mcp?: McpController;
 }
 /** Full section props: runtime share + injected face + locale seat. */
 export type MarketSectionProps = {
     close: () => void;
 } & InjectFace<MarketSectionInjected> & PropsLocale<'settings.dshMarketPro'>;
 /** The Marketplace section. */
-export declare function MarketSection({ useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, close, t, }: MarketSectionProps): ReactElement;
+export declare function MarketSection({ useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, mcp, close, t, }: MarketSectionProps): ReactElement;

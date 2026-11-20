@@ -19,6 +19,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
+  McpHostContext,
   MarketCatalogResult,
   MarketEnvironment,
   MarketInstalledResult,
@@ -26,6 +27,9 @@ import type {
   SafeMarketSettings,
 } from '../contract.ts'
 import { createDirectInstaller, type InstallHost } from './directInstall.ts'
+import {
+  createMcpController, type McpCredentialsFace, type McpManagerFace, type McpPluginsFace, type McpSettingsFace,
+} from './mcpController.ts'
 import { createPluginUpdater, type UpdateHost, type UpdateMarketHost } from './pluginUpdates.ts'
 import { stageReviewPrompt } from './handoff.ts'
 import { SAFE_MARKET_REMOTE } from './remote.ts'
@@ -107,6 +111,7 @@ interface SafeMarketFace {
   listInstalled(): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
   setInstalledEnabled(update: { packageName: string; enabled: boolean }): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
   uninstallInstalled(update: { packageName: string }): Promise<{ ok: true; value: MarketInstalledResult } | { ok: false; error: { code: string; message: string } }>
+  inspectMcp(): Promise<{ ok: true; value: McpHostContext } | { ok: false; error: { code: string; message: string } }>
 }
 
 /** The slice of the Host's session namespace the folder action calls. */
@@ -402,6 +407,29 @@ export function apply(ctx: ClientContext): void {
     if (!result.ok) throw new Error(result.error.message)
   }
 
+  // The MCP page reads the official manager, Settings and credential Remotes
+  // directly; only the facts they cannot carry come through this market.
+  const reflect = (name: string): unknown => (ctx.reflect as unknown as { get(name: string): unknown }).get(name)
+  const mcp = createMcpController({
+    manager: () => reflect('remote.mcpManager') as McpManagerFace | undefined,
+    settings: () => reflect('remote.settings') as McpSettingsFace | undefined,
+    credentials: () => reflect('remote.credentials') as McpCredentialsFace | undefined,
+    plugins: () => reflect('remote.pluginManager') as McpPluginsFace | undefined,
+    inspect: async () => {
+      const remote = market
+      if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
+      const result = await remote.inspectMcp()
+      if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+      return result.value
+    },
+  })
+  ctx.on('connection/reset', () => { mcp.reset() })
+  ctx.effect(() => ctx.remote.$on('plugin-manager/changed', () => { mcp.invalidate() }), 'dsh-market-pro: mcp plugin changes')
+  // Forwarded Host events: an edit made elsewhere (another window, the
+  // settings file, a credential rotation) reaches the open page.
+  ctx.effect(() => ctx.remote.$on('settings/document-updated', () => { mcp.settingsChanged() }), 'dsh-market-pro: mcp settings changes')
+  ctx.effect(() => ctx.remote.$on('credentials/reference-updated', () => { mcp.credentialsChanged() }), 'dsh-market-pro: mcp credential changes')
+
   const globalSkills = skillsFor()
   const injectMarket = (): MarketSectionInjected => ({
     hooks: { scope },
@@ -419,6 +447,7 @@ export function apply(ctx: ClientContext): void {
     subscribeInstalledChanges,
     setInstalledEnabled,
     uninstallInstalled,
+    mcp,
   })
 
   registerMarketSidebar(ctx, injectMarket)

@@ -12,6 +12,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { CatalogSource } from './catalog.ts';
 import type { InstalledManager } from './installed.ts';
+import type { McpHostContext } from './contract.ts';
 import type { MarketCatalogResult, MarketEnvironment, MarketInstalledResult, MarketSkillsResult, SafeMarketSettings, SafeMarketSettingsUpdate, SetInstalledEnabledUpdate, UninstallInstalledUpdate } from './contract.ts';
 /** Market service: the reduced catalog, the plugin's durable settings, and the installed-panel verbs. */
 export declare class SafeMarketRuntime extends TypertRemoteService {
@@ -21,6 +22,7 @@ export declare class SafeMarketRuntime extends TypertRemoteService {
     private readonly readSkills;
     private readonly environment;
     private readonly installed;
+    private readonly readMcp;
     /**
      * Register the service under the `dshMarketPro` key (the wire namespace).
      * @param ctx - owning cordis context.
@@ -29,7 +31,7 @@ export declare class SafeMarketRuntime extends TypertRemoteService {
      * @param writeSettings - durable settings write.
      * @param installed - the installed-plugin manager.
      */
-    constructor(ctx: Context, catalog: CatalogSource, readSettings: () => SafeMarketSettings, writeSettings: (update: SafeMarketSettingsUpdate) => Promise<SafeMarketSettings>, readSkills: (sessionId: string, signal: AbortSignal) => Promise<MarketSkillsResult>, environment: MarketEnvironment, installed: InstalledManager);
+    constructor(ctx: Context, catalog: CatalogSource, readSettings: () => SafeMarketSettings, writeSettings: (update: SafeMarketSettingsUpdate) => Promise<SafeMarketSettings>, readSkills: (sessionId: string, signal: AbortSignal) => Promise<MarketSkillsResult>, environment: MarketEnvironment, installed: InstalledManager, readMcp: () => McpHostContext);
     /**
      * The deployment facts the browser needs to NAME the install command —
      * which profile an install would change. This plugin never runs it.
@@ -83,4 +85,10 @@ export declare class SafeMarketRuntime extends TypertRemoteService {
      * file.
      */
     uninstallInstalled(update: UninstallInstalledUpdate): Promise<MarketInstalledResult>;
+    /**
+     * The MCP facts the official manager and Settings Remotes do not carry:
+     * the manager's own entry id, unmanaged static rows (masked), and the live
+     * MCP tools. Read-only and local, so not gated on the market switch.
+     */
+    inspectMcp(): McpHostContext;
 }
