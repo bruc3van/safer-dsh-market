@@ -32,7 +32,8 @@ import {
   stateOf,
 } from '../src/client/rows.ts'
 import { describeInstalled, ownedIndexOf, shortName } from '../src/client/owned.ts'
-import { type MarketFeatured, type MarketInstalledPackage, type MarketPlugin } from '../src/contract.ts'
+import { CLIENT_CATALOG_TTL_MS, createClientCatalogCache, loadingProgressOf } from '../src/client/catalogCache.ts'
+import { type MarketCatalog, type MarketCatalogResult, type MarketFeatured, type MarketInstalledPackage, type MarketPlugin } from '../src/contract.ts'
 import { FEATURED_CATEGORY, isSafeVersion, REPOSITORY_SLUG_PATTERN } from '../src/shapes.ts'
 
 // ——— the prompt interpolation invariant ———
@@ -524,4 +525,137 @@ test('describeInstalled names a version only in a shape the prompt can carry', (
 
 test('an index built from an empty installed set claims nothing', () => {
   assert.equal(ownedIndexOf([]).size, 0)
+})
+
+// ——— client catalog cache ———
+
+test('client catalog cache coalesces concurrent loads, serves remounts from memory, and re-syncs after invalidate or force', async () => {
+  let clock = Date.UTC(2026, 10, 20, 12, 0, 0)
+  const makeResult = (name: string, hoursAgo = 0): MarketCatalogResult => {
+    const catalog: MarketCatalog = {
+      items: [plugin({ fullName: `owner/${name}`, name })],
+      categories: [{ key: 'dev', zh: '开发', en: 'Dev', count: 1 }],
+      fetchedAt: '2026-11-20T00:00:00Z',
+      refreshedAt: new Date(clock - hoursAgo * 3_600_000).toISOString(),
+      scanned: 1,
+    }
+    return { catalog, stale: false, error: '' }
+  }
+
+  let calls = 0
+  let resolveFirst!: (value: MarketCatalogResult) => void
+  let nextHandler: (force: boolean) => Promise<MarketCatalogResult> = () => new Promise(resolve => { resolveFirst = resolve })
+  const cache = createClientCatalogCache((force) => {
+    calls += 1
+    return nextHandler(force)
+  }, () => clock)
+
+  assert.equal(cache.peek(), null)
+  const firstA = cache.load(false)
+  const firstB = cache.load(false)
+  assert.equal(calls, 1, 'concurrent mounts share one RPC call')
+  const v1 = makeResult('v1')
+  resolveFirst(v1)
+  const [resA, resB] = await Promise.all([firstA, firstB])
+  assert.equal(resA, v1)
+  assert.equal(resB, v1)
+  assert.equal(cache.peek(), v1)
+
+  // Remounting within TTL hits memory with zero RPC calls.
+  clock += 60_000
+  const cachedRes = await cache.load(false)
+  assert.equal(cachedRes, v1)
+  assert.equal(calls, 1)
+
+  // After TTL expires, the cache syncs with the Host again.
+  clock += CLIENT_CATALOG_TTL_MS
+  const v2 = makeResult('v2')
+  nextHandler = async () => v2
+  assert.equal(await cache.load(false), v2)
+  assert.equal(calls, 2)
+
+  // Invalidate keeps peek() non-null so reconnects do not flash blank, while forcing the next load to re-sync.
+  cache.invalidate()
+  assert.equal(cache.peek(), v2)
+  const v3 = makeResult('v3')
+  nextHandler = async () => v3
+  assert.equal(await cache.load(false), v3)
+  assert.equal(calls, 3)
+
+  // Force bypasses TTL; a transport failure falls back to the cached catalog marked stale.
+  nextHandler = async () => { throw new Error('host unreachable') }
+  const failed = await cache.load(true)
+  assert.equal(calls, 4)
+  assert.equal(failed.catalog, v3.catalog)
+  assert.equal(failed.stale, true)
+  assert.match(failed.error, /host unreachable/)
+
+  // A Host-stale catalog (past 6h, SWR running on Host) uses a shorter client re-sync window (15s).
+  const staleFromHost = makeResult('stale-swr', 7)
+  nextHandler = async () => staleFromHost
+  assert.equal(await cache.load(true), staleFromHost)
+  assert.equal(calls, 5)
+  clock += 20_000
+  const updatedAfterSwr = makeResult('fresh-after-swr', 0)
+  nextHandler = async () => updatedAfterSwr
+  assert.equal(await cache.load(false), updatedAfterSwr)
+  assert.equal(calls, 6)
+
+  // A Host fallback carrying stale=true is not cached as fresh for 5 minutes:
+  // peek() still keeps it visible, while the next load(false) re-syncs immediately.
+  const staleErrorResult: MarketCatalogResult = { ...makeResult('fallback-stale', 0), stale: true, error: 'offline' }
+  nextHandler = async () => staleErrorResult
+  assert.equal(await cache.load(true), staleErrorResult)
+  assert.equal(calls, 7)
+  assert.equal(cache.peek(), staleErrorResult)
+  const recovered = makeResult('recovered', 0)
+  nextHandler = async () => recovered
+  assert.equal(await cache.load(false), recovered)
+  assert.equal(calls, 8)
+  assert.equal(cache.peek(), recovered)
+
+  // Calling invalidate() while a load is in flight drops that in-flight promise so a
+  // reconnected mount issues a fresh request and ignores the superseded response.
+  let resolveOld!: (value: MarketCatalogResult) => void
+  let resolveNew!: (value: MarketCatalogResult) => void
+  nextHandler = () => new Promise(resolve => { resolveOld = resolve })
+  cache.invalidate()
+  const oldReq = cache.load(false)
+  assert.equal(calls, 9)
+  cache.invalidate()
+  nextHandler = () => new Promise(resolve => { resolveNew = resolve })
+  const newReq = cache.load(false)
+  assert.equal(calls, 10, 'post-invalidate load does not coalesce onto the pre-invalidate in-flight call')
+  const staleFromOld = makeResult('from-old-connection', 0)
+  const freshFromNew = makeResult('from-new-connection', 0)
+  resolveNew(freshFromNew)
+  assert.equal(await newReq, freshFromNew)
+  resolveOld(staleFromOld)
+  assert.equal(await oldReq, staleFromOld)
+  assert.equal(cache.peek(), freshFromNew, 'late pre-invalidate response does not overwrite the newer cache')
+  assert.equal(await cache.load(false), freshFromNew, 'newer cache stays valid and avoids extra RPC')
+  assert.equal(calls, 10)
+})
+
+test('loadingProgressOf advances monotonically through stages and caps below 100%', () => {
+  const start = loadingProgressOf(0)
+  const connect = loadingProgressOf(800)
+  const download = loadingProgressOf(3_000)
+  const index = loadingProgressOf(7_000)
+  const slow = loadingProgressOf(12_000)
+  const verySlow = loadingProgressOf(120_000)
+
+  assert.equal(start.stage, 'connect')
+  assert.equal(connect.stage, 'connect')
+  assert.equal(download.stage, 'download')
+  assert.equal(index.stage, 'index')
+  assert.equal(slow.stage, 'slow')
+  assert.equal(verySlow.stage, 'slow')
+  assert.ok(start.percent > 0 && start.percent < connect.percent)
+  assert.ok(connect.percent < download.percent)
+  assert.ok(download.percent < index.percent)
+  assert.ok(index.percent < slow.percent)
+  assert.ok(slow.percent <= verySlow.percent && verySlow.percent <= 94)
+  assert.deepEqual(loadingProgressOf(-100), start)
+  assert.deepEqual(loadingProgressOf(Number.NaN), start)
 })

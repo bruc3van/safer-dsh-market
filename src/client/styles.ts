@@ -605,8 +605,86 @@ export const cssText = `
   line-height: 16px;
   font-variant-numeric: tabular-nums;
 }
+/* First-load empty card: calm progress indicator using the same focal card
+   geometry as MarketEmptyState so the page feels intentional from frame one. */
+@keyframes dsh_market_spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes dsh_market_progressShimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(240%); }
+}
+.dsh_market_loadingCard {
+  gap: 12px;
+}
+.dsh_market_loadingIcon {
+  color: var(--dsw-alias-state-business-primary);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, var(--dsw-alias-border-l2));
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-layer-1));
+}
+.dsh_market_loadingSpinner {
+  animation: dsh_market_spin 1.15s linear infinite;
+}
+.dsh_market_progressWrap {
+  width: min(100%, 340px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.dsh_market_progressTrack {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.dsh_market_progressFill {
+  position: relative;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--dsw-alias-state-business-primary);
+  transition: width .35s ease-out;
+  overflow: hidden;
+}
+.dsh_market_progressFill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--dsw-alias-bg-layer-3) 45%, transparent),
+    transparent
+  );
+  animation: dsh_market_progressShimmer 1.6s ease-in-out infinite;
+}
+.dsh_market_progressMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+.dsh_market_progressStage {
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.dsh_market_progressPercent {
+  flex: none;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-primary);
+}
 @media (prefers-reduced-motion: reduce) {
-  .dsh_market_empty { animation: none; }
+  .dsh_market_empty,
+  .dsh_market_loadingSpinner,
+  .dsh_market_progressFill::after { animation: none; }
   .dsh_market_emptyAction svg { transition: none; }
 }
 /* A quiet footer under the list: the range on the left, a compact pager on

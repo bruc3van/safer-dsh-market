@@ -1,4 +1,5 @@
 import type { DirectInstaller } from './directInstall.ts'
+import { loadingProgressOf } from './catalogCache.ts'
 import { MarketSelector } from './InstallModeSelector.tsx'
 import { DirectInstallPanel } from './DirectInstallPanel.tsx'
 import type { PluginUpdater } from './pluginUpdates.ts'
@@ -88,6 +89,8 @@ export interface MarketSectionInjected {
   hooks: { scope: SafeMarketSource }
   /** Read the reduced catalog; `force` bypasses the refresh interval. */
   loadCatalog: (force: boolean) => Promise<{ catalog: MarketCatalog | null; stale: boolean; error: string }>
+  /** Synchronously read the last cached catalog in this client, if any. */
+  peekCatalog?: () => { catalog: MarketCatalog | null; stale: boolean; error: string } | null
   /** Read the skills this deployment resolves. */
   listSkills: () => Promise<MarketSkillsResult>
   skillsSession: SkillsSessionSource
@@ -470,7 +473,7 @@ function InstalledCard({ t, item, installed, snapshot, card, installBusy, readin
 }
 
 function MarketEmptyState({ icon, badge, title, description, primaryAction, secondaryAction }: {
-  icon: 'scope' | 'search' | 'installed'
+  icon: 'scope' | 'search' | 'installed' | 'error'
   badge?: string
   title: string
   description: string
@@ -500,6 +503,12 @@ function MarketEmptyState({ icon, badge, title, description, primaryAction, seco
             <path d="M4 7.5 12 12l8-4.5M12 12v9" />
           </svg>
         )}
+        {icon === 'error' && (
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 8.2v4.6M12 16h.01" />
+          </svg>
+        )}
       </div>
       {badge !== undefined && <span className="dsh_market_emptyBadge">{badge}</span>}
       <h3 className="dsh_market_emptyTitle">{title}</h3>
@@ -522,6 +531,68 @@ function MarketEmptyState({ icon, badge, title, description, primaryAction, seco
               {secondaryAction.label}
             </button>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MarketLoadingState({ t, mode, installedCount = 0, onViewInstalled }: {
+  t: MarketLocale
+  mode: 'settings' | 'catalog'
+  installedCount?: number
+  onViewInstalled?: () => void
+}): ReactElement {
+  const [elapsedMs, setElapsedMs] = useState(0)
+  useEffect(() => {
+    const startedAt = Date.now()
+    setElapsedMs(0)
+    const timer = window.setInterval(() => {
+      setElapsedMs(Date.now() - startedAt)
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [mode])
+  const progress = mode === 'settings'
+    ? { percent: Math.min(24, Math.round(10 + (elapsedMs / 1_500) * 14)), stage: 'connect' as const }
+    : loadingProgressOf(elapsedMs)
+  const stageLabel = mode === 'settings'
+    ? t('loading.stage.settings')
+    : t(`loading.stage.${progress.stage}`)
+  return (
+    <div className="dsh_market_empty dsh_market_loadingCard" role="status" aria-busy="true" aria-live="polite">
+      <div className="dsh_market_emptyIcon dsh_market_loadingIcon" aria-hidden="true">
+        <svg className="dsh_market_loadingSpinner" viewBox="0 0 24 24">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+        </svg>
+      </div>
+      <h3 className="dsh_market_emptyTitle">
+        {mode === 'settings' ? t('loading.settingsTitle') : t('loading.title')}
+      </h3>
+      <p className="dsh_market_emptyDesc">
+        {mode === 'settings' ? t('loading.settingsDesc') : t('loading.desc')}
+      </p>
+      <div className="dsh_market_progressWrap">
+        <div
+          className="dsh_market_progressTrack"
+          role="progressbar"
+          aria-label={t('loading.progressAria')}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress.percent}
+        >
+          <div className="dsh_market_progressFill" style={{ width: `${String(progress.percent)}%` }} />
+        </div>
+        <div className="dsh_market_progressMeta">
+          <span className="dsh_market_progressStage">{stageLabel}</span>
+          <span className="dsh_market_progressPercent">{`${String(progress.percent)}%`}</span>
+        </div>
+      </div>
+      {mode === 'catalog' && installedCount > 0 && onViewInstalled !== undefined && (
+        <div className="dsh_market_emptyActions">
+          <button type="button" className="dsh_market_ghost dsh_market_emptyAction" onClick={onViewInstalled}>
+            <span>{t('loading.viewInstalled')}</span>
+            <span className="dsh_market_emptyCount">{installedCount}</span>
+          </button>
         </div>
       )}
     </div>
@@ -637,7 +708,7 @@ function InstalledCards({ t, installed, needle, catalog, english, snapshot, card
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, appliedUpdateRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
+function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, directInstaller, setDirectItem, installedRevision, appliedUpdateRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
   setDirectItem: (item: MarketPlugin) => void
   installedRevision: number
   appliedUpdateRevision: number
@@ -648,6 +719,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
   english: boolean
   snapshot: SafeMarketSnapshot
   loadCatalog: MarketSectionInjected['loadCatalog']
+  peekCatalog?: MarketSectionInjected['peekCatalog']
   listInstalled: MarketSectionInjected['listInstalled']
   subscribeInstalledChanges?: MarketSectionInjected['subscribeInstalledChanges']
   setInstalledEnabled: MarketSectionInjected['setInstalledEnabled']
@@ -660,7 +732,12 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
   onReviewDraft: (cardKey: string, prompt: string, viaNewWorkspace: boolean) => void
 }): ReactElement {
   const enabled = snapshot.settingsReady && snapshot.value.enabled
-  const [state, setState] = useState<CatalogState>(enabled ? { status: 'loading' } : { status: 'idle' })
+  const [state, setState] = useState<CatalogState>(() => {
+    if (!enabled) return { status: 'idle' }
+    const cached = peekCatalog?.()
+    if (cached?.catalog) return { status: 'ready', catalog: cached.catalog, stale: cached.stale }
+    return { status: 'loading' }
+  })
   // A force refresh from `ready` keeps showing the catalog, so the busy
   // answer is a separate flag rather than the `loading` status.
   const [refreshing, setRefreshing] = useState(false)
@@ -720,22 +797,32 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
 
   const load = useCallback((force: boolean) => {
     const seq = (readSeq.current += 1)
-    setState(previous => (previous.status === 'ready' ? previous : { status: 'loading' }))
+    setState((previous) => {
+      if (previous.status === 'ready') return previous
+      const cached = peekCatalog?.()
+      if (cached?.catalog) return { status: 'ready', catalog: cached.catalog, stale: cached.stale }
+      return { status: 'loading' }
+    })
     if (force) setRefreshing(true)
     void loadCatalog(force).then((result) => {
       if (!mounted.current || seq !== readSeq.current) return
       setRefreshing(false)
-      if (result.catalog === null) {
+      const nextCatalog = result.catalog
+      if (nextCatalog === null) {
         setState({ status: 'error', message: result.error })
         return
       }
-      setState({ status: 'ready', catalog: result.catalog, stale: result.stale })
+      setState(previous => (
+        previous.status === 'ready' && previous.catalog === nextCatalog && previous.stale === result.stale
+          ? previous
+          : { status: 'ready', catalog: nextCatalog, stale: result.stale }
+      ))
     }, (error: unknown) => {
       if (!mounted.current || seq !== readSeq.current) return
       setRefreshing(false)
       setState({ status: 'error', message: error instanceof Error ? error.message : String(error) })
     })
-  }, [loadCatalog])
+  }, [loadCatalog, peekCatalog])
 
   // The host resolves the persisted preference before catalog access begins.
   useEffect(() => {
@@ -748,9 +835,10 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
 
   const catalog = state.status === 'ready' ? state.catalog : null
   const needle = query.trim().toLocaleLowerCase()
+  const showFeatured = catalog === null || catalog.featured !== undefined
   const featuredSelected = category === FEATURED_CATEGORY && catalog?.featured !== undefined
-  const allSelected = !installedSelected && !featuredSelected
-    && !(catalog === null && category === FEATURED_CATEGORY)
+  const featuredChipPressed = category === FEATURED_CATEGORY && showFeatured
+  const allSelected = !installedSelected && !featuredChipPressed
   const filterCategories = featuredSelected
     ? catalog.featured?.categories ?? []
     : catalog?.categories.filter(entry => entry.key !== FEATURED_CATEGORY && entry.key !== SUBSCRIPTION_CATEGORY) ?? []
@@ -779,7 +867,11 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
   }, [catalog, category, filterCategory, sort, query, english])
 
   if (!snapshot.settingsReady) {
-    return <p className="dsh_market_status" role="status">{t('loading')}</p>
+    return (
+      <div className="dsh_market_page">
+        <MarketLoadingState t={t} mode="settings" />
+      </div>
+    )
   }
 
   if (!enabled) {
@@ -877,19 +969,19 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
 
       <div className="dsh_market_filterBar">
         <div className="dsh_market_scope" role="group" aria-label={t('filter.scope')}>
-          {catalog?.featured !== undefined && (
-            <button type="button" className="dsh_market_scopeButton" aria-pressed={featuredSelected}
+          {showFeatured && (
+            <button type="button" className="dsh_market_scopeButton" aria-pressed={featuredChipPressed}
               onClick={switchToFeatured}>
-              {t('featured.chip')} <span>{catalog.featured.count}</span>
+              {t('featured.chip')} {catalog?.featured !== undefined && <span>{catalog.featured.count}</span>}
             </button>
           )}
-          <button type="button" className="dsh_market_scopeButton" aria-pressed={installedSelected}
-            onClick={() => setCategory(INSTALLED_FILTER)}>
-            {t('installed.chip')} <span>{installed.count}</span>
-          </button>
           <button type="button" className="dsh_market_scopeButton" aria-pressed={allSelected}
             onClick={() => switchToAll(false)}>
             {t('all')} {catalog !== null && <span>{catalog.items.length}</span>}
+          </button>
+          <button type="button" className="dsh_market_scopeButton" aria-pressed={installedSelected}
+            onClick={() => setCategory(INSTALLED_FILTER)}>
+            {t('installed.chip')} <span>{installed.count}</span>
           </button>
         </div>
         <div className="dsh_market_filterActions">
@@ -942,16 +1034,22 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
           )
         : state.status === 'error'
           ? (
-            <p className="dsh_market_status" data-error="true">
-              {t('failed', { reason: state.message })}
-              <button type="button" className="dsh_market_ghost" onClick={() => { load(true) }}>{t('retry')}</button>
-            </p>
+            <MarketEmptyState
+              icon="error"
+              title={t('loading.errorTitle')}
+              description={t('failed', { reason: state.message })}
+              primaryAction={{ label: t('loading.retry'), onClick: () => { load(true) } }}
+              secondaryAction={installed.count > 0 ? { label: t('loading.viewInstalled'), onClick: () => setCategory(INSTALLED_FILTER) } : undefined}
+            />
             )
           : catalog === null
             ? (
-              <div className="dsh_market_notice" aria-busy="true" aria-live="polite">
-                <p className="dsh_market_noticeBody">{t('loading')}</p>
-              </div>
+              <MarketLoadingState
+                t={t}
+                mode="catalog"
+                installedCount={installed.count}
+                onViewInstalled={() => setCategory(INSTALLED_FILTER)}
+              />
               )
             : (
               <>
@@ -1114,7 +1212,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, listInstalled, subscri
 
 /** The Marketplace section. */
 export function MarketSection({
-  useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
+  useScope, loadCatalog, peekCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness,
   listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, mcp, close, t,
 }: MarketSectionProps): ReactElement {
   const snapshot = useScope(value => value)
@@ -1329,6 +1427,7 @@ export function MarketSection({
           english={english}
           snapshot={snapshot}
           loadCatalog={loadCatalog}
+          peekCatalog={peekCatalog}
           listInstalled={listInstalled}
           subscribeInstalledChanges={subscribeInstalledChanges}
           setInstalledEnabled={setInstalledEnabled}

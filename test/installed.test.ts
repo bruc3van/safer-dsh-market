@@ -945,6 +945,33 @@ test('adoption keeps a newer memory catalog and skips an unusable stored one', a
   assert.deepEqual(carried.pendingUninstall, [{ packageName: 'x', entryIds: ['x'], at: '2026-01-01T00:00:00Z' }])
 })
 
+test('adopting a legacy stored catalog strips redundant subscription and returns a distinct reference for persistence', () => {
+  const usable = (candidate: SafeMarketDomainState): boolean =>
+    candidate.catalog !== null && candidate.marketSize === 100 && candidate.catalogBase === 'https://example.test/data'
+  const clean = storedState()
+  const adoptedClean = adoptDomainState(initialDomainState, clean, usable)
+  assert.equal(adoptedClean.catalog, clean.catalog, 'already-compact catalog preserves reference identity')
+
+  const legacy = storedState({
+    catalog: {
+      items: [],
+      categories: [
+        { key: 'dsh:subscription', zh: '订阅精选', en: 'Subscription picks', count: 1 },
+        { key: 'featured', zh: '编辑精选', en: "Editor's Picks", count: 1 },
+      ],
+      fetchedAt: '2025-08-16T00:00:00Z',
+      refreshedAt: '2025-08-16T00:00:00Z',
+      scanned: 1,
+      featured: { titleZh: '编辑精选', titleEn: "Editor's Picks", updatedAt: '2025-08-16', count: 0, entries: [] },
+      subscription: { titleZh: '订阅精选', titleEn: 'Subscription picks', updatedAt: '2025-08-16', count: 0, entries: [] },
+    },
+  })
+  const adoptedLegacy = adoptDomainState(initialDomainState, legacy, usable)
+  assert.notEqual(adoptedLegacy.catalog, legacy.catalog, 'compacted catalog returns a new object so boot flushes it to disk')
+  assert.equal(adoptedLegacy.catalog?.subscription, undefined)
+  assert.equal(adoptedLegacy.catalog?.categories.some(entry => entry.key === 'dsh:subscription'), false)
+})
+
 // ——— the wire codecs ———
 
 test('the installed wire codecs accept the real shapes and reject hostile ones', () => {

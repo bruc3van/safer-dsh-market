@@ -82,6 +82,12 @@ export interface MarketSectionInjected {
         stale: boolean;
         error: string;
     }>;
+    /** Synchronously read the last cached catalog in this client, if any. */
+    peekCatalog?: () => {
+        catalog: MarketCatalog | null;
+        stale: boolean;
+        error: string;
+    } | null;
     /** Read the skills this deployment resolves. */
     listSkills: () => Promise<MarketSkillsResult>;
     skillsSession: SkillsSessionSource;
@@ -118,4 +124,4 @@ export type MarketSectionProps = {
     close: () => void;
 } & InjectFace<MarketSectionInjected> & PropsLocale<'settings.dshMarketPro'>;
 /** The Marketplace section. */
-export declare function MarketSection({ useScope, loadCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, mcp, close, t, }: MarketSectionProps): ReactElement;
+export declare function MarketSection({ useScope, loadCatalog, peekCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, mcp, close, t, }: MarketSectionProps): ReactElement;

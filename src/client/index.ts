@@ -27,6 +27,7 @@ import type {
   MarketSkillsResult,
   SafeMarketSettings,
 } from '../contract.ts'
+import { createClientCatalogCache } from './catalogCache.ts'
 import { createDirectInstaller, type InstallHost } from './directInstall.ts'
 import {
   createMcpController, type McpCredentialsFace, type McpManagerFace, type McpPluginsFace, type McpSettingsFace,
@@ -153,6 +154,17 @@ export function apply(ctx: ClientContext): void {
   // internal forks between a plugin entry and the root fiber.
   let market: SafeMarketFace | undefined
 
+  const fetchCatalog = async (force: boolean): Promise<MarketCatalogResult> => {
+    const remote = market
+    if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
+    const result = await remote.getCatalog(force)
+    if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+    return result.value
+  }
+  const catalogCache = createClientCatalogCache(fetchCatalog)
+  const loadCatalog = (force: boolean): Promise<MarketCatalogResult> => catalogCache.load(force)
+  const peekCatalog = (): MarketCatalogResult | null => catalogCache.peek()
+
   const loadSettings = async (): Promise<void> => {
     const remote = market
     if (remote === undefined) return
@@ -199,6 +211,7 @@ export function apply(ctx: ClientContext): void {
     await Promise.all([loadSettings(), loadEnvironment()])
     return () => {
       settingsGeneration += 1
+      catalogCache.invalidate()
       market = undefined
       void dispose()
     }
@@ -207,6 +220,7 @@ export function apply(ctx: ClientContext): void {
   // Reconnect may have rebuilt the host: the durable switch and the
   // deployment facts are re-read rather than assumed to have survived.
   ctx.on('connection/reset', () => {
+    catalogCache.invalidate()
     void loadSettings()
     void loadEnvironment()
   })
@@ -250,14 +264,6 @@ export function apply(ctx: ClientContext): void {
         },
       },
     }
-  }
-
-  const loadCatalog = async (force: boolean): Promise<MarketCatalogResult> => {
-    const remote = market
-    if (remote === undefined) throw new Error('the dshMarketPro Remote is not mounted')
-    const result = await remote.getCatalog(force)
-    if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
-    return result.value
   }
 
   /** The installed-panel verbs: local profile facts, so they need no market switch. */
@@ -445,6 +451,7 @@ export function apply(ctx: ClientContext): void {
     directInstaller,
     pluginUpdater,
     loadCatalog,
+    peekCatalog,
     ...globalSkills,
     canOpenFolder,
     openFolder,

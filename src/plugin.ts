@@ -86,9 +86,13 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
 
   // The reduction's durable seat. The domain opens asynchronously, so the
   // cache port answers from memory until it is there — a market opened in the
-  // first moments of boot reads the network once instead of failing.
+  // first moments of boot waits briefly for the domain to open instead of
+  // bypassing a warm disk cache with a cold network download.
   let state: SafeMarketDomainState = initialDomainState
   let persist: ((next: SafeMarketDomainState) => void) | undefined
+  const disposeController = new AbortController()
+  let resolveDomainReady!: () => void
+  const domainReady = new Promise<void>((resolve) => { resolveDomainReady = resolve })
   // A stored reduction answers a different question than the current config
   // asked, so only adopt state cut with the same market size and base — and
   // derived by a parse of the same shape as this build's.
@@ -96,6 +100,7 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     candidate.catalog !== null && candidate.catalogFormat === CATALOG_FORMAT
     && candidate.marketSize === resolved.marketSize && candidate.catalogBase === resolved.catalogBase
   const cache: CatalogCache = {
+    ready: domainReady,
     read: () => (
       usable(state)
         ? { catalog: state.catalog, marketEtag: state.marketEtag, activeBase: state.activeBase }
@@ -114,6 +119,13 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
       persist?.(state)
     },
   }
+
+  const catalog = createCatalogSource({
+    base: resolved.catalogBase,
+    marketSize: resolved.marketSize,
+    cache,
+    disposeSignal: disposeController.signal,
+  })
 
   // The installed panel uses native bundle management when available. Its
   // desktop seats and legacy profiles still use the profile patch and Loader.
@@ -144,12 +156,14 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
       const stored = domain.global.get()
       const hadMemoryCatalog = state.catalog !== null
       state = adoptDomainState(state, stored, usable)
-      if (hadMemoryCatalog) {
-        // A read landed while the domain was opening. It is newer than
-        // anything on disk but its write happened before `persist` existed —
-        // flush it now instead of losing it until the next refresh.
+      resolveDomainReady()
+      if (hadMemoryCatalog || (state.catalog !== null && stored.catalog !== null && state.catalog !== stored.catalog)) {
+        // A read landed while the domain was opening, or the adopted disk
+        // catalog was compacted (legacy subscription stripped): flush now
+        // instead of keeping stale or bloated data on disk.
         persist(state)
       }
+      if (readSettings().enabled) catalog.warmup()
       // A pending-uninstall record an older build kept in the domain store:
       // seed the file seat so this boot's sweep still takes its rows back,
       // then forget the field — the file is the seat from now on.
@@ -164,22 +178,29 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
       // them gone), and the user's patch file should not keep our litter.
       await installed.sweep()
       return () => {
+        disposeController.abort()
+        resolveDomainReady()
         persist = undefined
         void domain.close()
       }
     } catch (error) {
+      resolveDomainReady()
       // A damaged or version-mismatched store must not take the market down
       // with it: the catalog and the skills page still run from memory, and
       // the next successful read simply cannot survive the restart.
       console.warn('[dsh-market-pro] catalog cache unavailable, running memory-only:', error)
+      if (readSettings().enabled) catalog.warmup()
       // The pending-uninstall seat is a file, not this domain: the sweep still
       // runs and takes last session's stop rows back out of the patch layer.
       await installed.sweep()
-      return () => { persist = undefined }
+      return () => {
+        disposeController.abort()
+        resolveDomainReady()
+        persist = undefined
+      }
     }
   }, 'dsh-market-pro: catalog cache')
 
-  const catalog = createCatalogSource({ base: resolved.catalogBase, marketSize: resolved.marketSize, cache })
   new SafeMarketRuntime(
     ctx,
     catalog,
@@ -199,7 +220,10 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     return () => { void dispose() }
   }, 'dsh-market-pro: typert manifest')
 
-  // Everything above is owned by `ctx` and torn down with the fiber; the
-  // entry's effect seat needs a disposer, not a second teardown path.
-  return () => {}
+  // Everything above is owned by `ctx` and torn down with the fiber; abort
+  // any in-flight catalog refresh immediately so teardown never waits on I/O.
+  return () => {
+    disposeController.abort()
+    resolveDomainReady()
+  }
 }

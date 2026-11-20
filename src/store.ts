@@ -10,6 +10,7 @@
  */
 import { z } from 'zod'
 import { defineDomain } from '@deepseek-ai/dsh-storage-domain'
+import { stripUnusedSubscription } from './catalog.ts'
 import { marketCatalogSchema } from './contract.ts'
 
 /** One uninstall whose stop rows are still in the user's patch file. */
@@ -135,7 +136,7 @@ export function adoptDomainState(
   if (!isUsable(stored)) return next
   return {
     ...next,
-    catalog: stored.catalog,
+    catalog: stored.catalog === null ? null : stripUnusedSubscription(stored.catalog),
     marketEtag: stored.marketEtag,
     activeBase: stored.activeBase,
     catalogFormat: stored.catalogFormat,

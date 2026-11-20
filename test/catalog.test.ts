@@ -18,6 +18,7 @@ import {
 import type { MarketCatalog, MarketPlugin } from '../src/contract.ts'
 import { marketCatalogSchema, marketPluginSchema } from '../src/contract.ts'
 import { FEATURED_CATEGORY, isSafeBranchName } from '../src/shapes.ts'
+import { extractFileFromTgzResponse } from '../src/tarball.ts'
 
 /** One valid market row, already in wire shape. */
 function plugin(overrides: Partial<MarketPlugin> = {}): MarketPlugin {
@@ -419,7 +420,7 @@ function jsonResponse(body: unknown, etag: string): Response {
 test('persisted built-in v2 and v3 URLs migrate to the compact v4 catalog', async () => {
   const fetch = stubFetch()
   try {
-    for (const base of [DEFAULT_CATALOG_BASE, CN_MIRROR_CATALOG_BASE, MIRROR_CATALOG_BASE]) {
+    for (const base of [DEFAULT_CATALOG_BASE, MIRROR_CATALOG_BASE]) {
       for (const legacy of ['market-v2.json', 'market-catalog.json']) {
         const source = createCatalogSource({ base: base.replace('market-catalog-v4.json', legacy), marketSize: 1000 })
         const pending = source.read(false)
@@ -427,6 +428,14 @@ test('persisted built-in v2 and v3 URLs migrate to the compact v4 catalog', asyn
         fetch.parked.at(-1)!.resolve(jsonResponse({ schema_version: 2, entries: [entry()] }, '"migrated"'))
         assert.equal((await pending).error, '')
       }
+    }
+    for (const legacyFile of ['market-v2.json', 'market-catalog.json', 'market-catalog-v4.json']) {
+      const legacyUrl = `https://registry.npmmirror.com/awesome-dsh-plugin-feed/latest/files/data/${legacyFile}`
+      const source = createCatalogSource({ base: legacyUrl, marketSize: 1000 })
+      const pending = source.read(false)
+      assert.equal(fetch.calls.at(-1)?.url, CN_MIRROR_CATALOG_BASE)
+      fetch.parked.at(-1)!.resolve(jsonResponse({ schema_version: 2, entries: [entry()] }, '"migrated"'))
+      assert.equal((await pending).error, '')
     }
   } finally { fetch.restore() }
 })
@@ -474,26 +483,30 @@ test('the durable seed is read lazily, not at construction (M1)', async () => {
   }
 })
 
-test('a stale stored catalog revalidates with one conditional request', async () => {
+test('a stale stored catalog serves immediately and revalidates in the background with one conditional request', async () => {
   const fetch = stubFetch()
   try {
     const seat = stubCache()
     const stale = makeCatalog([plugin()], 7)
     seat.set({ catalog: stale, marketEtag: '"m1"' })
     const source = createCatalogSource({ base: 'https://example.test/data/market-v2.json', marketSize: 200, cache: seat.cache })
-    const pending = source.read(false)
-    assert.equal(fetch.calls.length, 1)
+    const immediate = await source.read(false)
+    assert.equal(immediate.catalog, stale, 'a stale stored catalog returns immediately instead of blocking the UI')
+    assert.equal(immediate.stale, false)
+    assert.equal(immediate.error, '')
+    assert.equal(fetch.calls.length, 1, 'revalidation runs in the background')
     const [request] = fetch.calls
     assert.equal(request!.url, 'https://example.test/data/market-v2.json')
     const headers = request!.init?.headers as Record<string, string> | undefined
     assert.equal(headers?.['if-none-match'], '"m1"')
     fetch.parked[0]!.resolve(NOT_MODIFIED())
-    const result = await pending
-    assert.equal(result.stale, false)
-    assert.equal(result.error, '')
-    assert.notEqual(result.catalog!.refreshedAt, stale.refreshedAt, 'a 304 renews the freshness stamp')
+    await tick()
+    const refreshed = await source.read(false)
+    assert.equal(refreshed.stale, false)
+    assert.equal(refreshed.error, '')
+    assert.notEqual(refreshed.catalog!.refreshedAt, stale.refreshedAt, 'a 304 renews the freshness stamp')
     assert.equal(seat.writes.length, 1)
-    assert.equal(seat.writes[0]!.catalog, result.catalog)
+    assert.equal(seat.writes[0]!.catalog, refreshed.catalog)
   } finally {
     fetch.restore()
   }
@@ -505,13 +518,16 @@ test('a conditional 200 is consumed directly — no second fetch', async () => {
     const seat = stubCache()
     seat.set({ catalog: makeCatalog([plugin()], 7), marketEtag: '"m-old"' })
     const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200, cache: seat.cache })
-    const pending = source.read(false)
+    const immediate = await source.read(false)
+    assert.equal(immediate.catalog?.items[0]?.fullName, 'owner/name')
     assert.equal(fetch.calls.length, 1)
+    const waiting = source.read(true)
+    assert.equal(fetch.calls.length, 1, 'a forced read merges into the in-flight background revalidation')
     fetch.parked[0]!.resolve(jsonResponse(
       { schema_version: 2, source_fetched_at: '2026-08-16', entries: [entry({ full_name: 'fresh/row', stargazers_count: 3 })] },
       '"m-new"',
     ))
-    const result = await pending
+    const result = await waiting
     assert.equal(fetch.calls.length, 1, 'the 200 body of the conditional request is the fresh market')
     assert.equal(result.catalog?.items[0]?.fullName, 'fresh/row')
     assert.equal(seat.writes.length, 1)
@@ -549,12 +565,17 @@ test('a failing refresh falls back to the catalog in memory, flagged stale', asy
     const stale = makeCatalog([plugin()], 7)
     seat.set({ catalog: stale, marketEtag: '"m1"' })
     const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200, cache: seat.cache })
-    const pending = source.read(false)
+    const pending = source.read(true)
     fetch.parked[0]!.reject(new Error('network down'))
     const result = await pending
     assert.equal(result.catalog, stale)
     assert.equal(result.stale, true)
     assert.match(result.error, /network down/)
+
+    // A non-forced read right after a failure still serves the cached catalog without hammering the network.
+    const quiet = await source.read(false)
+    assert.equal(quiet.catalog, stale)
+    assert.equal(fetch.calls.length, 1, 'background revalidation backs off briefly after a failure')
 
     // With nothing in memory the same failure answers catalog: null.
     const seat2 = stubCache()
@@ -915,6 +936,341 @@ test('a redirect loop and an https → http downgrade both fail the attempt', as
     fetch.parked[6]!.resolve(redirect(301, 'http://example.test/feed.json'))
     assert.match((await second).error, /unsupported URL/)
     assert.equal(fetch.calls.length, 7)
+  } finally {
+    fetch.restore()
+  }
+})
+
+test('read waits for durable cache readiness instead of bypassing a warm disk cache on boot', async () => {
+  const fetch = stubFetch()
+  try {
+    const seat = stubCache()
+    const stored = makeCatalog([plugin()], 0)
+    let resolveReady!: () => void
+    const ready = new Promise<void>(resolve => { resolveReady = resolve })
+    const source = createCatalogSource({
+      base: 'https://example.test/market-v2.json',
+      marketSize: 200,
+      cache: { ...seat.cache, ready },
+    })
+    const pending = source.read(false)
+    assert.equal(fetch.calls.length, 0, 'no network read starts while the durable cache is still opening')
+    seat.set({ catalog: stored, marketEtag: '"m1"' })
+    resolveReady()
+    const result = await pending
+    assert.equal(result.catalog, stored)
+    assert.equal(fetch.calls.length, 0, 'once the disk cache opens, no network download is needed')
+  } finally {
+    fetch.restore()
+  }
+})
+
+test('warmup preloads a missing or stale catalog and respects disposeSignal cancellation', async () => {
+  const fetch = stubFetch()
+  try {
+    const seat = stubCache()
+    const controller = new AbortController()
+    const source = createCatalogSource({
+      base: 'https://example.test/market-v2.json',
+      marketSize: 200,
+      cache: seat.cache,
+      disposeSignal: controller.signal,
+    })
+    source.warmup()
+    assert.equal(fetch.calls.length, 1, 'warmup starts a background fetch when no cache is present')
+    assert.equal(fetch.parked[0]!.signal?.aborted, false)
+    controller.abort(new Error('plugin disposed'))
+    assert.equal(fetch.parked[0]!.signal?.aborted, true, 'disposing the plugin aborts the in-flight warmup fetch')
+    fetch.parked[0]!.reject(new Error('plugin disposed'))
+    await tick()
+
+    // A fresh stored catalog makes warmup a no-op.
+    const seat2 = stubCache()
+    seat2.set({ catalog: makeCatalog([plugin()], 0), marketEtag: '"fresh"' })
+    const source2 = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200, cache: seat2.cache })
+    source2.warmup()
+    assert.equal(fetch.calls.length, 1, 'warmup does not hit the network when cached data is fresh')
+  } finally {
+    fetch.restore()
+  }
+})
+
+test('legacy cached catalogs carrying both featured and subscription strip the unused subscription on read', async () => {
+  const fetch = stubFetch()
+  try {
+    const seat = stubCache()
+    const row = plugin()
+    const legacyCatalog: MarketCatalog = {
+      ...makeCatalog([row], 0),
+      categories: [
+        { key: 'dsh:subscription', zh: '订阅精选', en: 'Subscription picks', count: 1 },
+        { key: 'featured', zh: '编辑精选', en: "Editor's Picks", count: 1 },
+        { key: 'dev', zh: '开发', en: 'Dev', count: 1 },
+      ],
+      featured: { titleZh: '编辑精选', titleEn: "Editor's Picks", updatedAt: '2026-11-19', count: 1, entries: [{ item: row, reason: '' }] },
+      subscription: { titleZh: '订阅精选', titleEn: 'Subscription picks', updatedAt: '2026-11-19', count: 1, entries: [{ item: row, reason: '' }] },
+    }
+    seat.set({ catalog: legacyCatalog, marketEtag: '"m1"' })
+    const source = createCatalogSource({ base: 'https://example.test/market-v2.json', marketSize: 200, cache: seat.cache })
+    const result = await source.read(false)
+    assert.equal(result.catalog?.subscription, undefined)
+    assert.equal(result.catalog?.featured?.count, 1)
+    assert.equal(result.catalog?.categories.some(c => c.key === 'dsh:subscription'), false)
+    assert.equal(fetch.calls.length, 0)
+  } finally {
+    fetch.restore()
+  }
+})
+
+/** Build a minimal USTAR archive buffer for testing streaming `.tgz` extraction. */
+function buildTar(files: readonly { name: string; content: Buffer }[]): Buffer {
+  const blocks: Buffer[] = []
+  for (const file of files) {
+    const header = Buffer.alloc(512, 0)
+    header.write(file.name, 0, Math.min(100, Buffer.byteLength(file.name)), 'utf8')
+    header.write('0000644\0', 100, 'ascii')
+    header.write('0000000\0', 108, 'ascii')
+    header.write('0000000\0', 116, 'ascii')
+    header.write(`${file.content.length.toString(8).padStart(11, '0')}\0`, 124, 'ascii')
+    header.write('00000000000\0', 136, 'ascii')
+    header.write('        ', 148, 'ascii')
+    header[156] = 0x30 // '0' regular file
+    header.write('ustar\0', 257, 'ascii')
+    header.write('00', 263, 'ascii')
+    let sum = 0
+    for (let i = 0; i < 512; i += 1) sum += header[i]!
+    header.write(`${sum.toString(8).padStart(6, '0')}\0 `, 148, 'ascii')
+    blocks.push(header)
+    blocks.push(file.content)
+    const pad = (512 - (file.content.length % 512)) % 512
+    if (pad > 0) blocks.push(Buffer.alloc(pad, 0))
+  }
+  blocks.push(Buffer.alloc(1024, 0))
+  return Buffer.concat(blocks)
+}
+
+test('npmmirror streams only the v4 catalog entry from the tarball, cancels the rest, and skips re-download on matching version', async () => {
+  const { gzipSync } = await import('node:zlib')
+  const { randomBytes } = await import('node:crypto')
+  const fetch = stubFetch()
+  try {
+    const seat = stubCache()
+    const source = createCatalogSource({ base: CN_MIRROR_CATALOG_BASE, marketSize: 200, cache: seat.cache })
+    const v4Body = Buffer.from(JSON.stringify({
+      schema_version: 2,
+      source_fetched_at: '2026-11-20',
+      entries: [entry({ full_name: 'tarball/winner', stargazers_count: 99 })],
+    }))
+    // Follow with an incompressible second file so early stream cancellation is observable.
+    const tgz = gzipSync(buildTar([
+      { name: 'package/data/market-catalog-v4.json', content: v4Body },
+      { name: 'package/data/market-catalog.json', content: randomBytes(128 * 1024) },
+    ]))
+
+    const pending = source.read(false)
+    assert.equal(fetch.calls.length, 1)
+    assert.equal(fetch.calls[0]!.url, CN_MIRROR_CATALOG_BASE)
+    const tarballUrl = 'https://cdn.npmmirror.com/packages/awesome-dsh-plugin-feed/0.20261120.1/awesome-dsh-plugin-feed-0.20261120.1.tgz'
+    fetch.parked[0]!.resolve(new Response(JSON.stringify({
+      version: '0.20261120.1',
+      dist: { tarball: tarballUrl, integrity: 'sha512-abc' },
+    }), { status: 200 }))
+    await tick()
+    assert.equal(fetch.calls.length, 2)
+    assert.equal(fetch.calls[1]!.url, tarballUrl)
+
+    let cancelled = false
+    let offset = 0
+    const chunkSize = 256
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (offset >= tgz.length) { controller.close(); return }
+        controller.enqueue(tgz.subarray(offset, offset + chunkSize))
+        offset += chunkSize
+      },
+      cancel() { cancelled = true },
+    })
+    fetch.parked[1]!.resolve(new Response(stream, { status: 200 }))
+    const first = await pending
+    assert.equal(first.error, '')
+    assert.equal(first.catalog?.items[0]?.fullName, 'tarball/winner')
+    assert.equal(cancelled, true, 'tarball HTTP stream is cancelled once market-catalog-v4.json finishes')
+
+    // Revalidating when /latest reports the same version/integrity skips downloading the tarball completely.
+    const recheck = source.read(true)
+    assert.equal(fetch.calls.length, 3)
+    assert.equal(fetch.calls[2]!.url, CN_MIRROR_CATALOG_BASE)
+    fetch.parked[2]!.resolve(new Response(JSON.stringify({
+      version: '0.20261120.1',
+      dist: { tarball: tarballUrl, integrity: 'sha512-abc' },
+    }), { status: 200 }))
+    const second = await recheck
+    assert.equal(second.error, '')
+    assert.equal(second.stale, false)
+    assert.equal(fetch.calls.length, 3, 'matching manifest version revalidates without fetching the tarball')
+  } finally {
+    fetch.restore()
+  }
+})
+
+test('npmmirror rejects tarball URLs pointing outside allowed registry hosts', async () => {
+  const fetch = stubFetch()
+  try {
+    const source = createCatalogSource({ base: CN_MIRROR_CATALOG_BASE, marketSize: 200 })
+    const pending = source.read(false)
+    fetch.parked[0]!.resolve(new Response(JSON.stringify({
+      version: '0.20261120.1',
+      dist: { tarball: 'https://evil.example/payload.tgz' },
+    }), { status: 200 }))
+    const result = await pending
+    assert.equal(result.catalog, null)
+    assert.match(result.error, /allowed registry host/)
+    assert.equal(fetch.calls.length, 1, 'disallowed tarball URL is never fetched')
+
+    // A custom private registry base must not allow dist.tarball to redirect to cdn.npmmirror.com.
+    const customSource = createCatalogSource({ base: 'https://custom.registry.example/pkg/latest', marketSize: 200 })
+    const customPending = customSource.read(false)
+    fetch.parked[1]!.resolve(new Response(JSON.stringify({
+      version: '0.20261120.1',
+      dist: { tarball: 'https://cdn.npmmirror.com/packages/pkg/0.20261120.1/pkg.tgz' },
+    }), { status: 200 }))
+    const customResult = await customPending
+    assert.equal(customResult.catalog, null)
+    assert.match(customResult.error, /allowed registry host/)
+    assert.equal(fetch.calls.length, 2, 'custom base rejects cdn.npmmirror.com tarball host')
+  } finally {
+    fetch.restore()
+  }
+})
+
+/** Build a tar block with an explicit type flag (e.g. 'x' PAX header or '0' regular file). */
+function buildTarEntry(name: string, content: Buffer, typeFlag = 0x30): Buffer {
+  const header = Buffer.alloc(512, 0)
+  header.write(name, 0, Math.min(100, Buffer.byteLength(name)), 'utf8')
+  header.write('0000644\0', 100, 'ascii')
+  header.write('0000000\0', 108, 'ascii')
+  header.write('0000000\0', 116, 'ascii')
+  header.write(`${content.length.toString(8).padStart(11, '0')}\0`, 124, 'ascii')
+  header.write('00000000000\0', 136, 'ascii')
+  header.write('        ', 148, 'ascii')
+  header[156] = typeFlag
+  header.write('ustar\0', 257, 'ascii')
+  header.write('00', 263, 'ascii')
+  let sum = 0
+  for (let i = 0; i < 512; i += 1) sum += header[i]!
+  header.write(`${sum.toString(8).padStart(6, '0')}\0 `, 148, 'ascii')
+  const pad = (512 - (content.length % 512)) % 512
+  return pad > 0 ? Buffer.concat([header, content, Buffer.alloc(pad, 0)]) : Buffer.concat([header, content])
+}
+
+/** Encode one POSIX PAX record using UTF-8 byte length. */
+function paxRecord(key: string, value: string): Buffer {
+  const body = Buffer.from(` ${key}=${value}\n`, 'utf8')
+  let len = body.length + 1
+  while (Buffer.byteLength(String(len), 'ascii') + body.length !== len) {
+    len = Buffer.byteLength(String(len), 'ascii') + body.length
+  }
+  return Buffer.concat([Buffer.from(String(len), 'ascii'), body])
+}
+
+test('extractFileFromTgzResponse parses PAX paths using UTF-8 byte offsets even after non-ASCII records', async () => {
+  const { gzipSync } = await import('node:zlib')
+  const payload = Buffer.from('{"ok":true}')
+  const paxData = Buffer.concat([
+    paxRecord('uname', '张三'),
+    paxRecord('path', 'package/data/market-catalog-v4.json'),
+    paxRecord('comment', '中文注释'),
+  ])
+  const tar = Buffer.concat([
+    buildTarEntry('PaxHeader', paxData, 0x78 /* 'x' */),
+    buildTarEntry('truncated-name', payload, 0x30),
+    Buffer.alloc(1024, 0),
+  ])
+  const extracted = await extractFileFromTgzResponse(
+    new Response(gzipSync(tar), { status: 200 }),
+    ['package/data/market-catalog-v4.json'],
+    1024 * 1024,
+  )
+  assert.deepEqual(extracted, payload)
+})
+
+test('extractFileFromTgzResponse destroys gunzip immediately on single-chunk decompression overflow and ignores trailing corrupt bytes after extraction', async () => {
+  const { gzipSync } = await import('node:zlib')
+  // 20 MiB of zeros compresses to ~20 KiB (well below 64 KiB compressed limit)
+  // but must abort promptly when decompressed output exceeds maxBytes.
+  const bombTar = buildTar([{ name: 'package/other.bin', content: Buffer.alloc(20 * 1024 * 1024, 0) }])
+  const bombGz = gzipSync(bombTar)
+  assert.ok(bombGz.length < 64 * 1024, 'compressed bomb fits inside a single chunk under maxBytes')
+
+  const singleChunkStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bombGz)
+      controller.close()
+    },
+  })
+  await assert.rejects(
+    extractFileFromTgzResponse(new Response(singleChunkStream, { status: 200 }), ['package/target.json'], 64 * 1024),
+    /size limit/,
+  )
+
+  // Once the target entry finishes, trailing corruption in the same chunk must not fail extraction.
+  const payload = Buffer.from('{"extracted":1}')
+  const goodGz = gzipSync(buildTar([
+    { name: 'package/target.json', content: payload },
+    { name: 'package/trailing.bin', content: Buffer.alloc(64 * 1024, 0x61) },
+  ]))
+  // Corrupt the last 16 bytes (gzip trailer/CRC) inside a single chunk.
+  const corruptedTail = Buffer.from(goodGz)
+  for (let i = corruptedTail.length - 16; i < corruptedTail.length; i += 1) {
+    corruptedTail[i] = (corruptedTail[i]! ^ 0xff) & 0xff
+  }
+  const trailingStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(corruptedTail)
+      controller.close()
+    },
+  })
+  const extracted = await extractFileFromTgzResponse(
+    new Response(trailingStream, { status: 200 }),
+    ['package/target.json'],
+    1024 * 1024,
+  )
+  assert.deepEqual(extracted, payload)
+})
+
+test('hedged failover starts the next mirror when the primary stalls and aborts the slower request on win', async () => {
+  const fetch = stubFetch()
+  try {
+    const seat = stubCache()
+    const source = createCatalogSource({
+      base: DEFAULT_CATALOG_BASE,
+      marketSize: 200,
+      cache: seat.cache,
+      hedgeDelayMs: 80,
+    })
+    const pending = source.read(false)
+    assert.equal(fetch.calls.length, 1, 'primary starts immediately')
+    assert.equal(fetch.calls[0]!.url, DEFAULT_CATALOG_BASE)
+
+    // Wait until the first hedge launches without waiting long enough for the third mirror.
+    const deadline = Date.now() + 1_000
+    while (fetch.calls.length < 2 && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 10))
+    }
+    assert.equal(fetch.calls.length, 2, 'second mirror launches concurrently after hedgeDelayMs')
+    assert.equal(fetch.calls[1]!.url, CN_MIRROR_CATALOG_BASE)
+    assert.equal(fetch.parked[0]!.signal?.aborted, false)
+
+    // The mirror answers first and wins the race; the stalled primary is aborted immediately.
+    fetch.parked[1]!.resolve(jsonResponse(
+      { schema_version: 2, source_fetched_at: '2026-11-20', entries: [entry({ full_name: 'hedge/winner' })] },
+      '"m-hedge"',
+    ))
+    const result = await pending
+    assert.equal(result.error, '')
+    assert.equal(result.catalog?.items[0]?.fullName, 'hedge/winner')
+    assert.equal(fetch.parked[0]!.signal?.aborted, true, 'losing primary request is aborted once mirror wins')
+    assert.equal(seat.writes[0]?.activeBase, CN_MIRROR_CATALOG_BASE, 'winning mirror becomes sticky')
   } finally {
     fetch.restore()
   }

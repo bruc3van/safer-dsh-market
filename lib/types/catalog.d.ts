@@ -1,7 +1,7 @@
 import type { MarketCatalog } from './contract.ts';
-/** Default feed and mirrors (including China-reachable npmmirror) serve the same npm package dataset. */
+/** Default feed and mirrors (including China-reachable npmmirror tarball) serve the same npm package dataset. */
 export declare const DEFAULT_CATALOG_BASE = "https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json";
-export declare const CN_MIRROR_CATALOG_BASE = "https://registry.npmmirror.com/awesome-dsh-plugin-feed/latest/files/data/market-catalog-v4.json";
+export declare const CN_MIRROR_CATALOG_BASE = "https://registry.npmmirror.com/awesome-dsh-plugin-feed/latest";
 export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json";
 /**
  * The shape {@link deriveMarket} produces. A stored catalog records the
@@ -38,6 +38,8 @@ export interface CatalogCache {
         marketEtag: string;
         activeBase: string;
     }) => void;
+    /** Resolves once the backing durable store has finished loading (or degraded to memory-only). */
+    ready?: Promise<void>;
 }
 /** Deployment-varying knobs the plugin config owns. */
 export interface CatalogOptions {
@@ -47,7 +49,17 @@ export interface CatalogOptions {
     readonly marketSize: number;
     /** Durable seat for the parse; absent means memory-only. */
     readonly cache?: CatalogCache;
+    /** Aborted when the owning plugin tears down, cancelling in-flight background refreshes. */
+    readonly disposeSignal?: AbortSignal;
+    /** Delay before launching the next mirror concurrently during multi-source failover. */
+    readonly hedgeDelayMs?: number;
 }
+/**
+ * Drop the redundant `subscription` payload when an editorial `featured` list
+ * is already present. The client never renders `subscription` separately, so
+ * omitting it trims ~6 MiB from disk persistence, startup validation, and RPC.
+ */
+export declare function stripUnusedSubscription(catalog: MarketCatalog): MarketCatalog;
 /**
  * Parse the published market into the catalog the browser renders. The
  * publisher's file order is preserved. Only legacy schema-2 feeds are
@@ -70,6 +82,11 @@ export interface CatalogSource {
         stale: boolean;
         error: string;
     }>;
+    /**
+     * Kick off a non-blocking background refresh when no fresh catalog is cached
+     * yet, so opening the market page hits memory immediately.
+     */
+    warmup: () => void;
 }
 /**
  * Build the catalog reader.

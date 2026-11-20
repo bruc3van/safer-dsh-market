@@ -6,14 +6,25 @@ import { parseInstallInfo } from './installInfo.ts'
 import type { MarketCatalog, MarketCategory, MarketFeatured, MarketFeaturedEntry, MarketPlugin } from './contract.ts'
 import { FEATURED_CATEGORY, SUBSCRIPTION_CATEGORY, isMarketIcon, isSafeBranchName, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
 import { categoriesOf, deriveSubscription } from './subscription.ts'
+import { extractFileFromTgzResponse } from './tarball.ts'
 
-/** Default feed and mirrors (including China-reachable npmmirror) serve the same npm package dataset. */
+/** Default feed and mirrors (including China-reachable npmmirror tarball) serve the same npm package dataset. */
 export const DEFAULT_CATALOG_BASE = 'https://cdn.jsdelivr.net/npm/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json'
-export const CN_MIRROR_CATALOG_BASE = 'https://registry.npmmirror.com/awesome-dsh-plugin-feed/latest/files/data/market-catalog-v4.json'
+export const CN_MIRROR_CATALOG_BASE = 'https://registry.npmmirror.com/awesome-dsh-plugin-feed/latest'
 export const MIRROR_CATALOG_BASE = 'https://unpkg.com/awesome-dsh-plugin-feed@latest/data/market-catalog-v4.json'
+
+const LEGACY_CN_MIRROR_FILES_PREFIX = 'https://registry.npmmirror.com/awesome-dsh-plugin-feed/latest/files/data/'
+const TARBALL_CATALOG_PATHS = ['package/data/market-catalog-v4.json', 'package/data/market-catalog.json'] as const
+const NPMMIRROR_ETAG_PREFIX = 'npmmirror:'
+
+/** Start the next mirror concurrently if the leading source has not answered within this window. */
+const DEFAULT_HEDGE_DELAY_MS = 3_000
 
 /** The market is refreshed daily upstream; asking more often than this is noise. */
 const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1_000
+
+/** Back off automatic background revalidation briefly after a failure so offline reads stay quiet. */
+const BACKGROUND_RETRY_MS = 60 * 1_000
 
 /** One attempt against one base; a chain of three costs at most three times this. */
 const FETCH_TIMEOUT_MS = 20_000
@@ -121,6 +132,8 @@ export interface CatalogCache {
   read: () => { catalog: MarketCatalog | null; marketEtag: string; activeBase: string }
   /** Persist a fresh parse. Failures are the cache's own business. */
   write: (next: { catalog: MarketCatalog; marketEtag: string; activeBase: string }) => void
+  /** Resolves once the backing durable store has finished loading (or degraded to memory-only). */
+  ready?: Promise<void>
 }
 
 /** Deployment-varying knobs the plugin config owns. */
@@ -131,6 +144,24 @@ export interface CatalogOptions {
   readonly marketSize: number
   /** Durable seat for the parse; absent means memory-only. */
   readonly cache?: CatalogCache
+  /** Aborted when the owning plugin tears down, cancelling in-flight background refreshes. */
+  readonly disposeSignal?: AbortSignal
+  /** Delay before launching the next mirror concurrently during multi-source failover. */
+  readonly hedgeDelayMs?: number
+}
+
+/**
+ * Drop the redundant `subscription` payload when an editorial `featured` list
+ * is already present. The client never renders `subscription` separately, so
+ * omitting it trims ~6 MiB from disk persistence, startup validation, and RPC.
+ */
+export function stripUnusedSubscription(catalog: MarketCatalog): MarketCatalog {
+  if (catalog.featured === undefined || catalog.subscription === undefined) return catalog
+  const { subscription: _unused, ...rest } = catalog
+  return {
+    ...rest,
+    categories: catalog.categories.filter(entry => entry.key !== SUBSCRIPTION_CATEGORY),
+  }
 }
 
 function text(value: unknown, limit: number): string {
@@ -387,6 +418,10 @@ export function deriveMarket(body: unknown, marketSize: number): MarketCatalog {
       const picks = deriveFeatured(envelope.featured, undefined, rowsForPicks, copy)
       if (picks !== undefined) {
         featured = picks
+        // Icons and keywords have already been hydrated onto `items` and `picks`,
+        // and the client never renders `subscription` as a separate scope when
+        // editorial picks are present. Dropping it here saves ~6 MiB on disk and RPC.
+        subscription = undefined
       } else {
         // No editorial pick survived the wire pass. `subscription` only travels
         // alongside an editorial list (see MarketCatalog), so fall back exactly
@@ -436,8 +471,14 @@ function errorText(error: unknown): string {
  * @param etag - the ETag to revalidate with, or '' for a plain request.
  * @returns the first non-redirect response.
  */
-async function fetchFollowing(url: string, etag: string): Promise<Response> {
-  const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS)
+async function fetchFollowing(
+  url: string,
+  etag: string,
+  abortSignal?: AbortSignal,
+  acceptEncoding = 'gzip',
+): Promise<Response> {
+  const timeout = AbortSignal.timeout(FETCH_TIMEOUT_MS)
+  const signal = abortSignal === undefined ? timeout : AbortSignal.any([timeout, abortSignal])
   const origin = new URL(url).origin
   let current = url
   for (let hop = 0; ; hop += 1) {
@@ -453,8 +494,8 @@ async function fetchFollowing(url: string, etag: string): Promise<Response> {
       // readJson decode the body even when the host wrapper leaves the bytes
       // compressed with an unexpected header shape.
       headers: etag !== '' && sameOrigin
-        ? { 'accept-encoding': 'gzip', 'if-none-match': etag }
-        : { 'accept-encoding': 'gzip' },
+        ? { 'accept-encoding': acceptEncoding, 'if-none-match': etag }
+        : { 'accept-encoding': acceptEncoding },
     })
     if (![301, 302, 303, 307, 308].includes(response.status)) return response
     const location = response.headers.get('location')
@@ -530,7 +571,34 @@ export interface CatalogSource {
    * @param signal - caller lifetime.
    */
   read: (force: boolean, signal?: AbortSignal) => Promise<{ catalog: MarketCatalog | null; stale: boolean; error: string }>
+  /**
+   * Kick off a non-blocking background refresh when no fresh catalog is cached
+   * yet, so opening the market page hits memory immediately.
+   */
+  warmup: () => void
 }
+
+function isAllowedTarballUrl(metadataUrl: string, tarballUrl: string): boolean {
+  try {
+    const meta = new URL(metadataUrl)
+    const target = new URL(tarballUrl)
+    if (target.protocol !== 'https:' && !(target.protocol === 'http:' && meta.protocol === 'http:')) return false
+    return target.host === meta.host
+      || (meta.host === 'registry.npmmirror.com' && target.host === 'cdn.npmmirror.com')
+  } catch {
+    return false
+  }
+}
+
+interface PackageManifest {
+  readonly schema_version?: unknown
+  readonly version?: unknown
+  readonly dist?: { readonly tarball?: unknown; readonly integrity?: unknown }
+}
+
+type AttemptOutcome =
+  | { readonly kind: 'not-modified'; readonly activeBase: string }
+  | { readonly kind: 'fresh'; readonly catalog: MarketCatalog; readonly marketEtag: string; readonly activeBase: string }
 
 /**
  * Build the catalog reader.
@@ -538,24 +606,32 @@ export interface CatalogSource {
  * @returns the reader.
  */
 export function createCatalogSource(options: CatalogOptions): CatalogSource {
-  // Migrate previous built-in URLs (market-v2.json / market-catalog.json) even when persisted by the host.
+  // Migrate previous built-in URLs (market-v2.json / market-catalog.json / legacy npmmirror /files) even when persisted by the host.
   const migrateBuiltIn = (base: string): string => {
-    for (const current of [DEFAULT_CATALOG_BASE, CN_MIRROR_CATALOG_BASE, MIRROR_CATALOG_BASE]) {
+    for (const current of [DEFAULT_CATALOG_BASE, MIRROR_CATALOG_BASE]) {
       if (
         base === current.replace('market-catalog-v4.json', 'market-v2.json') ||
         base === current.replace('market-catalog-v4.json', 'market-catalog.json')
       ) return current
     }
+    if (
+      base === `${LEGACY_CN_MIRROR_FILES_PREFIX}market-v2.json` ||
+      base === `${LEGACY_CN_MIRROR_FILES_PREFIX}market-catalog.json` ||
+      base === `${LEGACY_CN_MIRROR_FILES_PREFIX}market-catalog-v4.json`
+    ) return CN_MIRROR_CATALOG_BASE
     return base
   }
   const primary = migrateBuiltIn(options.base)
-  // The mirrors (China-reachable npmmirror, then unpkg) stand behind the default
-  // feed only. A deployment that pointed the market at its own mirror or curation
-  // gets exactly that one source — silently switching datasets is not what
-  // `catalogBase` was configured for.
+  // The mirrors (China-reachable npmmirror tarball, then unpkg) stand behind the
+  // default feed only. A deployment that pointed the market at its own mirror or
+  // curation gets exactly that one source — silently switching datasets is not
+  // what `catalogBase` was configured for.
   const chain = primary === DEFAULT_CATALOG_BASE
     ? [primary, CN_MIRROR_CATALOG_BASE, MIRROR_CATALOG_BASE]
     : [primary]
+  const hedgeDelayMs = options.hedgeDelayMs !== undefined && Number.isFinite(options.hedgeDelayMs) && options.hedgeDelayMs >= 0
+    ? options.hedgeDelayMs
+    : DEFAULT_HEDGE_DELAY_MS
   // The durable seat is NOT seeded at construction time. The plugin body
   // hands the source a cache port whose backing domain opens asynchronously
   // after this constructor returns, so reading it here would always see the
@@ -574,12 +650,34 @@ export function createCatalogSource(options: CatalogOptions): CatalogSource {
     if (catalog !== null) return
     const cached = options.cache?.read()
     if (cached === undefined || cached.catalog === null) return
-    if (cached.activeBase && !chain.includes(cached.activeBase)) return
-    catalog = cached.catalog
-    marketEtag = cached.marketEtag
-    activeBase = cached.activeBase
+    const migratedBase = cached.activeBase ? migrateBuiltIn(cached.activeBase) : ''
+    if (migratedBase && !chain.includes(migratedBase)) return
+    catalog = stripUnusedSubscription(cached.catalog)
+    marketEtag = migratedBase === cached.activeBase ? cached.marketEtag : ''
+    activeBase = migratedBase
   }
   let inFlight: Promise<{ catalog: MarketCatalog | null; stale: boolean; error: string }> | null = null
+  let lastBackgroundFailureAt = 0
+
+  const raceWithSignal = async <T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> => {
+    if (signal === undefined) return await pending
+    if (signal.aborted) throw signal.reason ?? new Error('This operation was aborted')
+    let abort: (() => void) | undefined
+    const aborted = new Promise<never>((_, reject) => {
+      abort = (): void => { reject(signal.reason ?? new Error('This operation was aborted')) }
+      signal.addEventListener('abort', abort, { once: true })
+    })
+    try {
+      return await Promise.race([pending, aborted])
+    } finally {
+      if (abort !== undefined) signal.removeEventListener('abort', abort)
+    }
+  }
+
+  const waitForCache = async (signal?: AbortSignal): Promise<void> => {
+    if (catalog !== null || options.cache?.ready === undefined) return
+    await raceWithSignal(options.cache.ready.catch(() => undefined), signal)
+  }
 
   const fresh = (): boolean => {
     if (catalog === null) return false
@@ -588,32 +686,68 @@ export function createCatalogSource(options: CatalogOptions): CatalogSource {
   }
 
   /**
-   * One fetch against one base, bound to the fetch timeout. Success consumes
-   * the answer and makes the base sticky: a 304 renews the freshness stamp
-   * (it is only asked for with the ETag that same base issued), a 200
-   * replaces the catalog. Throwing leaves the state untouched, so the next
-   * base in the chain starts from the same place.
+   * One fetch against one base, bound to the fetch timeout and optional race
+   * abort signal. Pure until committed by {@link commitOutcome}, so concurrent
+   * hedged attempts never overwrite each other's state.
    */
-  const attempt = async (base: string): Promise<MarketCatalog> => {
+  const attempt = async (base: string, abortSignal?: AbortSignal): Promise<AttemptOutcome> => {
     // The stored ETag certifies one server's content; a conditional request
     // only goes to the base that issued it. An unknown serving base (legacy
     // record) can only have been the primary.
     const conditional = catalog !== null && marketEtag !== ''
       && (activeBase === '' ? base === primary : activeBase === base)
-    const response = await fetchFollowing(base, conditional ? marketEtag : '')
+    const wireEtag = conditional && !marketEtag.startsWith(NPMMIRROR_ETAG_PREFIX) ? marketEtag : ''
+    const response = await fetchFollowing(base, wireEtag, abortSignal)
     if (response.status === 304) {
-      // Only asked for when a catalog exists (see `conditional`); guard for
-      // the type, since TypeScript cannot read the correlation out of the
-      // boolean above.
+      if (catalog === null) throw new Error('catalog HTTP 304')
+      return { kind: 'not-modified', activeBase }
+    }
+    if (!response.ok) throw new Error(`catalog HTTP ${String(response.status)}`)
+    const body = await readJson(response)
+    const manifest = body !== null && typeof body === 'object' ? body as PackageManifest : null
+    if (manifest !== null && manifest.schema_version === undefined && typeof manifest.dist?.tarball === 'string') {
+      const version = typeof manifest.version === 'string' ? manifest.version : ''
+      const integrity = typeof manifest.dist.integrity === 'string' ? manifest.dist.integrity : ''
+      const versionTag = integrity !== ''
+        ? `${NPMMIRROR_ETAG_PREFIX}${version}:${integrity}`
+        : version !== '' ? `${NPMMIRROR_ETAG_PREFIX}${version}` : ''
+      if (conditional && versionTag !== '' && marketEtag === versionTag) {
+        return { kind: 'not-modified', activeBase: base }
+      }
+      const tarballUrl = manifest.dist.tarball
+      if (!isAllowedTarballUrl(base, tarballUrl)) {
+        throw new Error('catalog tarball URL is not on an allowed registry host')
+      }
+      const tarResponse = await fetchFollowing(tarballUrl, '', abortSignal, 'identity')
+      if (!tarResponse.ok) throw new Error(`catalog tarball HTTP ${String(tarResponse.status)}`)
+      const extracted = await extractFileFromTgzResponse(tarResponse, TARBALL_CATALOG_PATHS, MAX_CATALOG_BYTES)
+      const parsed = JSON.parse(extracted.toString('utf8')) as unknown
+      return {
+        kind: 'fresh',
+        catalog: deriveMarket(parsed, options.marketSize),
+        marketEtag: versionTag,
+        activeBase: base,
+      }
+    }
+    return {
+      kind: 'fresh',
+      catalog: deriveMarket(body, options.marketSize),
+      marketEtag: response.headers.get('etag') ?? '',
+      activeBase: base,
+    }
+  }
+
+  const commitOutcome = (outcome: AttemptOutcome): MarketCatalog => {
+    if (outcome.kind === 'not-modified') {
       if (catalog === null) throw new Error('catalog HTTP 304')
       catalog = { ...catalog, refreshedAt: new Date().toISOString() }
+      activeBase = outcome.activeBase
       options.cache?.write({ catalog, marketEtag, activeBase })
       return catalog
     }
-    if (!response.ok) throw new Error(`catalog HTTP ${String(response.status)}`)
-    catalog = deriveMarket(await readJson(response), options.marketSize)
-    marketEtag = response.headers.get('etag') ?? ''
-    activeBase = base
+    catalog = outcome.catalog
+    marketEtag = outcome.marketEtag
+    activeBase = outcome.activeBase
     options.cache?.write({ catalog, marketEtag, activeBase })
     return catalog
   }
@@ -630,27 +764,130 @@ export function createCatalogSource(options: CatalogOptions): CatalogSource {
   }
 
   const refresh = async (): Promise<MarketCatalog> => {
-    const failures: string[] = []
-    for (const base of orderedBases()) {
-      try {
-        return await attempt(base)
-      } catch (error) {
-        // One failure ends the read only when no base is left. A
-        // single-source chain keeps the bare message; a two-source chain
-        // names the host of each failed attempt.
-        failures.push(chain.length > 1 ? `${baseLabel(base)}: ${errorText(error)}` : errorText(error))
-      }
+    const bases = orderedBases()
+    if (bases.length === 1) {
+      return commitOutcome(await attempt(bases[0]!, options.disposeSignal))
     }
-    throw new Error(failures.join('; '))
+    return await new Promise<MarketCatalog>((resolve, reject) => {
+      const raceController = new AbortController()
+      const combinedSignal = options.disposeSignal === undefined
+        ? raceController.signal
+        : AbortSignal.any([raceController.signal, options.disposeSignal])
+      const failures: Array<string | undefined> = Array.from({ length: bases.length }, () => undefined)
+      let settled = false
+      let nextIndex = 0
+      let active = 0
+      let hedgeTimer: ReturnType<typeof setTimeout> | undefined
+
+      const clearHedge = (): void => {
+        if (hedgeTimer !== undefined) {
+          clearTimeout(hedgeTimer)
+          hedgeTimer = undefined
+        }
+      }
+
+      const scheduleHedge = (): void => {
+        clearHedge()
+        if (settled || nextIndex >= bases.length) return
+        hedgeTimer = setTimeout(() => {
+          hedgeTimer = undefined
+          launchNext()
+        }, hedgeDelayMs)
+      }
+
+      const finish = (outcome: AttemptOutcome): void => {
+        if (settled) return
+        settled = true
+        clearHedge()
+        raceController.abort()
+        try {
+          resolve(commitOutcome(outcome))
+        } catch (error) {
+          reject(error)
+        }
+      }
+
+      const failAll = (error: unknown): void => {
+        if (settled) return
+        settled = true
+        clearHedge()
+        raceController.abort()
+        reject(error)
+      }
+
+      const launchNext = (): void => {
+        if (settled || nextIndex >= bases.length) return
+        const idx = nextIndex
+        const base = bases[idx]!
+        nextIndex += 1
+        active += 1
+        scheduleHedge()
+        void attempt(base, combinedSignal).then(
+          (outcome) => {
+            active -= 1
+            finish(outcome)
+          },
+          (error: unknown) => {
+            active -= 1
+            if (settled) return
+            if (options.disposeSignal?.aborted) {
+              failAll(error)
+              return
+            }
+            failures[idx] = `${baseLabel(base)}: ${errorText(error)}`
+            if (nextIndex < bases.length && active === 0) {
+              clearHedge()
+              launchNext()
+              return
+            }
+            if (active === 0 && nextIndex >= bases.length) {
+              failAll(new Error(failures.filter((entry): entry is string => entry !== undefined).join('; ')))
+            }
+          },
+        )
+      }
+
+      launchNext()
+    })
+  }
+
+  const startRefresh = (): Promise<{ catalog: MarketCatalog | null; stale: boolean; error: string }> => {
+    return (inFlight ??= (async () => {
+      try {
+        const next = await refresh()
+        lastBackgroundFailureAt = 0
+        return { catalog: next, stale: false, error: '' }
+      } catch (error) {
+        lastBackgroundFailureAt = Date.now()
+        // A catalog already in memory still answers the question; the
+        // browser is told the answer is old rather than shown a blank tab.
+        const message = errorText(error)
+        if (catalog !== null) return { catalog, stale: true, error: message }
+        return { catalog: null, stale: false, error: message }
+      } finally {
+        inFlight = null
+      }
+    })())
+  }
+
+  const maybeRevalidateInBackground = (): void => {
+    if (inFlight !== null || options.disposeSignal?.aborted) return
+    if (Date.now() - lastBackgroundFailureAt < BACKGROUND_RETRY_MS) return
+    void startRefresh()
   }
 
   return {
     read: async (force, signal) => {
-      seedFromCache()
       // A caller that arrives already aborted must not start the network
       // read its answer would have needed.
       if (signal?.aborted) throw signal.reason ?? new Error('This operation was aborted')
-      if (!force && fresh() && catalog !== null) return { catalog, stale: false, error: '' }
+      if (catalog === null && options.cache?.ready !== undefined) await waitForCache(signal)
+      seedFromCache()
+      if (signal?.aborted) throw signal.reason ?? new Error('This operation was aborted')
+      if (!force && catalog !== null) {
+        if (!fresh()) maybeRevalidateInBackground()
+        return { catalog, stale: false, error: '' }
+      }
       // One network read at a time: the tab can be reopened while the first
       // is still running, and two downloads answer the same question. The
       // shared request is bound to the per-attempt fetch timeout only —
@@ -660,32 +897,20 @@ export function createCatalogSource(options: CatalogOptions): CatalogSource {
       // serves whoever is still listening. `force` against an already running
       // read merges into it (that read IS the fresh download force asked
       // for), so no force gesture is dropped or duplicated.
-      const pending = (inFlight ??= (async () => {
-        try {
-          return { catalog: await refresh(), stale: false, error: '' }
-        } catch (error) {
-          // A catalog already in memory still answers the question; the
-          // browser is told the answer is old rather than shown a blank tab.
-          const message = errorText(error)
-          if (catalog !== null) return { catalog, stale: true, error: message }
-          return { catalog: null, stale: false, error: message }
-        } finally {
-          inFlight = null
-        }
-      })())
-      if (signal === undefined) return await pending
-      // This caller's abort resolves its wait as a cancellation; the shared
-      // read is untouched and stays in flight for the other callers.
-      let abort: (() => void) | undefined
-      const aborted = new Promise<never>((_, reject) => {
-        abort = (): void => { reject(signal.reason ?? new Error('This operation was aborted')) }
-        signal.addEventListener('abort', abort, { once: true })
-      })
-      try {
-        return await Promise.race([pending, aborted])
-      } finally {
-        if (abort !== undefined) signal.removeEventListener('abort', abort)
+      return await raceWithSignal(startRefresh(), signal)
+    },
+    warmup: () => {
+      if (options.disposeSignal?.aborted) return
+      const run = (): void => {
+        if (options.disposeSignal?.aborted) return
+        seedFromCache()
+        if (!fresh()) maybeRevalidateInBackground()
       }
+      if (catalog === null && options.cache?.ready !== undefined) {
+        void options.cache.ready.then(run, run)
+        return
+      }
+      run()
     },
   }
 }

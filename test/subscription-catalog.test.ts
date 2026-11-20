@@ -34,7 +34,7 @@ test('complete catalog ignores legacy size cuts and preserves package identities
   assert.ok(matches(picks.entries[0]!.item, 'plugin 编排', '', false))
 })
 
-test('editorial picks and the published subscription get separate scopes', () => {
+test('editorial picks win as featured and omit the redundant subscription payload', () => {
   const body = {
     ...feed(),
     featured: {
@@ -51,8 +51,8 @@ test('editorial picks and the published subscription get separate scopes', () =>
   const pick = picks?.entries[0]?.item
   assert.equal(pick?.description, '编辑写的推荐语', 'the editorial copy wins')
   assert.ok(['@demo/one', '@demo/two'].includes(pick?.packageName ?? ''), 'the subscription plugin identity wins')
-  assert.equal(catalog.subscription?.count, 2, 'the subscription keeps its own complete list')
-  assert.ok(catalog.categories.some(category => category.key === 'dsh:subscription'))
+  assert.equal(catalog.subscription, undefined, 'redundant subscription payload is omitted once editorial picks are resolved')
+  assert.equal(catalog.categories.some(category => category.key === 'dsh:subscription'), false)
 })
 
 test('a schema-3 feed without editorial picks keeps the subscription as 精选', () => {
@@ -206,7 +206,7 @@ test('schema-4 compact catalogs decode category_table, omitted defaults, and hyd
   assert.equal(unmapped?.installStatus, 'none')
   assert.equal(unmapped?.archived, true)
   assert.equal(catalog.featured?.entries[0]?.item.description, '编辑推荐语')
-  assert.equal(catalog.subscription?.count, 2)
+  assert.equal(catalog.subscription, undefined, 'hydrated compact catalog omits redundant subscription payload')
 })
 
 test('an editorial block with no surviving picks falls back to the subscription as the pick list', () => {
