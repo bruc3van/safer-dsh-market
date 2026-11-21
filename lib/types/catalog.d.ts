@@ -13,8 +13,9 @@ export declare const MIRROR_CATALOG_BASE = "https://unpkg.com/awesome-dsh-plugin
  * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions;
  * 6 — up to 100 editorial picks with their own category totals;
  * 7 — schema-4 compact feed support, subscription icon/keyword hydration, and npmmirror failover.
+ * 8 — the editorial pick cap grows from 100 to 1000.
  */
-export declare const CATALOG_FORMAT = 7;
+export declare const CATALOG_FORMAT = 8;
 /**
  * Where a parsed catalog survives a restart. The catalog source neither opens
  * nor closes this — the plugin body owns the domain's lifecycle and hands the

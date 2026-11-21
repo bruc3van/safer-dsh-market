@@ -53,11 +53,12 @@ const SCHEMA_VERSION = 2
  * 4 — v2-only feeds; 5 — complete catalogs and package-identified subscriptions;
  * 6 — up to 100 editorial picks with their own category totals;
  * 7 — schema-4 compact feed support, subscription icon/keyword hydration, and npmmirror failover.
+ * 8 — the editorial pick cap grows from 100 to 1000.
  */
-export const CATALOG_FORMAT = 7
+export const CATALOG_FORMAT = 8
 
 /** The editorial list is capped. Published subscription packages are not. */
-const FEATURED_LIMIT = 100
+const FEATURED_LIMIT = 1000
 
 /** A pick's reason is one sentence, not a second description. */
 const REASON_LIMIT = 200
