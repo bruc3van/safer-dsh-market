@@ -12,15 +12,15 @@ An AI-native third-party plugin marketplace for DeepSeek Harness (DSH), powered 
 
 ## Key Features
 
-- **Agent-Native AI Discovery & Safe MCP Setup (Bundled Skills + Tools)**:
-  - Enabled by default as soon as `dsh-market-pro` is installed: automatically registers two bundled skills (**`dsh-market-pro`** for plugins and **`dsh-mcp-pro`** for MCP servers) along with the **`dsh_market_pro`** and **`dsh_mcp_pro`** tools, and cleans them up automatically when disabled or uninstalled.
-  - **Discover plugins and configure MCPs in conversation**: describe what you need in natural language, invoke **`/dsh-market-pro`** or **`/dsh-mcp-pro`** directly, or click **Ask AI to pick** (Plugins tab) / **Ask AI to pick MCP** (MCP tab) in the toolbar.
+- **Agent-Native AI Discovery, Batch Updates & Safe MCP Setup (Bundled Skills + Tools)**:
+  - Enabled by default as soon as `dsh-market-pro` is installed: automatically registers two bundled skills (**`dsh-market-pro`** for plugin discovery & batch updates, and **`dsh-mcp-pro`** for MCP servers) along with the **`dsh_market_pro`** and **`dsh_mcp_pro`** tools, and cleans them up automatically when disabled or uninstalled.
+  - **Discover plugins, batch-update, and configure MCPs in conversation**: describe what you need in natural language, invoke **`/dsh-market-pro`** or **`/dsh-mcp-pro`** directly, or click **Ask AI to pick plugins** (Plugins tab) / **Ask AI to pick MCP** (MCP tab) in the toolbar.
   - **High-precision search & environment awareness**: supports CJK 2-gram fallback, bilingual multi-synonym queries, installed/configured filtering, and batch detail lookups across locally cached editor's picks, 28,000+ community repositories, and 33 built-in curated MCP servers — while checking installed plugins and live MCP servers to avoid duplicates.
-  - **Defense-in-depth anti-injection, native approval & zero plaintext secrets**: read actions are strictly read-only, scrub invisible Unicode payloads, neutralize angle brackets, and wrap output inside `<untrusted_market_data>` / `<untrusted_mcp_data>` envelopes. Plugin installs go through official `plugin_manager` approval; MCP mutations (`install_featured` / `install_custom` / `set_enabled`) fail closed through DSH's native approval service showing the full command/endpoint, working directory, env vars, and headers, while rejecting any plaintext secrets and auto-binding `${credential:REF}` templates.
+  - **Defense-in-depth anti-injection, native approval & zero plaintext secrets**: discovery and update checks are strictly read-only, scrubbing invisible Unicode payloads, neutralizing angle brackets, and wrapping output inside `<untrusted_market_data>` / `<untrusted_mcp_data>` envelopes. Plugin installs go through official `plugin_manager` approval; batch plugin updates (`update_plugins`) pin exact user-confirmed package/version pairs and fail closed through DSH's native approval prompt listing every item; MCP mutations (`install_featured` / `install_custom` / `set_enabled`) likewise fail closed through native approval while rejecting plaintext secrets and auto-binding `${credential:REF}` templates.
   - **Instant toggle, zero-token friendly**: turn **AI Discovery Assistant (Plugins & MCP)** off anytime in **DSH Market Pro → Settings** to withdraw all bundled skills and tools immediately with zero standing token overhead, or toggle online catalog access per profile.
 - **Curated & Full Catalog**: Filters out unrelated projects and topic riders. Opens on editor's picks while offering the full verified catalog with category filters, keyword/package search, **Active & popular / Most stars / Recently updated** sorting in **All**, and guided cross-scope switching when a narrower view has no matches.
 - **One-Click Install**: Install and enable plugins directly from their cards; for repositories without direct install metadata, generate a prompt draft so your AI agent can verify and install them for you.
-- **Manage & Update Installed Plugins**: View all installed plugins in one place, enable or disable them instantly without restarting, uninstall, or check for and install newer versions.
+- **Manage, Filter & Batch-Update Installed Plugins**: View all installed plugins in one place, filter by **All installed / Updates available**, toggle enable/disable states live without restarting, uninstall, pick from scrollable version lists per plugin, or run **Update all** (confirm checklist → sequential updates with skip-on-failure & retry failed → summary, automatically ordering `dsh-market-pro` last). When `dsh-market-pro` itself has an update, a quick update button also appears next to Refresh in the header.
 - **Post-Install AI Review**: Prepare a review draft in your conversation input box (sent only when you confirm) to have your AI agent inspect installed plugin files for network calls, credential access, scripts, and other potential risks.
 - **Skills Browser**: Search and filter skills available in the active conversation using the unified search box and source selector (Project, User, Bundled — including both bundled `dsh-market-pro` and `dsh-mcp-pro` skills) and see how each skill can be invoked.
 - **Curated MCP Catalog & Management**: Built on DSH's official MCP manager (DSH ≥ 0.2.2-rc.2) with **Featured** and **Configured** sub-tabs to discover and manage every MCP server in one view:
@@ -36,9 +36,9 @@ Compared with other common discovery and management approaches, DSH Market Pro u
 | Dimension | DSH Market Pro (This Plugin) | Official DSH Discover (`dsh-plugin-market`) | Typical UI-Only / Broad Community Markets | Standalone Discovery Skill / MCP Server |
 |---|---|---|---|---|
 | **Catalog Quality & Curation** | **Verified real plugins + curated MCPs**: daily checks filter out topic riders, empty repos, and non-plugins; combines **editor's picks + 28,000+ full catalog + 33 curated MCPs** with local cache & mirror failover | Reads user-configured format-1 index URLs only; does not ship a built-in community directory | Many aggregate broadly by GitHub topic, often mixing non-plugins or uninstallable repos that require manual filtering | Relies on external registry APIs or CLIs with limited DSH manifest & install-target coverage |
-| **In-Chat AI Discovery & Setup** | **Enabled by default in Standard & Creator modes**: bundled `dsh-market-pro` + `dsh-mcp-pro` skills and `dsh_market_pro` + `dsh_mcp_pro` tools for plugin search and approval-gated MCP install/toggle | Exposes `plugin_market` tool, but **enabled only in Creator preset by default** with no companion discovery skill or MCP installer | Mostly click-to-browse UIs without autonomous in-chat catalog search | Supports chat discovery, but usually requires an extra MCP subprocess or CLI and provides no management UI |
+| **In-Chat AI Discovery & Setup** | **Enabled by default in Standard & Creator modes**: bundled `dsh-market-pro` + `dsh-mcp-pro` skills and `dsh_market_pro` + `dsh_mcp_pro` tools for plugin search, approval-gated batch plugin updates, and safe MCP install/toggle | Exposes `plugin_market` tool, but **enabled only in Creator preset by default** with no companion discovery skill or MCP installer | Mostly click-to-browse UIs without autonomous in-chat catalog search | Supports chat discovery, but usually requires an extra MCP subprocess or CLI and provides no management UI |
 | **Environment Awareness** | Jointly inspects active profile **installed plugins + managed/static MCPs & live tool groups**, skips duplicates, and recommends complementary capabilities | Annotates listing install status without MCP/skills cross-checking | Typically limited to per-card installed badges rather than conversation-level planning | Generally lacks direct visibility into the active DSH profile's installed plugins and managed MCPs |
-| **Management Scope** | **Plugins + Skills + Curated & Managed MCPs + Settings** in one place (live toggle, updates, one-click curated MCP add, adoption, credentials, tools dialog) | Focused on plugin discovery and installation; no Skills tab or MCP manager UI | Focused on browsing, ratings, or discussions; managing MCP/skills usually requires separate plugins | Single-purpose (skills-only or MCP-only), without host plugin lifecycle management |
+| **Management Scope** | **Plugins + Skills + Curated & Managed MCPs + Settings** in one place (live toggle, updates-available filter & one-click batch updates, one-click curated MCP add, adoption, credentials, tools dialog) | Focused on plugin discovery and installation; no Skills tab or MCP manager UI | Focused on browsing, ratings, or discussions; managing MCP/skills usually requires separate plugins | Single-purpose (skills-only or MCP-only), without host plugin lifecycle management |
 | **Security & Anti-Injection** | **Defense-in-depth** (invisible Unicode scrubbing + angle-bracket neutralization + untrusted-data envelopes) + official `plugin_manager` / native approval + **zero plaintext secrets** + **post-install AI review** | Notes untrusted text in tool description; installs via official `plugin_manager` approval | Varies by project; mostly UI notices or install-time checks | Primarily relies on prompt-level confirmation reminders, rarely enforcing protocol isolation or zero-plaintext-secret checks |
 | **Token Overhead Control** | Compact single-language output & batch lookups; **one-click toggle in Settings** immediately withdraws all skills & tools for **zero standing token cost** | Schema cost applies in presets where the tool is enabled | Passive UI with zero standing conversation overhead | Separate MCP process continuously injects tool schemas into sessions |
 
@@ -66,7 +66,7 @@ Or invoke the bundled skill explicitly:
 /dsh-market-pro Recommend a practical plugin and MCP setup for frontend engineering and API debugging
 ```
 
-Your agent uses the read-only `dsh_market_pro` tool to:
+Your agent uses `dsh_market_pro` to:
 
 1. **Inspect your environment** (`environment`) to see installed plugins and MCP servers and avoid duplicates.
 2. **Search curated & full catalogs** (`featured` / `search` / `detail`) to verify install targets, activity, and prerequisites.
@@ -74,7 +74,20 @@ Your agent uses the read-only `dsh_market_pro` tool to:
 
 ![Chat-native AI plugin discovery](./assets/screenshots/marketplace-ai-chat.png)
 
-### 2. Discover & Safely Install MCP Servers (`/dsh-mcp-pro`)
+### 2. Check & Batch-Update Installed Plugins (`/dsh-market-pro`)
+
+Ask in any conversation:
+
+```text
+/dsh-market-pro Check my installed plugins for updates and batch-update them to the latest compatible versions after I confirm.
+```
+
+Your agent uses `dsh_market_pro` to run a safe end-to-end update loop:
+
+1. **Read-only update check** (`check_updates`): checks both npm registries and configured Git subscription indexes, listing each updatable plugin's current and latest compatible stable versions.
+2. **Pinned scope + native approval** (`update_plugins`): after you confirm, submits only the exact confirmed `{ packageName, version }` pairs through DSH's native approval prompt listing every plugin, orders `dsh-market-pro` last automatically, skips failures with rollback diagnostics, and reports applied, restart-required, and failed outcomes clearly.
+
+### 3. Discover & Safely Install MCP Servers (`/dsh-mcp-pro`)
 
 Run `/dsh-mcp-pro` in chat or click **Ask AI to pick MCP** in the MCP tab toolbar:
 
@@ -122,9 +135,9 @@ In addition to the main navigation bar, you can open **DSH Market Pro** directly
 
 ![Right sidebar entry](./assets/screenshots/marketplace-sidebar.png)
 
-### Installed Plugins & Updates
+### Installed Plugins, Filtering & Batch Updates
 
-Manage your installed plugins under the **Installed** tab: toggle enable/disable states live, check for updates, or uninstall.
+Manage your installed plugins under the **Installed** tab: filter by **All installed / Updates available**, toggle enable/disable states live, uninstall, pick from scrollable version lists per plugin, or click **Update all** to confirm and sequentially upgrade plugins (skipping failures with one-click retry). When `dsh-market-pro` itself has an update, a quick update button also appears in the top-right header.
 
 ![Installed panel](./assets/screenshots/marketplace-installed.png)
 
