@@ -1166,8 +1166,12 @@ button.dsh_market_dangerButton { color: var(--dsw-alias-state-error-primary); }
 
 /* The MCP page: the installed cards' shape, plus a monospace target line,
    a status voice per bucket, and the editor sheet's stacked fields. */
-.dsh_market_skillsHeading .dsh_market_mcpAdd {
+.dsh_market_skillsHeading .dsh_market_mcpAdd,
+.dsh_market_mcpSummaryBar .dsh_market_mcpAdd {
   height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-md); font-size: 13px; line-height: 20px;
+}
+.dsh_market_mcpSummaryBar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px;
 }
 .dsh_market_mcpCard .dsh_market_cardError, .dsh_market_mcpCard .dsh_market_cardNotice,
 .dsh_market_mcpEditor .dsh_market_cardError, .dsh_market_mcpEditor .dsh_market_cardNotice {
@@ -1291,6 +1295,24 @@ button.dsh_market_dangerButton { color: var(--dsw-alias-state-error-primary); }
 .dsh_market_mcpSecrets p, .dsh_market_mcpRisk p { margin: 0; }
 .dsh_market_mcpRisk .dsh_market_directMessage { margin: 0; }
 .dsh_market_mcpCheck { flex: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.dsh_market_mcpNoticeRow {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px;
+  padding: 10px 14px; border-radius: var(--dsw-radius-lg);
+  border: 0.5px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2);
+}
+.dsh_market_mcpNoticeActions { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.dsh_market_mcpFeaturedCard .dsh_market_head { align-items: center; gap: 10px; }
+.dsh_market_mcpFeaturedCard .dsh_market_desc { color: var(--dsw-alias-label-secondary); }
+.dsh_market_mcpFeaturedTagWarn {
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent);
+  color: var(--dsw-alias-state-warn-primary);
+}
+.dsh_market_mcpFeaturedFooter { justify-content: space-between; }
+.dsh_market_mcpFeaturedFooterRight { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.dsh_market_mcpEmptyActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dsh_market_mcpOptional { font-weight: 400; color: var(--dsw-alias-label-tertiary); }
+.dsh_market_mcpModalFooter { justify-content: space-between; }
+.dsh_market_mcpModalFooterRight { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
 
 /* Settings page: host settings rows aligned with the section column. */
 .dsh_market_settingsPage { gap: 0; padding-bottom: 24px; }

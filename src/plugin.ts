@@ -38,6 +38,7 @@ import { readSkills } from './skills.ts'
 import { adoptMcp, inspectMcpContext, type McpLoaderEntry } from './mcp.ts'
 import { registerMarketAiSkill } from './aiSkill.ts'
 import { registerMarketAiTool } from './aiTools.ts'
+import { registerMarketAiMcpTool } from './aiMcpTools.ts'
 import { adoptDomainState, initialDomainState, safeMarketDomainSpec, type SafeMarketDomainState } from './store.ts'
 import { TYPERT_MANIFEST } from './typert.ts'
 import type { SafeMarketSettingsUpdate } from './contract.ts'
@@ -220,9 +221,15 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     listInstalled: () => installed.list(),
     readMcp,
   })
+  const aiMcpTool = registerMarketAiMcpTool(ctx, {
+    profile: profile.name,
+    readSettings,
+    entries: () => ctx.loader.entries() as Iterable<McpLoaderEntry>,
+  })
   syncAiAssistant = () => {
     aiSkill.sync()
     aiTool.sync()
+    aiMcpTool.sync()
   }
   ctx.on('loader/volatile-update', () => {
     syncAiAssistant?.()

@@ -29,6 +29,11 @@ export function credentialRefsIn(value: string): string[] {
   return [...value.matchAll(TOKEN)].map(match => match[1]!)
 }
 
+/** Whether a string is exactly one well-formed `${credential:REF}` token (after trimming). */
+export function isExactCredentialTemplate(value: string): boolean {
+  return TOKEN_EXACT.test(value.trim())
+}
+
 /** The first `${…}` occurrence that is not a well-formed credential token, if any. */
 export function malformedTemplate(value: string): string | undefined {
   return [...value.matchAll(SUSPECT)].map(match => match[0]).find(occurrence => !TOKEN_EXACT.test(occurrence))

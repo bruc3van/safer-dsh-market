@@ -9,11 +9,18 @@
  * the rules this view renders from live in ./mcpModel.ts.
  */
 import { IconCloseOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarketSelector } from './InstallModeSelector.tsx'
 import { MarketButton } from './MarketButton.tsx'
+import { PluginLogo } from './PluginLogo.tsx'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react'
 import type { McpToolGroup, McpUnmanagedServer } from '../contract.ts'
 import type { MarketLocale } from './copy.ts'
 import { staticKey, type McpAdoptNote, type McpController, type McpProbeState, type McpSnapshot } from './mcpController.ts'
+import {
+  FEATURED_MCP_CATEGORIES, FEATURED_MCP_SERVERS, draftFromFeatured, featuredRuntimeBadge, featuredTargetPreview,
+  findInstalledFeatured, hasRequiredInputs, hasSecretInputs, matchesFeaturedMcp, pickAvailableServerName, validateFeaturedValues,
+  type FeaturedMcpCategory, type FeaturedMcpMatch, type FeaturedMcpServer,
+} from './mcpFeatured.ts'
 import {
   canProbe, canRestart, commandLine, commandRisks, convertToCredential, draftFromEntry, draftPlaintext, emptyDraft,
   isConfigured, isDraftDirty, isEnabled, pendingToStore, splitCommandLine, statusError, statusKind, suggestRef, summarize, targetOf,
@@ -22,6 +29,7 @@ import {
 } from './mcpModel.ts'
 
 type Filter = 'all' | 'connected' | 'issue' | 'disabled'
+type McpSubTab = 'featured' | 'configured'
 
 /** Above this many connected tools, the page notes the context cost. */
 const TOOL_HEAVY = 40
@@ -87,8 +95,8 @@ function matchesFilter(row: McpRow, filter: Filter): boolean {
   }
 }
 
-/** The editor's open state: a fresh server, or one existing row. */
-type Editing = { readonly row: McpRow | null } | null
+/** The editor's open state: a fresh server (optionally pre-filled), or one existing row. */
+type Editing = { readonly row: McpRow | null; readonly initialDraft?: McpDraft } | null
 
 /** The MCP page. */
 export function McpView({ t, controller, onBrowsePlugins }: {
@@ -98,6 +106,11 @@ export function McpView({ t, controller, onBrowsePlugins }: {
 }): ReactElement {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   useEffect(() => controller.attach(), [controller])
+  const [subTab, setSubTab] = useState<McpSubTab>('featured')
+  const [featuredCategory, setFeaturedCategory] = useState<FeaturedMcpCategory | 'all'>('all')
+  const [featuredQuery, setFeaturedQuery] = useState('')
+  const [installingFeatured, setInstallingFeatured] = useState<FeaturedMcpServer | null>(null)
+  const [lastAdded, setLastAdded] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Editing>(null)
@@ -124,6 +137,22 @@ export function McpView({ t, controller, onBrowsePlugins }: {
   const loading = snapshot.mode === 'loading'
   const filterCount = (value: Filter) => snapshot.rows.filter(row => matchesFilter(row, value)).length
     + (value === 'all' ? unmanaged.length : 0)
+  const featuredMatches = useMemo(
+    () => new Map(FEATURED_MCP_SERVERS.map(item => [item.id, findInstalledFeatured(item, snapshot.rows, unmanaged)])),
+    [snapshot.rows, unmanaged],
+  )
+  const featuredItems = useMemo(
+    () => FEATURED_MCP_SERVERS.filter(item => matchesFeaturedMcp(item, featuredQuery, featuredCategory)),
+    [featuredQuery, featuredCategory],
+  )
+  const featuredCategoryCount = (value: FeaturedMcpCategory | 'all') =>
+    value === 'all' ? FEATURED_MCP_SERVERS.length : FEATURED_MCP_SERVERS.filter(item => item.category === value).length
+  const viewConfigured = (name: string) => {
+    setLastAdded('')
+    setSubTab('configured')
+    setFilter('all')
+    setQuery(name)
+  }
   const canOpenDocument = !loading && snapshot.mode !== 'legacy' && snapshot.mode !== 'error'
     && snapshot.hasSettingsDocument && controller.supports('openDocument')
   const [openingDocument, setOpeningDocument] = useState(false)
@@ -158,8 +187,86 @@ export function McpView({ t, controller, onBrowsePlugins }: {
           <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" /></svg>
           {(loading || refreshing) ? t('refreshing') : t('mcp.refresh')}
         </button>
-        <div className="dsh_market_skillsHeading">
-          <h2>{t('mcp.title')}</h2>
+        <div className="dsh_market_filterBar">
+          <div className="dsh_market_scope" role="group" aria-label={t('mcp.subtab.aria')}>
+            <button
+              type="button"
+              className="dsh_market_scopeButton"
+              aria-pressed={subTab === 'featured'}
+              onClick={() => setSubTab('featured')}
+            >
+              {t('mcp.subtab.featured')} <span>{FEATURED_MCP_SERVERS.length}</span>
+            </button>
+            <button
+              type="button"
+              className="dsh_market_scopeButton"
+              aria-pressed={subTab === 'configured'}
+              onClick={() => setSubTab('configured')}
+            >
+              {t('mcp.subtab.configured')} {!loading && <span>{counts.servers}</span>}
+            </button>
+          </div>
+          {subTab === 'featured'
+            ? (
+              <div className="dsh_market_filterActions">
+                <input
+                  className="dsh_market_search dsh_market_filterSearch"
+                  type="search"
+                  spellCheck={false}
+                  value={featuredQuery}
+                  aria-label={t('mcp.featured.search')}
+                  placeholder={t('mcp.featured.search')}
+                  onChange={event => setFeaturedQuery(event.target.value)}
+                />
+                <MarketSelector
+                  value={featuredCategory}
+                  onChange={setFeaturedCategory}
+                  label={t('mcp.featured.category.aria')}
+                  className="dsh_market_category"
+                  options={[
+                    { value: 'all', label: t('filter.allCategories'), count: FEATURED_MCP_SERVERS.length },
+                    ...FEATURED_MCP_CATEGORIES.map(value => ({
+                      value,
+                      label: t(`mcp.featured.category.${value}`),
+                      count: featuredCategoryCount(value),
+                    })),
+                  ]}
+                />
+              </div>
+              )
+            : (!loading && (
+              <div className="dsh_market_filterActions">
+                <input
+                  className="dsh_market_search dsh_market_filterSearch"
+                  type="search"
+                  spellCheck={false}
+                  value={query}
+                  aria-label={t('mcp.search')}
+                  placeholder={t('mcp.search')}
+                  onChange={event => setQuery(event.target.value)}
+                />
+                <MarketSelector
+                  value={filter}
+                  onChange={setFilter}
+                  label={t('mcp.filter.aria')}
+                  className="dsh_market_category"
+                  options={(['all', 'connected', 'issue', 'disabled'] as const).map(value => ({
+                    value,
+                    label: value === 'all' ? t('mcp.filter.allLabel') : t(`mcp.filter.${value}`),
+                    count: filterCount(value),
+                  }))}
+                />
+              </div>
+              ))}
+        </div>
+        <div className="dsh_market_mcpSummaryBar">
+          {subTab === 'featured'
+            ? <p className="dsh_market_meta">{t('mcp.featured.summary', { count: String(FEATURED_MCP_SERVERS.length) })}</p>
+            : (!loading && (
+              <p className="dsh_market_meta">{t('mcp.summary', {
+                servers: String(counts.servers), connected: String(counts.connected), tools: String(totalTools),
+              })}</p>
+              ))}
           {(canOpenDocument || writable) && (
             <div className="dsh_market_headingActions">
               {canOpenDocument && (
@@ -177,66 +284,324 @@ export function McpView({ t, controller, onBrowsePlugins }: {
             </div>
           )}
         </div>
-        {!loading && (
-          <p className="dsh_market_meta">{t('mcp.summary', {
-            servers: String(counts.servers), connected: String(counts.connected), tools: String(totalTools),
-          })}</p>
-        )}
-        {!loading && (
-          <div className="dsh_market_filterBar">
-            <div className="dsh_market_scope dsh_market_skillsOrigins" role="group" aria-label={t('mcp.filter.aria')}>
-              {(['all', 'connected', 'issue', 'disabled'] as const).map(value => (
-                <button key={value} className="dsh_market_scopeButton" type="button" aria-pressed={filter === value}
-                  onClick={() => setFilter(value)}>
-                  {t(`mcp.filter.${value}`)} <span>{filterCount(value)}</span>
-                </button>
-              ))}
-            </div>
-            <input className="dsh_market_search dsh_market_skillSearch" type="search" spellCheck={false} value={query}
-              aria-label={t('mcp.search')} placeholder={t('mcp.search')} onChange={event => setQuery(event.target.value)} />
-          </div>
-        )}
       </div>
-      <div className="dsh_market_results" aria-busy={loading}>
-        {loading && <p className="dsh_market_status" role="status">{t('mcp.loading')}</p>}
-        <PageNotices t={t} snapshot={snapshot} totalTools={totalTools} />
+      <div className="dsh_market_results" aria-busy={subTab === 'configured' && loading}>
         {documentError !== '' && (
           <p className="dsh_market_status" role="alert" data-error="true">{t('mcp.openDocument.failed', { reason: reasonText(t, documentError) })}</p>
         )}
-        {!loading && snapshot.mode !== 'legacy' && snapshot.mode !== 'error' && snapshot.rows.length === 0 && unmanaged.length === 0 && (
-          <div className="dsh_market_notice">
-            <p className="dsh_market_noticeBody">{t('mcp.empty')}</p>
-            {onBrowsePlugins && <MarketButton intent="secondary" onClick={onBrowsePlugins}>{t('mcp.emptyBrowse')}</MarketButton>}
-          </div>
-        )}
-        {!loading && (snapshot.rows.length > 0 || unmanaged.length > 0) && rows.length === 0 && statics.length === 0 && (
-          <p className="dsh_market_status">{t('mcp.noMatch')}</p>
-        )}
-        {rows.length > 0 && (
-          <ul className="dsh_market_cards">
-            {rows.map(row => (
-              <McpCard key={row.name} t={t} row={row} snapshot={snapshot} controller={controller} writable={writable}
-                tools={toolsOf.get(row.name)} onEdit={() => setEditing({ row })} />
-            ))}
-          </ul>
-        )}
-        {statics.length > 0 && (
-          <section className="dsh_market_skillGroup" aria-label={t('mcp.static.title')}>
-            <h3>{t('mcp.static.title')}</h3>
-            <p className="dsh_market_meta">{t('mcp.static.hint')}</p>
-            <ul className="dsh_market_cards">
-              {statics.map(server => (
-                <StaticCard key={server.entryId} t={t} server={server} tools={ownsTools(server) ? toolsOf.get(server.serverName) : undefined}
-                  conflict={managedNames.has(server.serverName)} snapshot={snapshot} controller={controller} writable={writable} />
-              ))}
-            </ul>
-          </section>
-        )}
+        {subTab === 'featured'
+          ? (
+            <>
+              {lastAdded !== '' && (
+                <div className="dsh_market_mcpNoticeRow" role="status">
+                  <p className="dsh_market_noticeBody">{t('mcp.featured.addedNotice', { name: lastAdded })}</p>
+                  <div className="dsh_market_mcpNoticeActions">
+                    <MarketButton intent="secondary" onClick={() => viewConfigured(lastAdded)}>
+                      {t('mcp.featured.viewConfigured')}
+                    </MarketButton>
+                    <button type="button" className="dsh_market_directClose" aria-label={t('mcp.featured.close')} onClick={() => setLastAdded('')}>
+                      <IconCloseOutlineRegular size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              {!loading && !writable && (
+                snapshot.mode === 'error' && snapshot.hostError !== ''
+                  ? <p className="dsh_market_status" role="alert" data-error="true">{t('mcp.hostError', { reason: snapshot.hostError })}</p>
+                  : (
+                    <p className="dsh_market_status" role="status">
+                      {snapshot.mode === 'legacy' ? t('mcp.legacy') : t('mcp.featured.readonlyHint')}
+                    </p>
+                    )
+              )}
+              {featuredItems.length === 0
+                ? <p className="dsh_market_status">{t('mcp.featured.noMatch')}</p>
+                : (
+                  <ul className="dsh_market_cards dsh_market_cardsUniform">
+                    {featuredItems.map(item => (
+                      <FeaturedMcpCard
+                        key={item.id}
+                        t={t}
+                        item={item}
+                        match={featuredMatches.get(item.id) ?? null}
+                        writable={writable}
+                        onAdd={() => setInstallingFeatured(item)}
+                        onViewConfigured={viewConfigured}
+                      />
+                    ))}
+                  </ul>
+                  )}
+            </>
+            )
+          : (
+            <>
+              {loading && <p className="dsh_market_status" role="status">{t('mcp.loading')}</p>}
+              <PageNotices t={t} snapshot={snapshot} totalTools={totalTools} />
+              {!loading && snapshot.mode !== 'legacy' && snapshot.mode !== 'error' && snapshot.rows.length === 0 && unmanaged.length === 0 && (
+                <div className="dsh_market_notice">
+                  <p className="dsh_market_noticeBody">{t('mcp.empty')}</p>
+                  <div className="dsh_market_mcpEmptyActions">
+                    <MarketButton intent="primary" onClick={() => setSubTab('featured')}>{t('mcp.emptyFeatured')}</MarketButton>
+                    {onBrowsePlugins && <MarketButton intent="secondary" onClick={onBrowsePlugins}>{t('mcp.emptyBrowse')}</MarketButton>}
+                  </div>
+                </div>
+              )}
+              {!loading && (snapshot.rows.length > 0 || unmanaged.length > 0) && rows.length === 0 && statics.length === 0 && (
+                <p className="dsh_market_status">{t('mcp.noMatch')}</p>
+              )}
+              {rows.length > 0 && (
+                <ul className="dsh_market_cards">
+                  {rows.map(row => (
+                    <McpCard key={row.name} t={t} row={row} snapshot={snapshot} controller={controller} writable={writable}
+                      tools={toolsOf.get(row.name)} onEdit={() => setEditing({ row })} />
+                  ))}
+                </ul>
+              )}
+              {statics.length > 0 && (
+                <section className="dsh_market_skillGroup" aria-label={t('mcp.static.title')}>
+                  <h3>{t('mcp.static.title')}</h3>
+                  <p className="dsh_market_meta">{t('mcp.static.hint')}</p>
+                  <ul className="dsh_market_cards">
+                    {statics.map(server => (
+                      <StaticCard key={server.entryId} t={t} server={server} tools={ownsTools(server) ? toolsOf.get(server.serverName) : undefined}
+                        conflict={managedNames.has(server.serverName)} snapshot={snapshot} controller={controller} writable={writable} />
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </>
+            )}
       </div>
+      {installingFeatured !== null && (
+        <FeaturedMcpModal
+          t={t}
+          item={installingFeatured}
+          snapshot={snapshot}
+          controller={controller}
+          onClose={() => setInstallingFeatured(null)}
+          onAdded={(name) => {
+            setInstallingFeatured(null)
+            setLastAdded(name)
+          }}
+          onOpenAdvanced={(draft) => {
+            setInstallingFeatured(null)
+            setEditing({ row: null, initialDraft: draft })
+          }}
+        />
+      )}
       {editing !== null && (
-        <McpEditor t={t} row={editing.row} snapshot={snapshot} controller={controller} onClose={() => setEditing(null)} />
+        <McpEditor t={t} row={editing.row} initialDraft={editing.initialDraft} snapshot={snapshot} controller={controller} onClose={() => setEditing(null)} />
       )}
     </div>
+  )
+}
+
+function FeaturedMcpCard({ t, item, match, writable, onAdd, onViewConfigured }: {
+  t: MarketLocale
+  item: FeaturedMcpServer
+  match: FeaturedMcpMatch | null
+  writable: boolean
+  onAdd: () => void
+  onViewConfigured: (name: string) => void
+}): ReactElement {
+  const isZh = t('lang') === 'zh'
+  const description = isZh ? item.descriptionZh : item.descriptionEn
+  const needsSetup = hasRequiredInputs(item)
+  const needsKey = item.inputs.some(input => input.required === true && input.secret === true)
+  const badgeTitle = match === null ? undefined : t('mcp.featured.addedAs', { name: match.name })
+  return (
+    <li className="dsh_market_card dsh_market_catalogCard dsh_market_mcpFeaturedCard">
+      <div className="dsh_market_head">
+        <PluginLogo src={item.icon} name={item.title} fullName={item.repo} />
+        <div className="dsh_market_identity">
+          <span className="dsh_market_name" title={item.title}>{item.title}</span>
+          <span className="dsh_market_packageName" title={item.publisher}>{item.publisher}</span>
+        </div>
+        {match !== null && (
+          <span className="dsh_market_owned" title={badgeTitle}>{t('mcp.featured.addedBadge')}</span>
+        )}
+      </div>
+      <div className="dsh_market_meta dsh_market_skillBadges">
+        <span className="dsh_market_categoryTag">{t(`mcp.featured.category.${item.category}`)}</span>
+        <span className="dsh_market_categoryTag">{featuredRuntimeBadge(item)}</span>
+        {needsSetup && (
+          <span className="dsh_market_categoryTag dsh_market_mcpFeaturedTagWarn">
+            {needsKey ? t('mcp.featured.needsKey') : t('mcp.featured.needsConfig')}
+          </span>
+        )}
+      </div>
+      <p className="dsh_market_desc" title={description}>{description}</p>
+      <div className="dsh_market_foot dsh_market_mcpFeaturedFooter">
+        <a className="dsh_market_link" href={item.homepage} target="_blank" rel="noreferrer">
+          {t('mcp.featured.homepage')}
+        </a>
+        <div className="dsh_market_mcpFeaturedFooterRight">
+          {match !== null
+            ? (
+              <MarketButton intent="secondary" onClick={() => onViewConfigured(match.name)}>
+                {t('mcp.featured.viewConfigured')}
+              </MarketButton>
+              )
+            : (
+              <MarketButton
+                intent="primary"
+                disabled={!writable}
+                title={writable ? undefined : t('mcp.featured.readonlyHint')}
+                onClick={onAdd}
+              >
+                {needsSetup ? t('mcp.featured.configureAdd') : t('mcp.featured.add')}
+              </MarketButton>
+              )}
+        </div>
+      </div>
+    </li>
+  )
+}
+
+function FeaturedMcpModal({ t, item, snapshot, controller, onClose, onAdded, onOpenAdvanced }: {
+  t: MarketLocale
+  item: FeaturedMcpServer
+  snapshot: McpSnapshot
+  controller: McpController
+  onClose: () => void
+  onAdded: (name: string) => void
+  onOpenAdvanced: (draft: McpDraft) => void
+}): ReactElement {
+  const isZh = t('lang') === 'zh'
+  const taken = useMemo(() => new Set([
+    ...snapshot.rows.map(row => row.name),
+    ...(snapshot.host?.unmanaged ?? []).map(server => server.serverName),
+  ]), [snapshot.rows, snapshot.host])
+  const [name, setName] = useState(() => pickAvailableServerName(item.id, taken))
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [enabled, setEnabled] = useState(true)
+  const [trustedLine, setTrustedLine] = useState<string | null>(null)
+  const [touched, setTouched] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const errors = validateFeaturedValues(item, name, values, taken)
+  const nameError = errors.find(error => error.field === 'name')
+  const inputError = (key: string) => errors.find(error => error.field === 'input' && error.key === key)
+  const buildDraft = () => draftFromFeatured(item, values, {
+    name,
+    enabled,
+    takenRefs: new Set([
+      ...Object.keys(snapshot.credentials),
+      ...snapshot.rows.flatMap(row => row.refs),
+    ]),
+  })
+  const previewDraft = item.transport === 'stdio' ? buildDraft() : null
+  const risks = item.transport === 'stdio' ? commandRisks(previewDraft!.command, previewDraft!.args) : []
+  const preview = item.transport === 'stdio' ? commandLine(previewDraft!.command, previewDraft!.args) : featuredTargetPreview(item)
+  const needsTrust = item.transport === 'stdio'
+  const trusted = !needsTrust || trustedLine === preview
+  const canSubmit = !saving && trusted
+  const submit = async () => {
+    setTouched(true)
+    if (errors.length > 0 || !canSubmit) return
+    setSaving(true)
+    setSaveError('')
+    const draft = buildDraft()
+    const outcome = await controller.save(draft, undefined)
+    setSaving(false)
+    if (outcome.ok) {
+      onAdded(draft.name)
+    } else {
+      setSaveError(outcome.conflict ? t('mcp.editor.conflict') : t('mcp.saveFailed', { reason: reasonText(t, outcome.message) }))
+    }
+  }
+  return (
+    <Modal open headless title={t('mcp.featured.modalTitle', { name: item.title })} className="dsh_market_modal" onClose={() => { if (!saving) onClose() }}>
+      <div className="dsh_market_directPanel dsh_market_mcpEditor">
+        <div className="dsh_market_directHead">
+          <PluginLogo src={item.icon} name={item.title} fullName={item.repo} />
+          <div className="dsh_market_installHeading">
+            <h3>{t('mcp.featured.modalTitle', { name: item.title })}</h3>
+            <small>{item.publisher} · {featuredRuntimeBadge(item)}</small>
+          </div>
+          <button type="button" className="dsh_market_directClose" aria-label={t('mcp.featured.close')} disabled={saving} onClick={onClose}>
+            <IconCloseOutlineRegular size={16} />
+          </button>
+        </div>
+        <p className="dsh_market_installSummary">{isZh ? item.descriptionZh : item.descriptionEn}</p>
+        <form className="dsh_market_mcpForm" onSubmit={(event) => { event.preventDefault(); void submit() }}>
+          {!needsTrust && (
+            <div className="dsh_market_mcpField">
+              <span>{t('mcp.featured.target')}</span>
+              <pre className="dsh_market_directMessage">{preview}</pre>
+            </div>
+          )}
+          <label className="dsh_market_mcpField">
+            <span>{t('mcp.field.name')}</span>
+            <input value={name} spellCheck={false} maxLength={32} onChange={event => setName(event.target.value)} />
+            <small className="dsh_market_meta">{t('mcp.field.nameHint')}</small>
+            {(touched || name !== '') && nameError !== undefined && (
+              <span className="dsh_market_cardError">{t(`mcp.error.name.${nameError.code}`)}</span>
+            )}
+          </label>
+          {item.inputs.map((input) => {
+            const label = isZh ? input.labelZh : input.labelEn
+            const hint = isZh ? input.descriptionZh : input.descriptionEn
+            const err = inputError(input.key)
+            const showError = err !== undefined && (touched || err.code === 'malformed')
+            return (
+              <label key={input.key} className="dsh_market_mcpField">
+                <span>
+                  {label}
+                  {!input.required && <span className="dsh_market_mcpOptional"> ({t('mcp.featured.optional')})</span>}
+                </span>
+                <input
+                  type={input.secret ? 'password' : 'text'}
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={values[input.key] ?? ''}
+                  placeholder={input.placeholder ?? input.key}
+                  onChange={event => setValues(current => ({ ...current, [input.key]: event.target.value }))}
+                />
+                {hint && <small className="dsh_market_meta">{hint}</small>}
+                {showError && (
+                  <span className="dsh_market_cardError">
+                    {err.code === 'malformed'
+                      ? t('mcp.error.template', { where: label })
+                      : t('mcp.featured.inputRequired', { label })}
+                  </span>
+                )}
+              </label>
+            )
+          })}
+          {hasSecretInputs(item) && <p className="dsh_market_meta">{t('mcp.featured.secretHint')}</p>}
+          {needsTrust && (
+            <div className="dsh_market_mcpRisk" role="note">
+              <p>{t('mcp.risk.title')}</p>
+              <pre className="dsh_market_directMessage">{preview}</pre>
+              {risks.includes('fetch') && <p className="dsh_market_cardNotice" data-warning="true">{t('mcp.risk.fetch')}</p>}
+              {risks.includes('shell') && <p className="dsh_market_cardNotice" data-warning="true">{t('mcp.risk.shell')}</p>}
+              <label className="dsh_market_mcpCheck">
+                <input type="checkbox" checked={trusted} onChange={event => setTrustedLine(event.target.checked ? preview : null)} />
+                <span>{t('mcp.risk.confirm')}</span>
+              </label>
+            </div>
+          )}
+          <label className="dsh_market_mcpCheck">
+            <input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} />
+            <span>{t('mcp.field.enabled')}</span>
+          </label>
+          {!enabled && <small className="dsh_market_meta">{t('mcp.field.enabledHint')}</small>}
+          {saveError !== '' && <p className="dsh_market_cardError" role="alert">{saveError}</p>}
+          <div className="dsh_market_installFooter dsh_market_mcpModalFooter">
+            <MarketButton size="md" intent="secondary" disabled={saving} onClick={() => onOpenAdvanced(buildDraft())}>
+              {t('mcp.featured.advancedEdit')}
+            </MarketButton>
+            <div className="dsh_market_mcpModalFooterRight">
+              <MarketButton size="md" intent="secondary" disabled={saving} onClick={onClose}>{t('mcp.cancel')}</MarketButton>
+              <MarketButton size="md" type="submit" intent="primary" disabled={!canSubmit}>
+                {saving ? t('mcp.saving') : t('mcp.featured.add')}
+              </MarketButton>
+            </div>
+          </div>
+        </form>
+      </div>
+    </Modal>
   )
 }
 
@@ -728,12 +1093,14 @@ function fieldLabel(draft: McpDraft, where: string): string {
   return where === 'url' ? 'URL_TOKEN' : where.slice(where.indexOf('.') + 1)
 }
 
-function McpEditor({ t, row, snapshot, controller, onClose }: {
-  t: MarketLocale; row: McpRow | null; snapshot: McpSnapshot; controller: McpController; onClose: () => void
+function McpEditor({ t, row, initialDraft, snapshot, controller, onClose }: {
+  t: MarketLocale; row: McpRow | null; initialDraft?: McpDraft; snapshot: McpSnapshot; controller: McpController; onClose: () => void
 }): ReactElement {
-  const [baseline, setBaseline] = useState<McpDraft>(() => row?.entry !== undefined ? draftFromEntry(row.name, row.entry) : emptyDraft())
-  const [draft, setDraft] = useState<McpDraft>(baseline)
-  const [argsText, setArgsText] = useState(baseline.args.join('\n'))
+  const [baseline, setBaseline] = useState<McpDraft>(() =>
+    row?.entry !== undefined ? draftFromEntry(row.name, row.entry) : emptyDraft())
+  const [draft, setDraft] = useState<McpDraft>(() =>
+    row?.entry !== undefined ? baseline : (initialDraft ?? baseline))
+  const [argsText, setArgsText] = useState(() => draft.args.join('\n'))
   const [pasteLine, setPasteLine] = useState('')
   // Trust is given to one exact command line; any edit to it asks again.
   const [trustedLine, setTrustedLine] = useState<string | null>(null)
@@ -744,7 +1111,7 @@ function McpEditor({ t, row, snapshot, controller, onClose }: {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const footerRef = useRef<HTMLDivElement>(null)
   const keepEditingRef = useRef<HTMLButtonElement>(null)
-  const [advanced, setAdvanced] = useState([baseline.startupTimeoutMs, baseline.toolCallTimeoutMs, baseline.closeTimeoutMs, baseline.initialDelayMs, baseline.maxDelayMs, baseline.maxAttempts].some(text => text !== '') || !baseline.reconnectEnabled)
+  const [advanced, setAdvanced] = useState(() => [draft.startupTimeoutMs, draft.toolCallTimeoutMs, draft.closeTimeoutMs, draft.initialDelayMs, draft.maxDelayMs, draft.maxAttempts].some(text => text !== '') || !draft.reconnectEnabled)
   const taken = new Set([
     ...snapshot.rows.map(item => item.name),
     ...(snapshot.host?.unmanaged ?? []).map(server => server.serverName),

@@ -24,9 +24,11 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
 import type { McpAdoptBlocker, McpAdoptResult, McpHostContext, McpToolGroup, McpUnmanagedServer } from './contract.ts'
+import { findFeaturedMcpById, mcpIdentityKey, pickAvailableServerName } from './mcpFeatured.ts'
 import {
-  MCP_CLIENT_PACKAGE, MCP_MANAGER_PACKAGE, SERVER_NAME_PATTERN, credentialRefsIn, credentialTemplate, isSecretField,
-  isSecretUrl, maskArg, maskUrl, secretArgIndexes, suggestRef,
+  CREDENTIAL_REF_PATTERN, MCP_CLIENT_PACKAGE, MCP_MANAGER_PACKAGE, SERVER_NAME_PATTERN, credentialRefsIn,
+  credentialTemplate, isExactCredentialTemplate, isSecretField, isSecretUrl, looksSecretValue, malformedTemplate,
+  maskArg, maskUrl, secretArgIndexes, suggestRef,
 } from './mcpShapes.ts'
 
 const FIBER_PHASE = ['pending', 'loading', 'active', 'failed', 'disposed', 'unloading'] as const
@@ -50,7 +52,23 @@ interface CredentialsFace {
 }
 
 /** The manager's own list read, structurally. */
-interface ManagerFace { list?(): readonly { readonly name: string }[] }
+interface ManagerFace {
+  list?(): readonly {
+    readonly name: string
+    readonly configured?: boolean
+    readonly status?: { readonly state?: string; readonly toolCount?: number }
+  }[]
+}
+
+interface SettingsFace {
+  readonly writable?: boolean
+  describe?(): readonly { readonly ns: string; readonly revision: number; readonly value?: unknown }[]
+  mutate(
+    ns: string,
+    ops: readonly { readonly op: 'set'; readonly path: readonly string[]; readonly value: unknown }[],
+    expectedRevision?: number,
+  ): Promise<void>
+}
 
 /** Upper bounds, so one runaway server cannot balloon the wire. */
 const MAX_TOOLS = 2000
@@ -389,4 +407,616 @@ export function inspectMcpContext(ctx: Context, entries: Iterable<McpLoaderEntry
     toolsError = error instanceof Error ? error.message : String(error)
   }
   return { managerEntry, managerActive, unmanaged, tools, toolsError }
+}
+
+/** One managed MCP server summary exposed safely to Host-side Agent tools (no secret values). */
+export interface ManagedMcpSummary {
+  readonly name: string
+  readonly transport: 'stdio' | 'streamable-http' | 'unknown'
+  readonly target: string
+  readonly enabled: boolean
+  readonly state: string
+  readonly toolCount: number
+  readonly credentialRefs: readonly string[]
+  readonly identityKey: string
+  readonly registeredOnly?: boolean
+  readonly retained?: boolean
+}
+
+/** Complete masked inventory of managed and static MCP servers in this profile. */
+export interface ManagedMcpInspection {
+  readonly managerEntry: string | null
+  readonly managerActive: boolean
+  readonly settingsWritable: boolean
+  readonly managed: readonly ManagedMcpSummary[]
+  readonly unmanaged: readonly McpUnmanagedServer[]
+  readonly tools: readonly McpToolGroup[]
+  readonly takenNames: readonly string[]
+}
+
+/** Input for installing a curated MCP server into the official DSH manager. */
+export interface FeaturedMcpInstallInput {
+  readonly kind: 'featured'
+  readonly featuredId: string
+  readonly name?: string
+  /** Non-secret input values (e.g. `dir` for filesystem). Plaintext secrets are rejected. */
+  readonly inputs?: Readonly<Record<string, string>>
+  /** Optional explicit credential reference names for secret inputs. */
+  readonly credentialRefs?: Readonly<Record<string, string>>
+  readonly enabled?: boolean
+}
+
+/** Input for installing a custom MCP server into the official DSH manager. */
+export interface CustomMcpInstallInput {
+  readonly kind: 'custom'
+  readonly name: string
+  readonly transport: 'stdio' | 'streamable-http'
+  readonly command?: string
+  readonly args?: readonly string[]
+  readonly env?: Readonly<Record<string, string>>
+  readonly cwd?: string
+  readonly url?: string
+  readonly headers?: Readonly<Record<string, string>>
+  readonly enabled?: boolean
+}
+
+export type ManagedMcpInstallInput = FeaturedMcpInstallInput | CustomMcpInstallInput
+
+/** Validated, secret-free installation plan ready for user approval and Settings write. */
+export interface ManagedMcpInstallPlan {
+  readonly name: string
+  readonly source: 'featured' | 'custom'
+  readonly featuredId?: string
+  readonly featuredTitle?: string
+  readonly transport: 'stdio' | 'streamable-http'
+  readonly entry: Readonly<Record<string, unknown>>
+  readonly preview: string
+  readonly enabled: boolean
+  readonly credentialRefs: readonly string[]
+  readonly risks: readonly ('fetch' | 'shell')[]
+}
+
+/** Outcome of writing a managed MCP server to Settings. */
+export interface ManagedMcpInstallResult {
+  readonly name: string
+  readonly source: 'featured' | 'custom'
+  readonly featuredId?: string
+  readonly transport: 'stdio' | 'streamable-http'
+  readonly preview: string
+  readonly enabled: boolean
+  readonly credentialRefs: readonly string[]
+  readonly configuredCredentials: readonly string[]
+  readonly missingCredentials: readonly string[]
+}
+
+const NEEDS_SHELL_QUOTES = /[\s"']/
+
+function formatMaskedCommand(command: string, args: readonly string[]): string {
+  const secret = new Set(secretArgIndexes(args))
+  return [command, ...args.map((arg, index) => secret.has(index) ? maskArg(arg) : arg)]
+    .filter(part => part !== '')
+    .map(part => NEEDS_SHELL_QUOTES.test(part) ? JSON.stringify(part) : part)
+    .join(' ')
+}
+
+function detectCommandRisks(command: string, args: readonly string[]): ('fetch' | 'shell')[] {
+  const all = [command, ...args]
+  const words = all.map(word => word.replace(/^.*[\\/]/, '').replace(/\.(?:exe|cmd|bat)$/i, '').toLowerCase())
+  const risks: ('fetch' | 'shell')[] = []
+  if (words.some(word => ['npx', 'bunx', 'uvx', 'pipx'].includes(word))
+    || (words.includes('pnpm') && words.includes('dlx'))) risks.push('fetch')
+  const shell = words.findIndex(word => ['cmd', 'sh', 'bash', 'zsh', 'powershell', 'pwsh'].includes(word))
+  if (shell >= 0 && all.slice(shell + 1).some(arg => /^(?:\/c|\/k|-c|-command|-encodedcommand)$/i.test(arg))) risks.push('shell')
+  return risks
+}
+
+function readManagerSettings(ctx: Context, managerEntry: string | null): {
+  readonly settings: SettingsFace | undefined
+  readonly namespacePresent: boolean
+  readonly writable: boolean
+  readonly revision: number | undefined
+  readonly servers: Readonly<Record<string, Record<string, unknown>>>
+} {
+  const settings = ctx.settings as SettingsFace | undefined
+  if (settings === undefined || managerEntry === null) {
+    return { settings, namespacePresent: false, writable: false, revision: undefined, servers: {} }
+  }
+  const writable = settings.writable !== false && typeof settings.mutate === 'function'
+  try {
+    const descriptor = settings.describe?.().find(item => item.ns === managerEntry)
+    if (descriptor === undefined) {
+      return { settings, namespacePresent: false, writable: false, revision: undefined, servers: {} }
+    }
+    const rawServers = descriptor.value !== null && typeof descriptor.value === 'object' && !Array.isArray(descriptor.value)
+      ? (descriptor.value as { readonly servers?: unknown }).servers
+      : undefined
+    const servers: Record<string, Record<string, unknown>> = {}
+    if (rawServers !== null && typeof rawServers === 'object' && !Array.isArray(rawServers)) {
+      for (const [key, item] of Object.entries(rawServers as Record<string, unknown>)) {
+        if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
+          servers[key] = item as Record<string, unknown>
+        }
+      }
+    }
+    return { settings, namespacePresent: true, writable, revision: descriptor.revision, servers }
+  } catch {
+    return { settings, namespacePresent: false, writable: false, revision: undefined, servers: {} }
+  }
+}
+
+function refsOfServerEntry(entry: Record<string, unknown>): string[] {
+  const texts = [
+    str(entry.command),
+    ...strings(entry.args),
+    ...Object.values(record(entry.env)),
+    str(entry.cwd),
+    str(entry.url),
+    ...Object.values(record(entry.headers)),
+  ]
+  return [...new Set(texts.flatMap(value => credentialRefsIn(value)))]
+}
+
+/**
+ * Inspect both managed and static MCP servers on the Host without exposing any
+ * secret values. Used by Agent-facing MCP discovery and install tools.
+ */
+export function inspectManagedMcp(ctx: Context, entries: Iterable<McpLoaderEntry>): ManagedMcpInspection {
+  const list = [...entries]
+  const base = inspectMcpContext(ctx, list)
+  const settingsInfo = readManagerSettings(ctx, base.managerEntry)
+  let runtimeViews: readonly {
+    readonly name: string
+    readonly configured?: boolean
+    readonly status?: { readonly state?: string; readonly toolCount?: number }
+  }[] = []
+  try {
+    runtimeViews = serviceOf<ManagerFace>(ctx, 'mcpManager')?.list?.() ?? []
+  } catch {
+    runtimeViews = []
+  }
+  const viewByName = new Map(runtimeViews.map(view => [view.name, view]))
+  const toolsByServer = new Map(base.tools.map(group => [group.server, group.tools.length]))
+  const managed: ManagedMcpSummary[] = []
+  for (const [name, entry] of Object.entries(settingsInfo.servers)) {
+    const transport = entry.transport === 'stdio' || entry.transport === 'streamable-http' ? entry.transport : 'unknown'
+    const command = str(entry.command)
+    const args = strings(entry.args)
+    const url = str(entry.url)
+    const view = viewByName.get(name)
+    const state = view?.status?.state ?? (entry.enabled === false ? 'disabled' : 'unknown')
+    const toolCount = typeof view?.status?.toolCount === 'number'
+      ? view.status.toolCount
+      : (toolsByServer.get(name) ?? 0)
+    managed.push({
+      name,
+      transport,
+      target: transport === 'stdio' ? formatMaskedCommand(command, args) : maskUrl(url),
+      enabled: entry.enabled !== false,
+      state,
+      toolCount,
+      credentialRefs: refsOfServerEntry(entry),
+      identityKey: mcpIdentityKey({ transport, command, args, url }),
+    })
+  }
+  for (const view of runtimeViews) {
+    if (Object.hasOwn(settingsInfo.servers, view.name)) continue
+    const state = view.status?.state ?? 'unknown'
+    const toolCount = typeof view.status?.toolCount === 'number'
+      ? view.status.toolCount
+      : (toolsByServer.get(view.name) ?? 0)
+    const retained = view.configured === false
+    managed.push({
+      name: view.name,
+      transport: 'unknown',
+      target: '',
+      enabled: !retained && state !== 'disabled',
+      state,
+      toolCount,
+      credentialRefs: [],
+      identityKey: '',
+      ...(retained ? { retained: true } : { registeredOnly: true }),
+    })
+  }
+  const takenNames = [...new Set([
+    ...managed.map(item => item.name),
+    ...base.unmanaged.map(server => server.serverName).filter(name => name !== ''),
+  ])]
+  return {
+    managerEntry: base.managerEntry,
+    managerActive: base.managerActive,
+    settingsWritable: settingsInfo.writable,
+    managed,
+    unmanaged: base.unmanaged,
+    tools: base.tools,
+    takenNames,
+  }
+}
+
+const CREDENTIAL_TOKEN_GLOBAL = /\$\{credential:[A-Za-z_][A-Za-z0-9_]*\}/g
+const CREDENTIAL_TOKEN_PREFIX = /^\$\{credential:[A-Za-z_][A-Za-z0-9_]*\}/
+const AUTH_SCHEME_PREFIX = /^(?:Bearer|Basic|token)\s+/i
+const SECRET_ARG_FLAG = /^--?[\w-]*(?:key|token|secret|password|passwd|auth|credential)[\w-]*$/i
+const SECRET_URL_QUERY = /[?&][^=&#]*(?:key|token|secret|password|auth)[^=&#]*=([^&#]+)/gi
+const URL_USERINFO = /^https?:\/\/([^/?#]+)@/i
+
+function stripCredentialTokens(value: string): string {
+  return value.replace(CREDENTIAL_TOKEN_GLOBAL, '').trim()
+}
+
+/** Reject both pure plaintext secrets and mixed `plaintext + ${credential:REF}` smuggling. */
+function hasPlaintextSecretField(name: string, value: string): boolean {
+  if (isSecretField(name, value)) return true
+  if (credentialRefsIn(value).length === 0) return false
+  const withoutScheme = value.trim().replace(AUTH_SCHEME_PREFIX, '')
+  const remainder = stripCredentialTokens(withoutScheme)
+  if (remainder === '') return false
+  return isSecretField(name, remainder) || looksSecretValue(remainder)
+}
+
+/** Reject plaintext or mixed-template secret args (inline, flag-following, or opaque token). */
+function firstPlaintextSecretArgIndex(args: readonly string[]): number {
+  const direct = secretArgIndexes(args)
+  if (direct.length > 0) return direct[0]!
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!
+    if (credentialRefsIn(arg).length === 0) continue
+    const eq = arg.indexOf('=')
+    if (arg.startsWith('-') && eq > 0 && SECRET_ARG_FLAG.test(arg.slice(0, eq))) {
+      if (stripCredentialTokens(arg.slice(eq + 1)) !== '') return index
+    }
+    if (index > 0 && SECRET_ARG_FLAG.test(args[index - 1]!) && !arg.startsWith('-')) {
+      if (stripCredentialTokens(arg) !== '') return index
+    }
+    const remainder = stripCredentialTokens(arg)
+    if (remainder !== '' && looksSecretValue(remainder)) return index
+  }
+  return -1
+}
+
+/** Reject plaintext or mixed-template secrets in URL query parameters or userinfo (`user:pass@`). */
+function hasPlaintextSecretUrl(url: string): boolean {
+  if (isSecretUrl(url)) return true
+  for (const match of url.matchAll(SECRET_URL_QUERY)) {
+    if (stripCredentialTokens(match[1]!) !== '') return true
+  }
+  const userinfoMatch = URL_USERINFO.exec(url)
+  if (userinfoMatch !== null) {
+    const userinfo = userinfoMatch[1]!
+    const colon = userinfo.indexOf(':')
+    const secretPart = colon >= 0 ? userinfo.slice(colon + 1) : userinfo
+    if (stripCredentialTokens(secretPart) !== '') return true
+  }
+  return false
+}
+
+/**
+ * Validate and build a secret-free installation plan before asking the user for
+ * approval. Plaintext secrets are refused everywhere: credentials must be
+ * passed as `${credential:REF}` templates so secret values never traverse the
+ * model context or Settings file.
+ */
+export function buildManagedMcpInstallPlan(
+  input: ManagedMcpInstallInput,
+  takenNames: ReadonlySet<string>,
+  takenRefs: ReadonlySet<string> = new Set(),
+): ManagedMcpInstallPlan {
+  if (input.kind === 'featured') {
+    const featured = findFeaturedMcpById(input.featuredId)
+    if (featured === undefined) throw new Error(`unknown curated MCP server "${input.featuredId}"`)
+    const name = input.name !== undefined && input.name.trim() !== ''
+      ? input.name.trim()
+      : pickAvailableServerName(featured.id, takenNames)
+    if (!SERVER_NAME_PATTERN.test(name)) {
+      throw new Error('server name must use 1-32 letters, digits, _ or -')
+    }
+    if (takenNames.has(name)) {
+      throw new Error(`server name "${name}" is already in use`)
+    }
+    const providedInputs = input.inputs ?? {}
+    const providedRefs = input.credentialRefs ?? {}
+    const args = [...(featured.args ?? [])]
+    const env: Record<string, string> = { ...(featured.env ?? {}) }
+    const headers: Record<string, string> = { ...(featured.headers ?? {}) }
+    const refsUsed = new Set<string>(takenRefs)
+    const credentialRefs: string[] = []
+
+    for (const field of featured.inputs) {
+      const rawValue = (providedInputs[field.key] ?? '').trim()
+      const explicitRef = (providedRefs[field.key] ?? '').trim()
+      if (field.secret) {
+        if (rawValue !== '') {
+          if (malformedTemplate(rawValue) !== undefined || !isExactCredentialTemplate(rawValue)) {
+            throw new Error(`secret input "${field.key}" must never be passed in plaintext; omit it to auto-bind a credential template, pass credentialRefs.${field.key}, or pass an exact \${credential:REF} token`)
+          }
+          for (const ref of credentialRefsIn(rawValue)) {
+            refsUsed.add(ref)
+            if (!credentialRefs.includes(ref)) credentialRefs.push(ref)
+          }
+          if (field.where === 'env') env[field.key] = rawValue
+          else if (field.where === 'header') {
+            const fmt = field.format && field.format.includes('{}') ? field.format : '{}'
+            headers[field.key] = fmt.replace('{}', rawValue)
+          } else if (field.flag) {
+            args.push(field.flag, rawValue)
+          } else {
+            args.push(rawValue)
+          }
+          continue
+        }
+        if (explicitRef !== '') {
+          if (!CREDENTIAL_REF_PATTERN.test(explicitRef)) {
+            throw new Error(`invalid credential ref "${explicitRef}" for "${field.key}" (use letters, digits, and _)`)
+          }
+          refsUsed.add(explicitRef)
+          if (!credentialRefs.includes(explicitRef)) credentialRefs.push(explicitRef)
+          const template = credentialTemplate(explicitRef)
+          if (field.where === 'env') env[field.key] = template
+          else if (field.where === 'header') {
+            const fmt = field.format && field.format.includes('{}') ? field.format : '{}'
+            headers[field.key] = fmt.replace('{}', template)
+          } else if (field.flag) {
+            args.push(field.flag, template)
+          } else {
+            args.push(template)
+          }
+          continue
+        }
+        if (field.required) {
+          const autoRef = suggestRef(name, field.key, refsUsed)
+          refsUsed.add(autoRef)
+          credentialRefs.push(autoRef)
+          const template = credentialTemplate(autoRef)
+          if (field.where === 'env') env[field.key] = template
+          else if (field.where === 'header') {
+            const fmt = field.format && field.format.includes('{}') ? field.format : '{}'
+            headers[field.key] = fmt.replace('{}', template)
+          } else if (field.flag) {
+            args.push(field.flag, template)
+          } else {
+            args.push(template)
+          }
+        }
+        continue
+      }
+
+      if (rawValue === '') {
+        if (field.required) throw new Error(`required input "${field.key}" is missing for "${featured.id}"`)
+        continue
+      }
+      if (malformedTemplate(rawValue) !== undefined) {
+        throw new Error(`input "${field.key}" contains a malformed credential template`)
+      }
+      if (hasPlaintextSecretField(field.key, rawValue)) {
+        throw new Error(`input "${field.key}" looks like a plaintext secret; use \${credential:REF} instead`)
+      }
+      for (const ref of credentialRefsIn(rawValue)) {
+        if (!credentialRefs.includes(ref)) credentialRefs.push(ref)
+      }
+      if (field.where === 'env') env[field.key] = rawValue
+      else if (field.where === 'header') {
+        const fmt = field.format && field.format.includes('{}') ? field.format : '{}'
+        headers[field.key] = fmt.replace('{}', rawValue)
+      } else if (field.flag) {
+        args.push(field.flag, rawValue)
+      } else {
+        args.push(rawValue)
+      }
+    }
+
+    const enabled = input.enabled !== false
+    const entry: Record<string, unknown> = featured.transport === 'stdio'
+      ? {
+          transport: 'stdio',
+          command: featured.command ?? '',
+          ...(args.length > 0 ? { args } : {}),
+          ...(Object.keys(env).length > 0 ? { env } : {}),
+          enabled,
+        }
+      : {
+          transport: 'streamable-http',
+          url: featured.url ?? '',
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
+          enabled,
+        }
+    return {
+      name,
+      source: 'featured',
+      featuredId: featured.id,
+      featuredTitle: featured.title,
+      transport: featured.transport,
+      entry,
+      preview: featured.transport === 'stdio'
+        ? formatMaskedCommand(featured.command ?? '', args)
+        : maskUrl(featured.url ?? ''),
+      enabled,
+      credentialRefs,
+      risks: featured.transport === 'stdio' ? detectCommandRisks(featured.command ?? '', args) : [],
+    }
+  }
+
+  const name = input.name.trim()
+  if (!SERVER_NAME_PATTERN.test(name)) {
+    throw new Error('server name must use 1-32 letters, digits, _ or -')
+  }
+  if (takenNames.has(name)) {
+    throw new Error(`server name "${name}" is already in use`)
+  }
+  const enabled = input.enabled !== false
+  if (input.transport === 'stdio') {
+    const command = (input.command ?? '').trim()
+    if (command === '') throw new Error('command is required for stdio MCP servers')
+    const args = [...(input.args ?? [])]
+    const envEntries = Object.entries(input.env ?? {}).map(([k, v]): [string, string] => [k.trim(), v])
+    if (envEntries.some(([k]) => k === '')) throw new Error('env variable names cannot be empty')
+    const cwd = (input.cwd ?? '').trim()
+    for (const [value, where] of [
+      [command, 'command'],
+      ...args.map((arg, index): [string, string] => [arg, `args[${index}]`]),
+      ...envEntries.map(([k, v]): [string, string] => [v, `env.${k}`]),
+      [cwd, 'cwd'],
+    ]) {
+      const bad = malformedTemplate(value)
+      if (bad !== undefined) throw new Error(`${where} contains a malformed credential template (${bad})`)
+    }
+    const secretArg = firstPlaintextSecretArgIndex(args)
+    if (secretArg >= 0) {
+      throw new Error(`plaintext secret detected in args[${secretArg}]; use \${credential:REF} instead`)
+    }
+    for (const [k, v] of envEntries) {
+      if (hasPlaintextSecretField(k, v)) {
+        throw new Error(`plaintext secret detected in env.${k}; use \${credential:REF} instead`)
+      }
+    }
+    const env = Object.fromEntries(envEntries)
+    const entry: Record<string, unknown> = {
+      transport: 'stdio',
+      command,
+      ...(args.length > 0 ? { args } : {}),
+      ...(envEntries.length > 0 ? { env } : {}),
+      ...(cwd !== '' ? { cwd } : {}),
+      enabled,
+    }
+    return {
+      name,
+      source: 'custom',
+      transport: 'stdio',
+      entry,
+      preview: formatMaskedCommand(command, args),
+      enabled,
+      credentialRefs: refsOfServerEntry(entry),
+      risks: detectCommandRisks(command, args),
+    }
+  }
+
+  const url = (input.url ?? '').trim()
+  if (url === '') throw new Error('url is required for streamable-http MCP servers')
+  const badUrl = malformedTemplate(url)
+  if (badUrl !== undefined) throw new Error(`url contains a malformed credential template (${badUrl})`)
+  if (!/^https?:\/\//i.test(url) && !CREDENTIAL_TOKEN_PREFIX.test(url)) {
+    throw new Error('url must start with http:// or https://')
+  }
+  if (hasPlaintextSecretUrl(url)) {
+    throw new Error('plaintext secret detected in url; use ${credential:REF} instead')
+  }
+  const headerEntries = Object.entries(input.headers ?? {}).map(([k, v]): [string, string] => [k.trim(), v])
+  if (headerEntries.some(([k]) => k === '')) throw new Error('header names cannot be empty')
+  for (const [k, v] of headerEntries) {
+    const bad = malformedTemplate(v)
+    if (bad !== undefined) throw new Error(`headers.${k} contains a malformed credential template (${bad})`)
+    if (hasPlaintextSecretField(k, v)) {
+      throw new Error(`plaintext secret detected in headers.${k}; use \${credential:REF} instead`)
+    }
+  }
+  const headers = Object.fromEntries(headerEntries)
+  const entry: Record<string, unknown> = {
+    transport: 'streamable-http',
+    url,
+    ...(headerEntries.length > 0 ? { headers } : {}),
+    enabled,
+  }
+  return {
+    name,
+    source: 'custom',
+    transport: 'streamable-http',
+    entry,
+    preview: maskUrl(url),
+    enabled,
+    credentialRefs: refsOfServerEntry(entry),
+    risks: [],
+  }
+}
+
+/**
+ * Commit a validated install plan to the official `dsh-mcp-manager` Settings
+ * namespace using revision-checked `settings.mutate`, then inspect referenced
+ * credentials so the caller can guide the user if any secret still needs to be
+ * filled in the UI.
+ */
+export async function installManagedMcp(
+  ctx: Context,
+  entries: Iterable<McpLoaderEntry>,
+  plan: ManagedMcpInstallPlan,
+): Promise<ManagedMcpInstallResult> {
+  const list = [...entries]
+  const manager = list.find(item => item.options.name === MCP_MANAGER_PACKAGE)
+  if (manager === undefined) throw new Error('manager-unavailable: this DSH runtime has no dsh-mcp-manager')
+  const settingsInfo = readManagerSettings(ctx, manager.options.id)
+  if (settingsInfo.settings === undefined || typeof settingsInfo.settings.mutate !== 'function') {
+    throw new Error('settings-unavailable: Host Settings service is unavailable')
+  }
+  if (!settingsInfo.namespacePresent) {
+    throw new Error('namespace-missing: dsh-mcp-manager Settings namespace is unavailable')
+  }
+  if (!settingsInfo.writable) {
+    throw new Error('settings-readonly: Settings are read-only in this profile')
+  }
+  const inspection = inspectManagedMcp(ctx, list)
+  if (inspection.takenNames.includes(plan.name)) {
+    throw new Error(`name-taken: MCP server "${plan.name}" already exists`)
+  }
+  await settingsInfo.settings.mutate(
+    manager.options.id,
+    [{ op: 'set', path: ['servers', plan.name], value: plan.entry }],
+    settingsInfo.revision,
+  )
+  const configuredCredentials: string[] = []
+  const missingCredentials: string[] = []
+  const credentials = serviceOf<CredentialsFace>(ctx, 'credentials')
+  for (const ref of plan.credentialRefs) {
+    if (credentials === undefined) {
+      missingCredentials.push(ref)
+      continue
+    }
+    try {
+      const info = await credentials.describe(ref)
+      if (info.configured) configuredCredentials.push(ref)
+      else missingCredentials.push(ref)
+    } catch {
+      missingCredentials.push(ref)
+    }
+  }
+  return {
+    name: plan.name,
+    source: plan.source,
+    ...(plan.featuredId !== undefined ? { featuredId: plan.featuredId } : {}),
+    transport: plan.transport,
+    preview: plan.preview,
+    enabled: plan.enabled,
+    credentialRefs: plan.credentialRefs,
+    configuredCredentials,
+    missingCredentials,
+  }
+}
+
+/** Toggle one managed MCP server on or off through revision-checked Settings mutation. */
+export async function setManagedMcpEnabled(
+  ctx: Context,
+  entries: Iterable<McpLoaderEntry>,
+  name: string,
+  enabled: boolean,
+): Promise<{ readonly name: string; readonly enabled: boolean }> {
+  const target = name.trim()
+  if (!SERVER_NAME_PATTERN.test(target)) throw new Error('invalid MCP server name')
+  const list = [...entries]
+  const manager = list.find(item => item.options.name === MCP_MANAGER_PACKAGE)
+  if (manager === undefined) throw new Error('manager-unavailable: this DSH runtime has no dsh-mcp-manager')
+  const settingsInfo = readManagerSettings(ctx, manager.options.id)
+  if (settingsInfo.settings === undefined || typeof settingsInfo.settings.mutate !== 'function') {
+    throw new Error('settings-unavailable: Host Settings service is unavailable')
+  }
+  if (!settingsInfo.namespacePresent) {
+    throw new Error('namespace-missing: dsh-mcp-manager Settings namespace is unavailable')
+  }
+  if (!settingsInfo.writable) {
+    throw new Error('settings-readonly: Settings are read-only in this profile')
+  }
+  if (!Object.hasOwn(settingsInfo.servers, target)) {
+    throw new Error(`not-found: managed MCP server "${target}" does not exist`)
+  }
+  await settingsInfo.settings.mutate(
+    manager.options.id,
+    [{ op: 'set', path: ['servers', target, 'enabled'], value: enabled }],
+    settingsInfo.revision,
+  )
+  return { name: target, enabled }
 }

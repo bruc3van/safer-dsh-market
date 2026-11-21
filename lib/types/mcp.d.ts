@@ -92,3 +92,100 @@ export declare function groupTools(definitions: readonly {
  * @param entries - the live Loader entries.
  */
 export declare function inspectMcpContext(ctx: Context, entries: Iterable<McpLoaderEntry>): McpHostContext;
+/** One managed MCP server summary exposed safely to Host-side Agent tools (no secret values). */
+export interface ManagedMcpSummary {
+    readonly name: string;
+    readonly transport: 'stdio' | 'streamable-http' | 'unknown';
+    readonly target: string;
+    readonly enabled: boolean;
+    readonly state: string;
+    readonly toolCount: number;
+    readonly credentialRefs: readonly string[];
+    readonly identityKey: string;
+    readonly registeredOnly?: boolean;
+    readonly retained?: boolean;
+}
+/** Complete masked inventory of managed and static MCP servers in this profile. */
+export interface ManagedMcpInspection {
+    readonly managerEntry: string | null;
+    readonly managerActive: boolean;
+    readonly settingsWritable: boolean;
+    readonly managed: readonly ManagedMcpSummary[];
+    readonly unmanaged: readonly McpUnmanagedServer[];
+    readonly tools: readonly McpToolGroup[];
+    readonly takenNames: readonly string[];
+}
+/** Input for installing a curated MCP server into the official DSH manager. */
+export interface FeaturedMcpInstallInput {
+    readonly kind: 'featured';
+    readonly featuredId: string;
+    readonly name?: string;
+    /** Non-secret input values (e.g. `dir` for filesystem). Plaintext secrets are rejected. */
+    readonly inputs?: Readonly<Record<string, string>>;
+    /** Optional explicit credential reference names for secret inputs. */
+    readonly credentialRefs?: Readonly<Record<string, string>>;
+    readonly enabled?: boolean;
+}
+/** Input for installing a custom MCP server into the official DSH manager. */
+export interface CustomMcpInstallInput {
+    readonly kind: 'custom';
+    readonly name: string;
+    readonly transport: 'stdio' | 'streamable-http';
+    readonly command?: string;
+    readonly args?: readonly string[];
+    readonly env?: Readonly<Record<string, string>>;
+    readonly cwd?: string;
+    readonly url?: string;
+    readonly headers?: Readonly<Record<string, string>>;
+    readonly enabled?: boolean;
+}
+export type ManagedMcpInstallInput = FeaturedMcpInstallInput | CustomMcpInstallInput;
+/** Validated, secret-free installation plan ready for user approval and Settings write. */
+export interface ManagedMcpInstallPlan {
+    readonly name: string;
+    readonly source: 'featured' | 'custom';
+    readonly featuredId?: string;
+    readonly featuredTitle?: string;
+    readonly transport: 'stdio' | 'streamable-http';
+    readonly entry: Readonly<Record<string, unknown>>;
+    readonly preview: string;
+    readonly enabled: boolean;
+    readonly credentialRefs: readonly string[];
+    readonly risks: readonly ('fetch' | 'shell')[];
+}
+/** Outcome of writing a managed MCP server to Settings. */
+export interface ManagedMcpInstallResult {
+    readonly name: string;
+    readonly source: 'featured' | 'custom';
+    readonly featuredId?: string;
+    readonly transport: 'stdio' | 'streamable-http';
+    readonly preview: string;
+    readonly enabled: boolean;
+    readonly credentialRefs: readonly string[];
+    readonly configuredCredentials: readonly string[];
+    readonly missingCredentials: readonly string[];
+}
+/**
+ * Inspect both managed and static MCP servers on the Host without exposing any
+ * secret values. Used by Agent-facing MCP discovery and install tools.
+ */
+export declare function inspectManagedMcp(ctx: Context, entries: Iterable<McpLoaderEntry>): ManagedMcpInspection;
+/**
+ * Validate and build a secret-free installation plan before asking the user for
+ * approval. Plaintext secrets are refused everywhere: credentials must be
+ * passed as `${credential:REF}` templates so secret values never traverse the
+ * model context or Settings file.
+ */
+export declare function buildManagedMcpInstallPlan(input: ManagedMcpInstallInput, takenNames: ReadonlySet<string>, takenRefs?: ReadonlySet<string>): ManagedMcpInstallPlan;
+/**
+ * Commit a validated install plan to the official `dsh-mcp-manager` Settings
+ * namespace using revision-checked `settings.mutate`, then inspect referenced
+ * credentials so the caller can guide the user if any secret still needs to be
+ * filled in the UI.
+ */
+export declare function installManagedMcp(ctx: Context, entries: Iterable<McpLoaderEntry>, plan: ManagedMcpInstallPlan): Promise<ManagedMcpInstallResult>;
+/** Toggle one managed MCP server on or off through revision-checked Settings mutation. */
+export declare function setManagedMcpEnabled(ctx: Context, entries: Iterable<McpLoaderEntry>, name: string, enabled: boolean): Promise<{
+    readonly name: string;
+    readonly enabled: boolean;
+}>;

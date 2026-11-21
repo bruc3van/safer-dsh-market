@@ -1366,7 +1366,8 @@ export function MarketSection({
   }
   const aiPickCard = cards[AI_PICK_CARD_KEY]
   const tryAiAssistant = (): void => {
-    void runReview(AI_PICK_CARD_KEY, t('ai.pickPrompt'), workspaceReadiness.getSnapshot() === 'none')
+    const prompt = page === 'mcp' ? t('ai.pickMcpPrompt') : t('ai.pickPrompt')
+    void runReview(AI_PICK_CARD_KEY, prompt, workspaceReadiness.getSnapshot() === 'none')
   }
 
   return (
@@ -1444,7 +1445,7 @@ export function MarketSection({
             <path d="M12 3 14.3 9.7 21 12 14.3 14.3 12 21 9.7 14.3 3 12 9.7 9.7Z" />
           </svg>}
         >
-          {t('ai.pick')}
+          {page === 'mcp' ? t('ai.pickMcp') : t('ai.pick')}
         </MarketButton>
       )}
       </div>

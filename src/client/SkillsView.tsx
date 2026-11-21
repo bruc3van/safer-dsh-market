@@ -1,3 +1,4 @@
+import { MarketSelector } from './InstallModeSelector.tsx'
 import { MarketButton } from './MarketButton.tsx'
 import { useEffect, useState, type ReactElement } from 'react'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
@@ -109,25 +110,39 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
     <div className={project ? 'dsh_market_projectSkills' : 'dsh_market_page dsh_market_fixedPage'}>
       <div className="dsh_market_controls dsh_market_skillsControls">
         {!project && refreshButton}
-        <div className="dsh_market_skillsHeading">
-          <h2>{t('skills.title')}</h2>
-          {project && refreshButton}
-        </div>
+        {project && (
+          <div className="dsh_market_skillsHeading">
+            <h2>{t('skills.title')}</h2>
+            {refreshButton}
+          </div>
+        )}
         {(available || busy) && (
           <div className="dsh_market_filterBar">
-            <div className="dsh_market_scope dsh_market_skillsOrigins" role="group" aria-label={t('skills.origin')}>
-              <button className="dsh_market_scopeButton" type="button" aria-pressed={origin === 'all'} onClick={() => setOrigin('all')}>
-                {t('skills.origin.all')} {available && <span>{result.skills.length}</span>}
-              </button>
-              {groups.map(group => (
-                <button key={group.id} className="dsh_market_scopeButton" type="button"
-                  aria-pressed={origin === group.id} onClick={() => setOrigin(group.id)}>
-                  {t(`skills.origin.${group.id}`)} {available && <span>{group.total}</span>}
-                </button>
-              ))}
+            <div className="dsh_market_filterActions">
+              <input
+                className="dsh_market_search dsh_market_filterSearch"
+                type="search"
+                spellCheck={false}
+                value={query}
+                aria-label={t('skills.search')}
+                placeholder={t('skills.search')}
+                onChange={event => setQuery(event.target.value)}
+              />
+              <MarketSelector
+                value={origin}
+                onChange={setOrigin}
+                label={t('skills.origin')}
+                className="dsh_market_category"
+                options={[
+                  { value: 'all', label: t('skills.origin.allLabel'), ...(available ? { count: result.skills.length } : {}) },
+                  ...groups.map(group => ({
+                    value: group.id,
+                    label: t(`skills.origin.${group.id}`),
+                    ...(available ? { count: group.total } : {}),
+                  })),
+                ]}
+              />
             </div>
-            <input className="dsh_market_search dsh_market_skillSearch" type="search" spellCheck={false} value={query}
-              aria-label={t('skills.search')} placeholder={t('skills.search')} onChange={event => setQuery(event.target.value)} />
           </div>
         )}
       </div>

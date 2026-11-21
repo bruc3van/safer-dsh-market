@@ -18,6 +18,8 @@ export declare const MCP_CLIENT_PACKAGE = "@deepseek-ai/dsh-mcp-client";
 export declare const MCP_MANAGER_PACKAGE = "@deepseek-ai/dsh-mcp-manager";
 /** The `${credential:REF}` names one string carries, in order. */
 export declare function credentialRefsIn(value: string): string[];
+/** Whether a string is exactly one well-formed `${credential:REF}` token (after trimming). */
+export declare function isExactCredentialTemplate(value: string): boolean;
 /** The first `${…}` occurrence that is not a well-formed credential token, if any. */
 export declare function malformedTemplate(value: string): string | undefined;
 /** The template that stands in for one stored credential. */
