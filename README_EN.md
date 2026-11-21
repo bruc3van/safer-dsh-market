@@ -52,6 +52,8 @@ Compared with other common discovery and management approaches, DSH Market Pro u
 
 ## Chat-Native AI Discovery & Setup Examples
 
+The screenshots use a local demo model for the conversations. DSH runs the tools and generates the approval cards shown.
+
 ### 1. Discover Plugins (`/dsh-market-pro`)
 
 With the AI assistant enabled by default, just ask in any DSH conversation:
@@ -140,6 +142,8 @@ In addition to the main navigation bar, you can open **DSH Market Pro** directly
 Manage your installed plugins under the **Installed** tab: filter by **All installed / Updates available**, toggle enable/disable states live, uninstall, pick from scrollable version lists per plugin, or click **Update all** to confirm and sequentially upgrade plugins (skipping failures with one-click retry). When `dsh-market-pro` itself has an update, a quick update button also appears in the top-right header.
 
 ![Installed panel](./assets/screenshots/marketplace-installed.png)
+
+![Batch update confirmation](./assets/screenshots/marketplace-batch-update.png)
 
 ### Post-Install AI Review
 

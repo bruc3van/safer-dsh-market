@@ -52,6 +52,8 @@ DeepSeek Harness（DSH）的 AI 原生第三方插件市场。基于经过核实
 
 ## 对话内 AI 选型与安装示例
 
+截图中的对话由本地演示模型驱动。DSH 实际执行工具并生成审批卡片。
+
 ### 1. 选插件（`/dsh-market-pro`）
 
 安装后默认开启，在 DSH 对话框中直接输入：
@@ -140,6 +142,8 @@ Agent 会通过 `dsh_mcp_pro` 完成端到端安全闭环：
 在 **已安装** 页面管理当前环境中的插件，支持按 **全部状态 / 有新版** 筛选、随时启停或卸载、单插件多版本选择升级，以及点击 **一键更新** 确认清单后按顺序批量升级（失败自动跳过并支持重试失败项）；当本插件有新版本时，主面板右上角也会直接展示快捷更新按钮。
 
 ![已安装面板](./assets/screenshots/marketplace-installed.png)
+
+![批量更新确认清单](./assets/screenshots/marketplace-batch-update.png)
 
 ### 安装后 AI 安全审查
 
