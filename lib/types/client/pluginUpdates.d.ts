@@ -34,6 +34,33 @@ export interface UpdateChoice {
         index: string;
     };
 }
+export interface AvailableUpdate {
+    readonly packageName: string;
+    readonly installed: string;
+    readonly version: string;
+    readonly kind: 'registry' | 'git';
+    readonly source: UpdateChoice['source'];
+}
+export type BatchItemStatus = 'pending' | 'running' | 'applied' | 'restart-required' | 'overridden' | 'cancelled' | 'failed' | 'unknown' | 'skipped';
+export interface BatchUpdateItem {
+    readonly packageName: string;
+    readonly from: string;
+    readonly to: string;
+    readonly kind: 'registry' | 'git';
+    readonly source: UpdateChoice['source'];
+    readonly self: boolean;
+    readonly status: BatchItemStatus;
+    readonly step?: PluginUpdateProgress['step'];
+    readonly message?: string;
+    readonly restoreApplication?: 'applied' | 'restart-required' | 'overridden' | 'cancelled' | 'failed';
+    readonly result?: PluginUpdateResult;
+}
+export interface BatchUpdateState {
+    readonly phase: 'idle' | 'running' | 'done';
+    readonly items: readonly BatchUpdateItem[];
+    readonly currentIndex: number;
+    readonly stopRequested: boolean;
+}
 export interface UpdateState {
     phase: 'idle' | 'checking' | 'ready' | 'updating' | 'done' | 'error' | 'unknown';
     packageName: string;
@@ -50,7 +77,15 @@ export interface UpdateState {
     revision: number;
     /** Newest compatible stable version detected per installed package name. */
     available: Readonly<Record<string, string>>;
+    /** Resolved update targets for one-click batch updates without a second lookup. */
+    availableDetails: Readonly<Record<string, AvailableUpdate>>;
+    /** Sequential batch update queue (skips failures, orders self last). */
+    batch: BatchUpdateState;
 }
+/** Keep caller order while always placing the marketplace itself last so a self-reload cannot interrupt earlier updates. */
+export declare function orderBatchTargets<T extends {
+    readonly packageName: string;
+}>(items: readonly T[], selfName: string): T[];
 /** One shared operation survives switching between the market's three entry points. */
 export declare function createPluginUpdater(host: () => UpdateHost | undefined, market: () => UpdateMarketHost | undefined): {
     getSnapshot: () => UpdateState;
@@ -59,6 +94,9 @@ export declare function createPluginUpdater(host: () => UpdateHost | undefined, 
     check(packageName: string): Promise<void>;
     select(version: string): void;
     confirm(): Promise<void>;
+    startBatch(targets: readonly (string | AvailableUpdate)[], selfName?: string): Promise<void>;
+    requestStopBatch(): void;
+    resetBatch(): void;
     progress(event: PluginUpdateProgress): void;
     close(): void;
 };

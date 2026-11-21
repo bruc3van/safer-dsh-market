@@ -125,5 +125,12 @@ export interface MarketSectionInjected {
 export type MarketSectionProps = {
     close: () => void;
 } & InjectFace<MarketSectionInjected> & PropsLocale<'settings.dshMarketPro'>;
+/** Page-owned refresh button hoisted into the shared section header. */
+export interface HeaderRefreshAction {
+    readonly label: string;
+    readonly busy: boolean;
+    readonly disabled: boolean;
+    readonly onClick: () => void;
+}
 /** The Marketplace section. */
 export declare function MarketSection({ useScope, updateSettings, loadCatalog, peekCatalog, listSkills, skillsSession, canOpenFolder, openFolder, install, installIntoNewWorkspace, chooseWorkspace, workspaceReadiness, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, directInstaller, pluginUpdater, mcp, close, t, }: MarketSectionProps): ReactElement;

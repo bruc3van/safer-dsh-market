@@ -21,6 +21,42 @@ export interface UpdateChoice {
   blocked?: string
   source: { registry: Registry } | { spec: string; index: string }
 }
+export interface AvailableUpdate {
+  readonly packageName: string
+  readonly installed: string
+  readonly version: string
+  readonly kind: 'registry' | 'git'
+  readonly source: UpdateChoice['source']
+}
+export type BatchItemStatus =
+  | 'pending'
+  | 'running'
+  | 'applied'
+  | 'restart-required'
+  | 'overridden'
+  | 'cancelled'
+  | 'failed'
+  | 'unknown'
+  | 'skipped'
+export interface BatchUpdateItem {
+  readonly packageName: string
+  readonly from: string
+  readonly to: string
+  readonly kind: 'registry' | 'git'
+  readonly source: UpdateChoice['source']
+  readonly self: boolean
+  readonly status: BatchItemStatus
+  readonly step?: PluginUpdateProgress['step']
+  readonly message?: string
+  readonly restoreApplication?: 'applied' | 'restart-required' | 'overridden' | 'cancelled' | 'failed'
+  readonly result?: PluginUpdateResult
+}
+export interface BatchUpdateState {
+  readonly phase: 'idle' | 'running' | 'done'
+  readonly items: readonly BatchUpdateItem[]
+  readonly currentIndex: number
+  readonly stopRequested: boolean
+}
 export interface UpdateState {
   phase: 'idle' | 'checking' | 'ready' | 'updating' | 'done' | 'error' | 'unknown'
   packageName: string
@@ -37,6 +73,27 @@ export interface UpdateState {
   revision: number
   /** Newest compatible stable version detected per installed package name. */
   available: Readonly<Record<string, string>>
+  /** Resolved update targets for one-click batch updates without a second lookup. */
+  availableDetails: Readonly<Record<string, AvailableUpdate>>
+  /** Sequential batch update queue (skips failures, orders self last). */
+  batch: BatchUpdateState
+}
+
+const IDLE_BATCH: BatchUpdateState = { phase: 'idle', items: [], currentIndex: -1, stopRequested: false }
+
+/** Keep caller order while always placing the marketplace itself last so a self-reload cannot interrupt earlier updates. */
+export function orderBatchTargets<T extends { readonly packageName: string }>(
+  items: readonly T[],
+  selfName: string,
+): T[] {
+  if (selfName === '') return [...items]
+  const others: T[] = []
+  const selfItems: T[] = []
+  for (const item of items) {
+    if (item.packageName === selfName) selfItems.push(item)
+    else others.push(item)
+  }
+  return [...others, ...selfItems]
 }
 
 function requirementsText(requirements: Readonly<Record<string, string>>): string {
@@ -96,9 +153,26 @@ function withAvailable(current: Readonly<Record<string, string>>, packageName: s
   return rest
 }
 
+function withAvailableDetail(
+  current: Readonly<Record<string, AvailableUpdate>>,
+  packageName: string,
+  detail: AvailableUpdate | null,
+): Readonly<Record<string, AvailableUpdate>> {
+  if (detail !== null) {
+    const clean = detail.version.replace(/^v/i, '')
+    if (clean !== '') return { ...current, [packageName]: { ...detail, version: clean } }
+  }
+  if (!(packageName in current)) return current
+  const { [packageName]: _removed, ...rest } = current
+  return rest
+}
+
 /** One shared operation survives switching between the market's three entry points. */
 export function createPluginUpdater(host: () => UpdateHost | undefined, market: () => UpdateMarketHost | undefined) {
-  let state: UpdateState = { phase: 'idle', packageName: '', installed: '', choices: [], selected: '', message: '', warnings: [], omitted: 0, revision: 0, available: {} }
+  let state: UpdateState = {
+    phase: 'idle', packageName: '', installed: '', choices: [], selected: '', message: '', warnings: [], omitted: 0,
+    revision: 0, available: {}, availableDetails: {}, batch: IDLE_BATCH,
+  }
   let generation = 0
   let probeSeq = 0
   let requestId: PluginInstallRequestId | undefined
@@ -106,6 +180,10 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
   const set = (patch: Partial<UpdateState>) => {
     state = { ...state, ...patch }
     for (const listener of listeners) listener()
+  }
+  const patchBatchItem = (index: number, patch: Partial<BatchUpdateItem>) => {
+    const items = state.batch.items.map((entry, i) => (i === index ? { ...entry, ...patch } : entry))
+    set({ batch: { ...state.batch, items } })
   }
   return {
     getSnapshot: () => state,
@@ -117,6 +195,25 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
       try {
         const inventory = await api.listBundles()
         if (currentProbe !== probeSeq || !inventory.ok) return
+        const eligible = new Set(
+          inventory.value.filter(item => item.installed && item.update !== undefined).map(item => item.name),
+        )
+        let nextAvailable = state.available
+        let nextDetails = state.availableDetails
+        let pruned = false
+        for (const name of Object.keys(nextAvailable)) {
+          if (!eligible.has(name)) {
+            nextAvailable = withAvailable(nextAvailable, name, '')
+            pruned = true
+          }
+        }
+        for (const name of Object.keys(nextDetails)) {
+          if (!eligible.has(name)) {
+            nextDetails = withAvailableDetail(nextDetails, name, null)
+            pruned = true
+          }
+        }
+        if (pruned) set({ available: nextAvailable, availableDetails: nextDetails })
         const wanted = packageNames === undefined ? undefined : new Set(packageNames)
         const targets = inventory.value.filter(item => item.installed && item.update !== undefined && (wanted === undefined || wanted.has(item.name)))
         const indexes = market()
@@ -126,10 +223,30 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
           if (bundle.update === 'registry') {
             const answer = await api.listVersions(bundle.name, {})
             if (currentProbe !== probeSeq) return
-            if (!answer.ok || answer.value.status === 'refused') continue
+            if (!answer.ok) continue
+            if (answer.value.status === 'refused') {
+              if (answer.value.problem === 'not-updatable' || answer.value.problem === 'not-found') {
+                set({
+                  available: withAvailable(state.available, bundle.name, ''),
+                  availableDetails: withAvailableDetail(state.availableDetails, bundle.name, null),
+                })
+              }
+              continue
+            }
             const candidate = answer.value.versions.find(version =>
               version.bundle && version.incompatible === undefined && !version.prerelease && version.deprecated === undefined)
-            set({ available: withAvailable(state.available, bundle.name, candidate?.version ?? '') })
+            const nextVersion = candidate?.version ?? ''
+            const detail: AvailableUpdate | null = nextVersion !== '' ? {
+              packageName: bundle.name,
+              installed: answer.value.installed || bundle.version || '',
+              version: nextVersion,
+              kind: 'registry',
+              source: { registry: answer.value.registry },
+            } : null
+            set({
+              available: withAvailable(state.available, bundle.name, nextVersion),
+              availableDetails: withAvailableDetail(state.availableDetails, bundle.name, detail),
+            })
           } else if (bundle.update === 'git' && indexes) {
             if (gitSources === undefined) {
               const listed = await indexes.listIndexes()
@@ -138,7 +255,19 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
             }
             const { choices } = await gitUpdateChoices(indexes, gitSources, bundle.name, () => currentProbe === probeSeq)
             if (currentProbe !== probeSeq) return
-            set({ available: withAvailable(state.available, bundle.name, defaultCandidate(choices)) })
+            const nextVersion = defaultCandidate(choices)
+            const chosen = nextVersion !== '' ? choices.find(choice => choice.version === nextVersion) : undefined
+            const detail: AvailableUpdate | null = chosen ? {
+              packageName: bundle.name,
+              installed: bundle.version ?? '',
+              version: chosen.version,
+              kind: 'git',
+              source: chosen.source,
+            } : null
+            set({
+              available: withAvailable(state.available, bundle.name, nextVersion),
+              availableDetails: withAvailableDetail(state.availableDetails, bundle.name, detail),
+            })
           }
         }
       } catch {
@@ -146,7 +275,7 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
       }
     },
     async check(packageName: string) {
-      if (state.phase === 'updating') return
+      if (state.phase === 'updating' || state.batch.phase === 'running') return
       const current = ++generation
       set({ phase: 'checking', packageName, installed: '', kind: undefined, choices: [], selected: '', message: '', warnings: [], omitted: 0, result: undefined, step: undefined })
       try {
@@ -157,7 +286,8 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
         if (!inventory.ok) throw new Error(inventory.error.message)
         const bundle = inventory.value.find(item => item.name === packageName && item.installed)
         if (!bundle?.update) throw new Error('The official manager does not allow this installation to be updated. Built-in, local and unpinned Git copies may require their original installer.')
-        set({ installed: bundle.version ?? '', kind: bundle.update })
+        let installedVersion = bundle.version ?? ''
+        set({ installed: installedVersion, kind: bundle.update })
         let choices: UpdateChoice[] = []
         let warnings: string[] = []
         let omitted = 0
@@ -168,7 +298,8 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
           if (!answer.ok) throw new Error(answer.error.message)
           const list = answer.value
           if (list.status === 'refused') throw new Error(list.reason)
-          set({ installed: list.installed })
+          installedVersion = list.installed
+          set({ installed: installedVersion })
           omitted = list.omitted
           choices = list.versions.map(version => ({
             version: version.version, prerelease: version.prerelease,
@@ -192,7 +323,23 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
         }
         if (current !== generation) return
         const selected = defaultCandidate(choices)
-        set({ phase: 'ready', choices, selected, warnings, omitted, available: withAvailable(state.available, packageName, selected) })
+        const chosen = selected !== '' ? choices.find(choice => choice.version === selected) : undefined
+        const detail: AvailableUpdate | null = chosen ? {
+          packageName,
+          installed: installedVersion,
+          version: chosen.version,
+          kind: bundle.update,
+          source: chosen.source,
+        } : null
+        set({
+          phase: 'ready',
+          choices,
+          selected,
+          warnings,
+          omitted,
+          available: withAvailable(state.available, packageName, selected),
+          availableDetails: withAvailableDetail(state.availableDetails, packageName, detail),
+        })
       } catch (error) {
         if (current === generation) set({ phase: 'error', message: error instanceof Error ? error.message : String(error) })
       }
@@ -201,7 +348,7 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
       if (state.phase === 'ready' && state.choices.some(choice => choice.version === version && !choice.blocked)) set({ selected: version })
     },
     async confirm() {
-      if (state.phase !== 'ready') return
+      if (state.phase !== 'ready' || state.batch.phase === 'running') return
       const choice = state.choices.find(version => version.version === state.selected && !version.blocked)
       if (!choice) return
       requestId = globalThis.crypto.randomUUID() as PluginInstallRequestId
@@ -217,14 +364,123 @@ export function createPluginUpdater(host: () => UpdateHost | undefined, market: 
           phase: 'done',
           result: answer.value,
           revision: state.revision + 1,
-          ...(applied ? { available: withAvailable(state.available, state.packageName, '') } : {}),
+          ...(applied ? {
+            available: withAvailable(state.available, state.packageName, ''),
+            availableDetails: withAvailableDetail(state.availableDetails, state.packageName, null),
+          } : {}),
         } : { phase: 'unknown', message: answer.error.message, revision: state.revision + 1 })
       } catch (error) {
         set({ phase: 'unknown', message: error instanceof Error ? error.message : String(error), revision: state.revision + 1 })
       } finally { requestId = undefined }
     },
+    async startBatch(targets: readonly (string | AvailableUpdate)[], selfName = '') {
+      if (state.phase === 'updating' || state.batch.phase === 'running') return
+      const resolved: AvailableUpdate[] = []
+      const seen = new Set<string>()
+      for (const entry of targets) {
+        const detail = typeof entry === 'string' ? state.availableDetails[entry] : entry
+        if (!detail || seen.has(detail.packageName)) continue
+        seen.add(detail.packageName)
+        resolved.push(detail)
+      }
+      if (resolved.length === 0) return
+      const ordered = orderBatchTargets(resolved, selfName)
+      const queue: BatchUpdateItem[] = ordered.map(item => ({
+        packageName: item.packageName,
+        from: item.installed,
+        to: item.version,
+        kind: item.kind,
+        source: item.source,
+        self: selfName !== '' && item.packageName === selfName,
+        status: 'pending',
+      }))
+      generation += 1
+      set({
+        phase: 'idle',
+        batch: { phase: 'running', items: queue, currentIndex: 0, stopRequested: false },
+      })
+      for (let index = 0; index < queue.length; index += 1) {
+        if (state.batch.stopRequested) {
+          const items = state.batch.items.map((entry, i) => (i >= index ? { ...entry, status: 'skipped' as const } : entry))
+          set({ batch: { phase: 'done', items, currentIndex: -1, stopRequested: false } })
+          return
+        }
+        const entry = queue[index]!
+        set({
+          batch: {
+            ...state.batch,
+            currentIndex: index,
+            items: state.batch.items.map((item, i) => (i === index ? { ...item, status: 'running', step: 'checking' } : item)),
+          },
+        })
+        requestId = globalThis.crypto.randomUUID() as PluginInstallRequestId
+        try {
+          const api = host()
+          if (!api?.updateBundle) throw new Error('The plugin manager is unavailable.')
+          const source = entry.source
+          const answer = await api.updateBundle(entry.packageName, entry.to, {
+            ...('registry' in source ? { registry: source.registry } : { spec: source.spec }),
+            requestId,
+          })
+          if (answer.ok) {
+            const app = answer.value.result.application
+            const applied = app === 'applied' || app === 'restart-required'
+            const matchesCurrentAvailable = state.available[entry.packageName] === entry.to.replace(/^v/i, '')
+            const nextItems = state.batch.items.map((item, i) => (i === index ? {
+              ...item,
+              status: app as BatchItemStatus,
+              step: undefined,
+              result: answer.value,
+              restoreApplication: answer.value.restore?.application,
+            } : item))
+            set({
+              batch: { ...state.batch, items: nextItems },
+              revision: state.revision + 1,
+              ...(applied && matchesCurrentAvailable ? {
+                available: withAvailable(state.available, entry.packageName, ''),
+                availableDetails: withAvailableDetail(state.availableDetails, entry.packageName, null),
+              } : {}),
+            })
+          } else {
+            const nextItems = state.batch.items.map((item, i) => (i === index ? {
+              ...item,
+              status: 'unknown' as const,
+              step: undefined,
+              message: answer.error.message,
+            } : item))
+            set({ batch: { ...state.batch, items: nextItems }, revision: state.revision + 1 })
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          const nextItems = state.batch.items.map((item, i) => (i === index ? {
+            ...item,
+            status: 'unknown' as const,
+            step: undefined,
+            message,
+          } : item))
+          set({ batch: { ...state.batch, items: nextItems }, revision: state.revision + 1 })
+        } finally {
+          requestId = undefined
+        }
+      }
+      set({ batch: { ...state.batch, phase: 'done', currentIndex: -1, stopRequested: false } })
+    },
+    requestStopBatch() {
+      if (state.batch.phase === 'running' && !state.batch.stopRequested) {
+        set({ batch: { ...state.batch, stopRequested: true } })
+      }
+    },
+    resetBatch() {
+      if (state.batch.phase === 'running') return
+      set({ batch: IDLE_BATCH })
+    },
     progress(event: PluginUpdateProgress) {
-      if (state.phase === 'updating' && event.requestId === requestId) set({ step: event.step })
+      if (event.requestId !== requestId) return
+      if (state.phase === 'updating') {
+        set({ step: event.step })
+      } else if (state.batch.phase === 'running' && state.batch.currentIndex >= 0) {
+        patchBatchItem(state.batch.currentIndex, { step: event.step })
+      }
     },
     close() {
       if (state.phase === 'updating') return

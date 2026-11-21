@@ -37,7 +37,7 @@ import { registerSafeMarketSettings } from './settings.ts'
 import { readSkills } from './skills.ts'
 import { adoptMcp, inspectMcpContext, type McpLoaderEntry } from './mcp.ts'
 import { registerMarketAiSkill } from './aiSkill.ts'
-import { registerMarketAiTool } from './aiTools.ts'
+import { registerMarketAiTool, type HostPluginManagerUpdateFace, type HostPluginMarketUpdateFace, type MarketApprovalServiceFace } from './aiTools.ts'
 import { registerMarketAiMcpTool } from './aiMcpTools.ts'
 import { adoptDomainState, initialDomainState, safeMarketDomainSpec, type SafeMarketDomainState } from './store.ts'
 import { TYPERT_MANIFEST } from './typert.ts'
@@ -214,12 +214,22 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     profile: profile.name,
     readSettings,
   })
+  const safeGet = <T>(serviceName: string): T | undefined => {
+    try {
+      return (ctx as unknown as { get(name: string): T | undefined }).get(serviceName)
+    } catch {
+      return undefined
+    }
+  }
   const aiTool = registerMarketAiTool(ctx, {
     profile: profile.name,
     readSettings,
     readCatalog: (force, signal) => catalog.read(force, signal),
     listInstalled: () => installed.list(),
     readMcp,
+    pluginManager: () => safeGet<HostPluginManagerUpdateFace>('pluginManager'),
+    pluginMarket: () => safeGet<HostPluginMarketUpdateFace>('pluginMarket'),
+    getApprover: () => safeGet<MarketApprovalServiceFace>('approval'),
   })
   const aiMcpTool = registerMarketAiMcpTool(ctx, {
     profile: profile.name,

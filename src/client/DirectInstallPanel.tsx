@@ -40,6 +40,15 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
   const start = () => { if (chosen.length) { setSubmitted(true); void installer.start(chosen.map(target => target.install)) } }
   const outcome = state.application as 'applied' | 'restart-required' | 'overridden' | 'cancelled' | undefined
   const reviewTargets = showResult && !busy ? installedReviewTargets(state) : []
+  const reviewButton = reviewTargets.length > 0 ? <MarketButton
+    size="md"
+    intent="secondary"
+    disabled={reviewBusy || !reviewAvailable}
+    title={!reviewAvailable ? t('install.profilePending') : undefined}
+    onClick={() => { void onReview(reviewTargets).then(ok => { if (ok) dismiss() }) }}
+  >
+    {reviewBusy ? t('installing') : t('audit.action')}
+  </MarketButton> : null
   const english = t('lang') === 'en'
   const description = english ? visibleItem?.descriptionEn || visibleItem?.description : visibleItem?.description
   const heading = (english ? visibleItem?.titleEn : visibleItem?.titleZh) || visibleItem?.name || state.spec || t('direct.title')
@@ -96,25 +105,24 @@ export function DirectInstallPanel({ item, installer, t, onClose, onInstalled, o
         {manual && <p>{manual}</p>}
       </div>
     </details>}
-    {reviewTargets.length > 0 && <div className="dsh_market_installStatus">
-      <strong>{t('audit.targets')}</strong>
-      {reviewMessage && <p role="status">{reviewMessage}</p>}
-      <MarketButton intent="secondary" disabled={reviewBusy || !reviewAvailable}
-        title={!reviewAvailable ? t('install.profilePending') : undefined}
-        onClick={() => { void onReview(reviewTargets).then(ok => { if (ok) dismiss() }) }}>
-        {reviewBusy ? t('installing') : t('audit.action')}
-      </MarketButton>
-    </div>}
+    {reviewTargets.length > 0 && reviewMessage && <p role="status">{reviewMessage}</p>}
     <fieldset className="dsh_market_installFooter" disabled={reviewBusy}>
       {needsApproval ? <>
         <MarketButton size="md" intent="secondary" onClick={dismiss}>{t('direct.decline')}</MarketButton>
         <MarketButton size="md" intent="primary" onClick={() => { void installer.approve() }}>{t('direct.allowContinue')}</MarketButton>
-      </> : finished ? <MarketButton size="md" intent="primary" onClick={dismiss}>{t('direct.finish')}</MarketButton>
-        : state.phase === 'unavailable' ? <MarketButton size="md" intent="primary" onClick={dismiss}>{t('direct.finishUnconfirmed')}</MarketButton>
+      </> : finished ? <>
+        {reviewButton}
+        <MarketButton size="md" intent="primary" onClick={dismiss}>{t('direct.finish')}</MarketButton>
+      </>
+        : state.phase === 'unavailable' ? <>
+          {reviewButton}
+          <MarketButton size="md" intent="primary" onClick={dismiss}>{t('direct.finishUnconfirmed')}</MarketButton>
+        </>
         : state.phase === 'unknown' ? <MarketButton size="md" intent="primary" onClick={() => { void installer.recover() }}>{t('direct.recover')}</MarketButton>
         : busy ? <MarketButton size="md" intent="secondary" disabled={state.phase !== 'installing'} onClick={() => { void installer.cancel() }}>{t('direct.cancel')}</MarketButton>
         : (available || (showResult && state.phase === 'failed')) ? <>
           <MarketButton size="md" intent="secondary" onClick={dismiss}>{t(showResult ? 'direct.close' : 'direct.dismiss')}</MarketButton>
+          {reviewButton}
           <MarketButton size="md" intent="primary" disabled={!chosen.length && !showResult} onClick={showResult && state.phase === 'failed' ? () => { void installer.retry() } : start}>{showResult && state.phase === 'failed' ? t('direct.retry') : `${t('direct.confirm')}${chosen.length > 1 ? ` (${chosen.length})` : ''}`}</MarketButton>
         </>
         : <>

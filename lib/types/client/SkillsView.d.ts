@@ -3,6 +3,7 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots';
 import type { MarketSkillsResult } from '../contract.ts';
 import { type SkillsSessionSource } from './skillsSubscription.ts';
 import type { MarketLocale } from './copy.ts';
+import type { HeaderRefreshAction } from './MarketSection.tsx';
 export declare const NO_SESSION = "no-session";
 export declare const SESSIONS_PENDING = "sessions-pending";
 interface SkillsActions {
@@ -12,8 +13,9 @@ interface SkillsActions {
     openFolder: (path: string) => Promise<void>;
 }
 export declare function ProjectSkillsView(props: SkillsActions & PropsLocale<'settings.dshMarketPro'>): ReactElement;
-export declare function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFolder, project }: SkillsActions & {
+export declare function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFolder, project, onRegisterRefresh }: SkillsActions & {
     t: MarketLocale;
     project?: boolean;
+    onRegisterRefresh?: (action: HeaderRefreshAction | null) => void;
 }): ReactElement;
 export {};

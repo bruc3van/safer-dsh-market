@@ -893,3 +893,190 @@ test('aiSearch handles CJK-Latin mixed queries, detail hasExtraDetails omission,
     /At most 5 unique targets/,
   )
 })
+
+test('dsh_market_pro check_updates and update_plugins enforce pinned scope, full approval, Git fallback, and accurate rollback diagnostics', async () => {
+  const updatedOrder: string[] = []
+  let approvalResult: 'allowed-once' | 'rejected' = 'rejected'
+  const approvalReasons: string[] = []
+
+  const tool = createMarketAiToolDefinition({
+    profile: 'web',
+    // Works even when online catalog is disabled.
+    readSettings: () => ({ enabled: false, aiAssistantEnabled: true }),
+    readCatalog: async () => { throw new Error('catalog must not be called for plugin updates') },
+    listInstalled: async () => installedResultFixture,
+    readMcp: () => mcpFixture,
+    pluginManager: () => ({
+      listBundles: async () => [
+        { name: 'dsh-market-pro', version: '1.9.1', installed: true, update: 'registry' },
+        { name: 'flaky-plugin', version: '1.0.0', installed: true, update: 'registry' },
+        { name: 'dsh-context', version: '0.86.0', installed: true, update: 'registry' },
+        { name: 'git-plugin', version: '0.1.0', installed: true, update: 'git' },
+        { name: 'unconfirmed-plugin', version: '1.0.0', installed: true, update: 'registry' },
+        { name: 'local-plugin', version: '0.1.0', installed: true },
+      ],
+      listVersions: async name => ({
+        status: 'listed',
+        installed: name === 'dsh-market-pro' ? '1.9.1' : name === 'dsh-context' ? '0.86.0' : '1.0.0',
+        registry: 'https://registry.npmjs.org/',
+        versions: name === 'dsh-context'
+          ? [
+            { version: '0.88.0', prerelease: false, bundle: true },
+            { version: '0.87.0', prerelease: false, bundle: true },
+          ]
+          : [{
+            version: name === 'dsh-market-pro' ? '1.9.2' : name === 'flaky-plugin' ? '1.1.0' : '2.0.0',
+            prerelease: false,
+            bundle: true,
+          }],
+      }),
+      updateBundle: async (name, version) => {
+        updatedOrder.push(`${name}@${version}`)
+        if (name === 'flaky-plugin') {
+          return {
+            from: '1.0.0',
+            to: version,
+            step: 'install',
+            result: {
+              changed: false,
+              application: 'failed',
+              error: { code: 'operation-error', diagnostic: 'checksum mismatch from mirror' },
+              packageResult: { output: 'ERR_PNPM_FETCH_502' },
+            },
+            restore: { application: 'restart-required' },
+          }
+        }
+        return {
+          from: name === 'dsh-market-pro' ? '1.9.1' : name === 'git-plugin' ? '0.1.0' : '0.86.0',
+          to: version,
+          step: 'install',
+          result: { changed: true, application: 'applied' },
+        }
+      },
+    }),
+    pluginMarket: () => ({
+      listIndexes: () => [
+        { url: 'https://broken-index.test/index.json' },
+        { url: 'https://healthy-index.test/index.json' },
+      ],
+      search: async (url) => {
+        if (url.includes('broken-index')) throw new Error('index 503')
+        return {
+          fetchedAt: 100,
+          nextOffset: null,
+          entries: [{
+            name: 'git-plugin',
+            versions: [{
+              version: '0.2.0',
+              update: true,
+              compatibility: { compatible: true },
+              install: { spec: `git+https://github.com/acme/git-plugin.git#${'a'.repeat(40)}` },
+            }],
+          }],
+        }
+      },
+    }),
+    getApprover: () => ({
+      request: async (req) => {
+        approvalReasons.push(req.reason)
+        return approvalResult
+      },
+    }),
+  }) as {
+    isConcurrencySafe: (args?: unknown) => boolean
+    execute: (args: unknown, exec?: { agent?: unknown; callId?: string; signal?: AbortSignal }) => Promise<string>
+  }
+
+  assert.equal(tool.isConcurrencySafe({ action: 'check_updates' }), true)
+  assert.equal(tool.isConcurrencySafe({ action: 'update_plugins' }), false)
+
+  // Empty targets on check_updates and missing/empty updates on update_plugins are rejected.
+  await assert.rejects(() => tool.execute({ action: 'check_updates', targets: [] }), /must not be empty/)
+  await assert.rejects(() => tool.execute({ action: 'update_plugins' }), /updates/)
+  await assert.rejects(() => tool.execute({ action: 'update_plugins', updates: [] }), /updates/)
+  await assert.rejects(() => tool.execute({ action: 'update_plugins', targets: [] }), /updates/)
+
+  // First Git index error falls through to the second healthy index.
+  const checked = JSON.parse(await tool.execute({ action: 'check_updates' })) as {
+    available: boolean
+    updatableCount: number
+    updatable: { packageName: string; latest: string; self?: boolean }[]
+    notUpdatable: string[]
+  }
+  assert.equal(checked.available, true)
+  assert.equal(checked.updatableCount, 5)
+  assert.deepEqual(
+    checked.updatable.map(u => [u.packageName, u.latest]),
+    [
+      ['flaky-plugin', '1.1.0'],
+      ['dsh-context', '0.88.0'],
+      ['git-plugin', '0.2.0'],
+      ['unconfirmed-plugin', '2.0.0'],
+      ['dsh-market-pro', '1.9.2'],
+    ],
+  )
+  assert.equal(checked.updatable[4]!.self, true)
+  assert.deepEqual(checked.notUpdatable, ['local-plugin'])
+
+  const confirmedUpdates = [
+    { packageName: 'dsh-market-pro', version: '1.9.2' },
+    { packageName: 'flaky-plugin', version: '1.1.0' },
+    // Explicitly pinned to 0.87.0 even though 0.88.0 exists: must honor the confirmed version.
+    { packageName: 'dsh-context', version: '0.87.0' },
+    { packageName: 'git-plugin', version: '0.2.0' },
+  ]
+
+  // Missing calling agent fails closed without updating anything.
+  await assert.rejects(() => tool.execute({ action: 'update_plugins', updates: confirmedUpdates }), /no calling Agent/)
+  assert.equal(updatedOrder.length, 0)
+
+  // Declined approval fails closed without updating anything.
+  await assert.rejects(
+    () => tool.execute({ action: 'update_plugins', updates: confirmedUpdates }, { agent: { id: 'a1' } }),
+    /declined/,
+  )
+  assert.equal(updatedOrder.length, 0)
+  assert.equal(approvalReasons.length, 1)
+  // Every confirmed plugin and version appears in the approval prompt (no silent omissions).
+  assert.match(approvalReasons[0]!, /flaky-plugin \(1\.0\.0 → 1\.1\.0\)/)
+  assert.match(approvalReasons[0]!, /dsh-context \(0\.86\.0 → 0\.87\.0\)/)
+  assert.match(approvalReasons[0]!, /git-plugin \(0\.1\.0 → 0\.2\.0\)/)
+  assert.match(approvalReasons[0]!, /dsh-market-pro \(1\.9\.1 → 1\.9\.2\)/)
+  assert.doesNotMatch(approvalReasons[0]!, /unconfirmed-plugin/)
+
+  // Approved batch updates only confirmed pinned versions, orders self last, and separates rollback restart from success.
+  approvalResult = 'allowed-once'
+  const updated = JSON.parse(await tool.execute({ action: 'update_plugins', updates: confirmedUpdates }, { agent: { id: 'a1' } })) as {
+    updated: boolean
+    restartRequired: boolean
+    summary: {
+      total: number
+      succeeded: number
+      applied: number
+      restartRequired: number
+      restoreRestartRequired?: number
+      failed: number
+    }
+    results: { packageName: string; to: string; status: string; restore?: string; error?: string }[]
+  }
+  assert.equal(updated.updated, true)
+  assert.equal(updated.restartRequired, true)
+  assert.deepEqual(updatedOrder, ['flaky-plugin@1.1.0', 'dsh-context@0.87.0', 'git-plugin@0.2.0', 'dsh-market-pro@1.9.2'])
+  assert.deepEqual(updated.summary, {
+    total: 4,
+    succeeded: 3,
+    applied: 3,
+    restartRequired: 0,
+    restoreRestartRequired: 1,
+    failed: 1,
+  })
+  assert.deepEqual(
+    updated.results.map(r => [r.packageName, r.to, r.status, r.restore, r.error]),
+    [
+      ['flaky-plugin', '1.1.0', 'failed', 'restart-required', 'checksum mismatch from mirror'],
+      ['dsh-context', '0.87.0', 'applied', undefined, undefined],
+      ['git-plugin', '0.2.0', 'applied', undefined, undefined],
+      ['dsh-market-pro', '1.9.2', 'applied', undefined, undefined],
+    ],
+  )
+})

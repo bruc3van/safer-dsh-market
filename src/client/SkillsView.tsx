@@ -1,10 +1,11 @@
 import { MarketSelector } from './InstallModeSelector.tsx'
 import { MarketButton } from './MarketButton.tsx'
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MarketSkill, MarketSkillsResult } from '../contract.ts'
 import { watchSkills, type SkillsSessionSource } from './skillsSubscription.ts'
 import type { MarketLocale } from './copy.ts'
+import type { HeaderRefreshAction } from './MarketSection.tsx'
 import { matchesSkill } from './rows.ts'
 
 export const NO_SESSION = 'no-session'
@@ -41,8 +42,8 @@ export function ProjectSkillsView(props: SkillsActions & PropsLocale<'settings.d
   return <SkillsView {...props} project />
 }
 
-export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFolder, project = false }:
-  SkillsActions & { t: MarketLocale; project?: boolean }): ReactElement {
+export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFolder, project = false, onRegisterRefresh }:
+  SkillsActions & { t: MarketLocale; project?: boolean; onRegisterRefresh?: (action: HeaderRefreshAction | null) => void }): ReactElement {
   const [state, setState] = useState<SkillsState>({ status: 'loading' })
   const [query, setQuery] = useState('')
   const [origin, setOrigin] = useState<Origin | 'all'>('all')
@@ -91,6 +92,20 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
     }
   }
 
+  const retryRef = useRef(retry)
+  retryRef.current = retry
+  const refreshLabel = busy ? t('refreshing') : t('skills.refresh')
+  useEffect(() => {
+    if (!onRegisterRefresh) return
+    onRegisterRefresh(!failure ? {
+      label: refreshLabel,
+      busy,
+      disabled: busy,
+      onClick: () => retryRef.current(),
+    } : null)
+  }, [onRegisterRefresh, failure, refreshLabel, busy])
+  useEffect(() => () => { onRegisterRefresh?.(null) }, [onRegisterRefresh])
+
   const refreshButton = !failure ? (
     <button
       className={project ? 'dsh_market_headerAction' : 'dsh_market_headerAction dsh_market_refreshMarket'}
@@ -102,14 +117,14 @@ export function SkillsView({ t, listSkills, skillsSession, canOpenFolder, openFo
       <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
       </svg>
-      {busy ? t('refreshing') : t('skills.refresh')}
+      {refreshLabel}
     </button>
   ) : null
 
   return (
     <div className={project ? 'dsh_market_projectSkills' : 'dsh_market_page dsh_market_fixedPage'}>
       <div className="dsh_market_controls dsh_market_skillsControls">
-        {!project && refreshButton}
+        {!project && !onRegisterRefresh && refreshButton}
         {project && (
           <div className="dsh_market_skillsHeading">
             <h2>{t('skills.title')}</h2>

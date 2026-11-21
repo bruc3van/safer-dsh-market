@@ -151,10 +151,130 @@ export const cssText = `
 
 /* Footer verbs, right-aligned: the dismiss verb first, the primary last. */
 .dsh_market_installFooter, .dsh_market_updateActions {
+  flex: none;
   min-width: 0; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px;
   margin: 22px 0 0; padding: 0; border: 0;
 }
 .dsh_market_installFooter .dsh_market_link { height: 36px; padding: 0 14px; border-radius: var(--dsw-radius-md); font-size: 14px; line-height: 22px; }
+
+/* Single & batch update dialogs: header and footer stay pinned while long version/queue lists scroll locally. */
+.dsh_market_directPanel.dsh_market_updateDialog {
+  display: flex;
+  flex-direction: column;
+  max-height: min(640px, 85vh);
+  overflow: hidden;
+}
+.dsh_market_updateDialog > .dsh_market_directHead { flex: none; }
+.dsh_market_updateBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+.dsh_market_updateChoiceList {
+  max-height: 224px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+.dsh_market_updateBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px; corner-shape: round;
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);
+  color: var(--dsw-alias-state-business-primary);
+  font-style: normal;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 17px;
+  vertical-align: 1px;
+}
+.dsh_market_batchChoice .dsh_market_batchChoiceMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-family: inherit;
+}
+.dsh_market_batchNameRow {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary);
+}
+.dsh_market_batchTransition {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-secondary);
+}
+.dsh_market_batchProgress {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dsh_market_batchProgressTrack {
+  height: 6px;
+  border-radius: 999px; corner-shape: round;
+  background: var(--dsw-alias-interactive-bg-hover);
+  overflow: hidden;
+}
+.dsh_market_batchProgressFill {
+  height: 100%;
+  border-radius: 999px; corner-shape: round;
+  background: var(--dsw-alias-state-business-primary);
+  transition: width var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+.dsh_market_directPanel .dsh_market_batchProgressText {
+  margin: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-secondary);
+}
+.dsh_market_batchQueue {
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.dsh_market_batchRowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dsh_market_batchRowName {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary);
+}
+.dsh_market_batchState {
+  flex: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-tertiary);
+}
+.dsh_market_batchState[data-tone="ok"] { color: var(--dsw-alias-state-success-primary, var(--dsw-alias-state-business-primary)); }
+.dsh_market_batchState[data-tone="warn"] { color: var(--dsw-alias-state-warn-primary); }
+.dsh_market_batchState[data-tone="error"] { color: var(--dsw-alias-state-error-primary); }
+.dsh_market_batchState[data-tone="active"] { color: var(--dsw-alias-state-business-primary); }
+.dsh_market_batchUpdateButton {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--dsw-radius-md);
+  font-size: 13px;
+  line-height: 20px;
+}
 
 .dsh_market_main {
   height: 100%;
@@ -376,12 +496,26 @@ export const cssText = `
   color: var(--dsw-alias-label-tertiary);
 }
 .dsh_market_headingRow {
-  padding-right: 176px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 8px 16px;
   min-width: 0;
+}
+.dsh_market_headerActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+.dsh_market_selfUpdate {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--dsw-radius-md);
+  font-size: 13px;
+  line-height: 20px;
 }
 .dsh_market_refreshMarket {
   position: absolute;
@@ -389,7 +523,7 @@ export const cssText = `
   right: 40px;
   z-index: 2;
 }
-.dsh_market_more { position: absolute; top: 0; right: 0; z-index: 5; }
+.dsh_market_more { position: relative; z-index: 5; }
 /* Icon-only header control: the host's 32px toolbar square. */
 .dsh_market_iconButton {
   box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;

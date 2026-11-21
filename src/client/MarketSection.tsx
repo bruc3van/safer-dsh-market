@@ -6,6 +6,7 @@ import { MarketSelector } from './InstallModeSelector.tsx'
 import { DirectInstallPanel } from './DirectInstallPanel.tsx'
 import type { PluginUpdater } from './pluginUpdates.ts'
 import { PluginUpdatePanel } from './PluginUpdatePanel.tsx'
+import { BatchUpdatePanel } from './BatchUpdatePanel.tsx'
 import type { SkillsSessionSource } from './skillsSubscription.ts'
 /**
  * The shared Marketplace surface, with Plugins and Skills pages.
@@ -34,7 +35,7 @@ import type {
   SafeMarketSettings,
   SafeMarketSettingsUpdate,
 } from '../contract.ts'
-import { FEATURED_CATEGORY, SUBSCRIPTION_CATEGORY, isSafeVersion } from '../shapes.ts'
+import { FEATURED_CATEGORY, PACKAGE_NAME, SUBSCRIPTION_CATEGORY, isSafeVersion } from '../shapes.ts'
 import type { MarketLocale } from './copy.ts'
 import { ownedBy, ownedIndexOf, shortName } from './owned.ts'
 import {
@@ -151,7 +152,16 @@ type CardState =
   | { readonly status: 'error'; readonly message: string }
 
 type Page = 'plugins' | 'skills' | 'mcp' | 'settings'
+type RefreshPage = 'plugins' | 'skills' | 'mcp'
 const AI_PICK_CARD_KEY = 'dsh:ai-pick'
+
+/** Page-owned refresh button hoisted into the shared section header. */
+export interface HeaderRefreshAction {
+  readonly label: string
+  readonly busy: boolean
+  readonly disabled: boolean
+  readonly onClick: () => void
+}
 
 type InstalledState =
   | { readonly status: 'loading' }
@@ -600,10 +610,12 @@ function MarketLoadingState({ t, mode, installedCount = 0, onViewInstalled }: {
 }
 
 /** The installed set as a card grid, with its own status lines above it. */
-function InstalledCards({ t, installed, needle, catalog, catalogEnabled = true, english, snapshot, cards, installBusy, readiness, onReview, onCheckUpdate, availableUpdates, onSwitchToAll, onSwitchToFeatured, onOpenSettings, onClearFilters }: {
+function InstalledCards({ t, installed, needle, installedFilter, updatableCount, catalog, catalogEnabled = true, english, snapshot, cards, installBusy, readiness, onReview, onCheckUpdate, availableUpdates, onSwitchToAll, onSwitchToFeatured, onOpenSettings, onShowAllInstalled, onClearFilters }: {
   t: MarketLocale
   installed: ReturnType<typeof useInstalled>
   needle: string
+  installedFilter: 'all' | 'updatable'
+  updatableCount: number
   catalog: MarketCatalog | null
   catalogEnabled?: boolean
   english: boolean
@@ -617,19 +629,23 @@ function InstalledCards({ t, installed, needle, catalog, catalogEnabled = true, 
   onSwitchToAll: (focusSearch?: boolean, clearQuery?: boolean) => void
   onSwitchToFeatured?: () => void
   onOpenSettings?: () => void
+  onShowAllInstalled: () => void
   onClearFilters: () => void
 }): ReactElement {
   const { state, notice, actionError, reload } = installed
-  const shown = state.status === 'ready' && state.result.error === ''
-    ? (needle === ''
-      ? state.result.packages
-      : state.result.packages.filter(item => [
-        item.packageName,
-        shortName(item.packageName),
-        item.description,
-        item.repository,
-      ].some(text => text.toLocaleLowerCase().includes(needle))))
+  const scoped = state.status === 'ready' && state.result.error === ''
+    ? (installedFilter === 'updatable'
+      ? state.result.packages.filter(item => Boolean(availableUpdates?.[item.packageName]))
+      : state.result.packages)
     : []
+  const shown = needle === ''
+    ? scoped
+    : scoped.filter(item => [
+      item.packageName,
+      shortName(item.packageName),
+      item.description,
+      item.repository,
+    ].some(text => text.toLocaleLowerCase().includes(needle)))
   const allMatchCount = useMemo(() => {
     if (catalog === null || shown.length > 0 || needle === '') return 0
     return allCatalogMatchCount(catalog.items, catalog.featured, needle, english)
@@ -672,23 +688,44 @@ function InstalledCards({ t, installed, needle, catalog, catalogEnabled = true, 
         />
       )}
       {state.status === 'ready' && state.result.error === '' && state.result.packages.length > 0 && shown.length === 0 && (
-        <MarketEmptyState
-          icon="scope"
-          badge={allMatchCount > 0 ? t('empty.allFound', { count: String(allMatchCount) }) : undefined}
-          title={t('empty.installedSearchTitle')}
-          description={allMatchCount > 0
-            ? t('empty.installedHasAll', { installed: String(state.result.packages.length), count: String(allMatchCount) })
-            : t('empty.installedNoAll')}
-          primaryAction={catalog !== null
-            ? {
-                label: t('empty.switchToAll'),
-                count: allMatchCount > 0 ? allMatchCount : undefined,
-                arrow: true,
-                onClick: () => onSwitchToAll(allMatchCount === 0),
-              }
-            : { label: t('filter.clear'), onClick: onClearFilters }}
-          secondaryAction={catalog !== null ? { label: t('filter.clear'), onClick: onClearFilters } : undefined}
-        />
+        installedFilter === 'updatable' && updatableCount === 0
+          ? (
+            <MarketEmptyState
+              icon="installed"
+              title={t('empty.updatableTitle')}
+              description={t('empty.updatableHint')}
+              primaryAction={{ label: t('empty.showAllInstalled'), count: state.result.packages.length, onClick: onShowAllInstalled }}
+            />
+            )
+          : installedFilter === 'updatable'
+            ? (
+              <MarketEmptyState
+                icon="search"
+                title={t('empty.updatableSearchTitle')}
+                description={t('empty.updatableSearchHint')}
+                primaryAction={{ label: t('empty.showAllInstalled'), count: state.result.packages.length, onClick: onShowAllInstalled }}
+                secondaryAction={{ label: t('filter.clear'), onClick: onClearFilters }}
+              />
+              )
+            : (
+              <MarketEmptyState
+                icon="scope"
+                badge={allMatchCount > 0 ? t('empty.allFound', { count: String(allMatchCount) }) : undefined}
+                title={t('empty.installedSearchTitle')}
+                description={allMatchCount > 0
+                  ? t('empty.installedHasAll', { installed: String(state.result.packages.length), count: String(allMatchCount) })
+                  : t('empty.installedNoAll')}
+                primaryAction={catalog !== null
+                  ? {
+                      label: t('empty.switchToAll'),
+                      count: allMatchCount > 0 ? allMatchCount : undefined,
+                      arrow: true,
+                      onClick: () => onSwitchToAll(allMatchCount === 0),
+                    }
+                  : { label: t('filter.clear'), onClick: onClearFilters }}
+                secondaryAction={catalog !== null ? { label: t('filter.clear'), onClick: onClearFilters } : undefined}
+              />
+              )
       )}
       {shown.length > 0 && (
         <ul className="dsh_market_cards dsh_market_cardsUniform">
@@ -714,13 +751,15 @@ function InstalledCards({ t, installed, needle, catalog, catalogEnabled = true, 
 }
 
 /** The Plugins page. */
-function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, onOpenSettings, directInstaller, setDirectItem, installedRevision, appliedUpdateRevision, onCheckUpdate, availableUpdates, onProbeUpdates }: {
+function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInstalled, subscribeInstalledChanges, setInstalledEnabled, uninstallInstalled, chooseWorkspace, workspaceReadiness, cards, installBusy, onReviewDraft, onOpenSettings, directInstaller, setDirectItem, installedRevision, appliedUpdateRevision, onCheckUpdate, onOpenBatchUpdate, availableUpdates, onProbeUpdates, onRegisterRefresh }: {
   setDirectItem: (item: MarketPlugin) => void
   installedRevision: number
   appliedUpdateRevision: number
   onCheckUpdate?: (packageName: string) => void
+  onOpenBatchUpdate?: () => void
   availableUpdates?: Readonly<Record<string, string>>
   onProbeUpdates?: (packageNames: readonly string[]) => void
+  onRegisterRefresh?: (action: HeaderRefreshAction | null) => void
   t: MarketLocale
   english: boolean
   snapshot: SafeMarketSnapshot
@@ -753,6 +792,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
   // when the community catalog is disabled, land directly on installed plugins
   // so local management stays immediately accessible.
   const [category, setCategory] = useState(() => (snapshot.settingsReady && !enabled ? INSTALLED_FILTER : FEATURED_CATEGORY))
+  const [installedFilter, setInstalledFilter] = useState<'all' | 'updatable'>('all')
   const [filterCategory, setFilterCategory] = useState('')
   const [sort, setSort] = useState<MarketSort>('active')
   const [page, setPage] = useState(0)
@@ -770,11 +810,20 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
     if (appliedUpdateRevision > 0) scrollResultsToTop('instant')
   }, [appliedUpdateRevision])
   useEffect(() => {
-    if (installed.state.status === 'ready' && installed.state.result.error === '' && installed.state.result.packages.length > 0) {
-      onProbeUpdates?.(installed.state.result.packages.map(pkg => pkg.packageName))
+    if (installed.state.status === 'ready') {
+      const names = installed.state.result.error === ''
+        ? [...new Set([...installed.state.result.packages.map(pkg => pkg.packageName), PACKAGE_NAME])]
+        : [PACKAGE_NAME]
+      onProbeUpdates?.(names)
+    } else if (installed.state.status === 'error') {
+      onProbeUpdates?.([PACKAGE_NAME])
     }
   }, [installed.state, onProbeUpdates])
   const installedSelected = category === INSTALLED_FILTER
+  const installedUpdatableCount = installed.state.status === 'ready' && installed.state.result.error === ''
+    ? installed.state.result.packages.filter(item => Boolean(availableUpdates?.[item.packageName])).length
+    : 0
+  const batchUpdatableCount = Math.max(installedUpdatableCount, Object.keys(availableUpdates ?? {}).length)
   // Rebuilt only when the installed set itself changes — every enable,
   // disable and uninstall answers with the whole list, so the catalog's
   // "already installed" marks follow those verbs without a second read.
@@ -880,6 +929,34 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
     scrollResultsToTop()
   }, [catalog, category, filterCategory, sort, query, english])
 
+  const canRefresh = snapshot.settingsReady && (enabled || installedSelected)
+  const refreshBusy = enabled ? refreshing : installed.state.status === 'loading'
+  const refreshDisabled = enabled ? (state.status === 'loading' || refreshing) : installed.state.status === 'loading'
+  const refreshLabel = refreshBusy ? t('refreshing') : t('refresh')
+  const triggerRefresh = () => {
+    if (enabled) load(true)
+    if (installedSelected) {
+      installed.reload()
+    } else {
+      const names = installed.state.status === 'ready' && installed.state.result.error === ''
+        ? [...new Set([...installed.state.result.packages.map(pkg => pkg.packageName), PACKAGE_NAME])]
+        : [PACKAGE_NAME]
+      onProbeUpdates?.(names)
+    }
+  }
+  const triggerRefreshRef = useRef(triggerRefresh)
+  triggerRefreshRef.current = triggerRefresh
+  useEffect(() => {
+    if (!onRegisterRefresh) return
+    onRegisterRefresh(canRefresh ? {
+      label: refreshLabel,
+      busy: refreshBusy,
+      disabled: refreshDisabled,
+      onClick: () => triggerRefreshRef.current(),
+    } : null)
+  }, [onRegisterRefresh, canRefresh, refreshLabel, refreshBusy, refreshDisabled])
+  useEffect(() => () => { onRegisterRefresh?.(null) }, [onRegisterRefresh])
+
   if (!snapshot.settingsReady) {
     return (
       <div className="dsh_market_page">
@@ -956,21 +1033,18 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
           </MarketButton>
         </div>
       )}
-        {(enabled || installedSelected) && (
+        {!onRegisterRefresh && canRefresh && (
           <button
             type="button"
             className="dsh_market_headerAction dsh_market_refreshMarket"
-            disabled={enabled ? (state.status === 'loading' || refreshing) : installed.state.status === 'loading'}
-            aria-busy={enabled ? refreshing : installed.state.status === 'loading'}
-            onClick={() => {
-              if (enabled) load(true)
-              if (installedSelected) installed.reload()
-            }}
+            disabled={refreshDisabled}
+            aria-busy={refreshBusy}
+            onClick={triggerRefresh}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
             </svg>
-            {(enabled ? refreshing : installed.state.status === 'loading') ? t('refreshing') : t('refresh')}
+            {refreshLabel}
           </button>
         )}
 
@@ -1003,6 +1077,31 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
+            {installedSelected && (
+              <MarketSelector
+                value={installedFilter}
+                onChange={setInstalledFilter}
+                label={t('installed.filter.aria')}
+                className="dsh_market_sort"
+                options={[
+                  { value: 'all', label: t('installed.filter.all'), count: installed.count },
+                  { value: 'updatable', label: t('installed.filter.updatable'), count: installedUpdatableCount },
+                ]}
+              />
+            )}
+            {installedSelected && onOpenBatchUpdate && batchUpdatableCount > 0 && (
+              <MarketButton
+                intent="primary"
+                className="dsh_market_batchUpdateButton"
+                disabled={installBusy}
+                onClick={onOpenBatchUpdate}
+                icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 16V4m-5 5 5-5 5 5M5 20h14" />
+                </svg>}
+              >
+                {`${t('installed.updateAll')} (${String(batchUpdatableCount)})`}
+              </MarketButton>
+            )}
             {!installedSelected && filterCategories.length > 0 && <MarketSelector
               value={scope} onChange={setFilterCategory} label={t('filter.category')} className="dsh_market_category"
               options={[{ value: '', label: t('filter.allCategories') }, ...filterCategories
@@ -1027,6 +1126,8 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
             t={t}
             installed={installed}
             needle={needle}
+            installedFilter={installedFilter}
+            updatableCount={installedUpdatableCount}
             catalog={catalog}
             catalogEnabled={enabled}
             english={english}
@@ -1040,6 +1141,7 @@ function PluginsPage({ t, english, snapshot, loadCatalog, peekCatalog, listInsta
             onSwitchToAll={switchToAll}
             onSwitchToFeatured={catalog?.featured !== undefined ? switchToFeatured : undefined}
             onOpenSettings={onOpenSettings}
+            onShowAllInstalled={() => { setInstalledFilter('all'); setQuery('') }}
             onClearFilters={clearFilters}
           />
           )
@@ -1250,6 +1352,7 @@ export function MarketSection({
   const [page, setPage] = useState<Page>('plugins')
   const [directItem, setDirectItem] = useState<MarketPlugin | null>(null)
   const [updateOpen, setUpdateOpen] = useState(false)
+  const [batchUpdateOpen, setBatchUpdateOpen] = useState(false)
   const updateState = useSyncExternalStore(pluginUpdater?.subscribe ?? (() => () => {}), pluginUpdater?.getSnapshot ?? (() => null))
   const [installedRevision, setInstalledRevision] = useState(0)
   const refreshInstalled = useCallback(() => setInstalledRevision(value => value + 1), [])
@@ -1258,13 +1361,41 @@ export function MarketSection({
   const appliedUpdateRevision = updateState?.phase === 'done' && (application === 'applied' || application === 'restart-required')
     ? updateState.revision : 0
   const checkUpdate = pluginUpdater ? (packageName: string) => {
-    if (pluginUpdater.getSnapshot().phase === 'updating') return
+    const snap = pluginUpdater.getSnapshot()
+    if (snap.phase === 'updating' || snap.batch.phase === 'running') return
     void pluginUpdater.check(packageName)
     setUpdateOpen(true)
+  } : undefined
+  const openBatchUpdate = pluginUpdater ? () => {
+    if (pluginUpdater.getSnapshot().phase === 'updating') return
+    setBatchUpdateOpen(true)
   } : undefined
   const probeUpdates = useCallback((packageNames: readonly string[]) => {
     void pluginUpdater?.probe(packageNames)
   }, [pluginUpdater])
+  const [refreshByPage, setRefreshByPage] = useState<Partial<Record<RefreshPage, Omit<HeaderRefreshAction, 'onClick'>>>>({})
+  const refreshHandlers = useRef<Partial<Record<RefreshPage, () => void>>>({})
+  const registerRefresh = useCallback((target: RefreshPage, action: HeaderRefreshAction | null) => {
+    if (action === null) {
+      delete refreshHandlers.current[target]
+      setRefreshByPage(prev => (prev[target] === undefined ? prev : { ...prev, [target]: undefined }))
+      return
+    }
+    refreshHandlers.current[target] = action.onClick
+    setRefreshByPage(prev => {
+      const current = prev[target]
+      if (current && current.label === action.label && current.busy === action.busy && current.disabled === action.disabled) {
+        return prev
+      }
+      return { ...prev, [target]: { label: action.label, busy: action.busy, disabled: action.disabled } }
+    })
+  }, [])
+  const onRegisterPluginsRefresh = useCallback((action: HeaderRefreshAction | null) => registerRefresh('plugins', action), [registerRefresh])
+  const onRegisterSkillsRefresh = useCallback((action: HeaderRefreshAction | null) => registerRefresh('skills', action), [registerRefresh])
+  const onRegisterMcpRefresh = useCallback((action: HeaderRefreshAction | null) => registerRefresh('mcp', action), [registerRefresh])
+  const activeRefresh = page === 'settings' ? undefined : refreshByPage[page]
+  const rawSelfUpdate = updateState?.available[PACKAGE_NAME] ?? ''
+  const selfUpdateVersion = isSafeVersion(rawSelfUpdate) ? rawSelfUpdate : ''
   const searchDock = useSearchDock(page)
   const [cards, setCards] = useState<Readonly<Record<string, CardState>>>({})
   const tabsId = useId()
@@ -1283,7 +1414,9 @@ export function MarketSection({
   }, [])
   // One review hand-off at a time: two cards clicked back to back must not
   // open two sessions and stage two drafts.
-  const installBusy = updateState?.phase === 'updating' || Object.values(cards).some(card => card.status === 'busy' || card.status === 'picking')
+  const installBusy = updateState?.phase === 'updating'
+    || updateState?.batch.phase === 'running'
+    || Object.values(cards).some(card => card.status === 'busy' || card.status === 'picking')
 
   const report = (fullName: string, next: CardState): void => {
     cardsRef.current = { ...cardsRef.current, [fullName]: next }
@@ -1381,31 +1514,64 @@ export function MarketSection({
           {t('nav')}
           {isSafeVersion(snapshot.version) && <span className="dsh_market_selfVersion">{`v${snapshot.version}`}</span>}
         </h2>
-        {/* No self-update entry: the host has no update verb, and its
-            installer refuses a package that is already installed. */}
-        <MarketMoreActions label={t('header.more')} links={[
-          {
-            id: 'repository',
-            label: t('header.repository'),
-            href: 'https://github.com/bruc3van/dsh-market-pro',
-            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M9 19c-4.3 1.3-4.3-2.2-6-2.7M15 22v-3.8a3.3 3.3 0 0 0-.9-2.5c3-.3 6.2-1.5 6.2-6.9a5.4 5.4 0 0 0-1.5-3.8 5 5 0 0 0-.1-3.8s-1.2-.4-3.9 1.4a13.4 13.4 0 0 0-7 0C5.1.8 3.9 1.2 3.9 1.2A5 5 0 0 0 3.8 5a5.4 5.4 0 0 0-1.5 3.8c0 5.4 3.2 6.6 6.2 6.9a3.3 3.3 0 0 0-.9 2.5V22" />
-            </svg>,
-          },
-          {
-            id: 'contact',
-            label: t('header.contact'),
-            href: 'https://x.com/bruc3van',
-            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-              <path d="M4 3h4l12 18h-4L4 3ZM20 3l-7 8M4 21l7-8" />
-            </svg>,
-          },
-        ]} />
+        <div className="dsh_market_headerActions">
+          {selfUpdateVersion !== '' && checkUpdate && (
+            <MarketButton
+              intent="primary"
+              className="dsh_market_selfUpdate"
+              disabled={installBusy}
+              title={`${t('nav')} · ${t('update.to', { version: selfUpdateVersion })}`}
+              onClick={() => checkUpdate(PACKAGE_NAME)}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 16V4m-5 5 5-5 5 5M5 20h14" />
+              </svg>}
+            >
+              {t('update.to', { version: selfUpdateVersion })}
+            </MarketButton>
+          )}
+          {activeRefresh && page !== 'settings' && (
+            <button
+              type="button"
+              className="dsh_market_headerAction"
+              disabled={activeRefresh.disabled}
+              aria-busy={activeRefresh.busy}
+              onClick={() => refreshHandlers.current[page]?.()}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" />
+              </svg>
+              {activeRefresh.label}
+            </button>
+          )}
+          <MarketMoreActions label={t('header.more')} links={[
+            {
+              id: 'repository',
+              label: t('header.repository'),
+              href: 'https://github.com/bruc3van/dsh-market-pro',
+              icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 19c-4.3 1.3-4.3-2.2-6-2.7M15 22v-3.8a3.3 3.3 0 0 0-.9-2.5c3-.3 6.2-1.5 6.2-6.9a5.4 5.4 0 0 0-1.5-3.8 5 5 0 0 0-.1-3.8s-1.2-.4-3.9 1.4a13.4 13.4 0 0 0-7 0C5.1.8 3.9 1.2 3.9 1.2A5 5 0 0 0 3.8 5a5.4 5.4 0 0 0-1.5 3.8c0 5.4 3.2 6.6 6.2 6.9a3.3 3.3 0 0 0-.9 2.5V22" />
+              </svg>,
+            },
+            {
+              id: 'contact',
+              label: t('header.contact'),
+              href: 'https://x.com/bruc3van',
+              icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                <path d="M4 3h4l12 18h-4L4 3ZM20 3l-7 8M4 21l7-8" />
+              </svg>,
+            },
+          ]} />
+        </div>
       </div>
       <p className="dsh_market_subtitle">{t('intro.slogan')}</p>
       {updateState && updateState.phase !== 'idle' && (
         <button type="button" className="dsh_market_headerAction" onClick={() => setUpdateOpen(true)}>
           {t('update.resume')} · {updateState.packageName}
+        </button>
+      )}
+      {updateState && updateState.batch.phase !== 'idle' && !batchUpdateOpen && (
+        <button type="button" className="dsh_market_headerAction" onClick={() => setBatchUpdateOpen(true)}>
+          {t('batchUpdate.resume')}
         </button>
       )}
       {directInstaller && <DirectInstallPanel item={directItem} installer={directInstaller} t={t}
@@ -1415,6 +1581,8 @@ export function MarketSection({
         reviewMessage={reviewResult?.status === 'error' || reviewResult?.status === 'needs-workspace' ? reviewResult.message : ''} />}
       {pluginUpdater && updateState && <PluginUpdatePanel open={updateOpen} state={updateState} updater={pluginUpdater} t={t}
         onClose={() => setUpdateOpen(false)} />}
+      {pluginUpdater && updateState && <BatchUpdatePanel open={batchUpdateOpen} state={updateState} updater={pluginUpdater} t={t}
+        onClose={() => setBatchUpdateOpen(false)} />}
       <div className="dsh_market_tabToolbar">
       <div className="dsh_market_tabs" role="tablist" aria-label={t('tabs.aria')}>
         {pages.map((entry, index) => (
@@ -1470,8 +1638,10 @@ export function MarketSection({
           installedRevision={installedRevision}
           appliedUpdateRevision={appliedUpdateRevision}
           onCheckUpdate={checkUpdate}
+          onOpenBatchUpdate={openBatchUpdate}
           availableUpdates={updateState?.available}
           onProbeUpdates={probeUpdates}
+          onRegisterRefresh={onRegisterPluginsRefresh}
           t={t}
           english={english}
           snapshot={snapshot}
@@ -1498,7 +1668,7 @@ export function MarketSection({
           aria-labelledby={`${tabsId}-tab-skills`}
         >
           <SkillsView t={t} listSkills={listSkills} skillsSession={skillsSession}
-            canOpenFolder={canOpenFolder} openFolder={openFolder} />
+            canOpenFolder={canOpenFolder} openFolder={openFolder} onRegisterRefresh={onRegisterSkillsRefresh} />
         </div>
       )}
       {page === 'mcp' && mcp && (
@@ -1508,7 +1678,7 @@ export function MarketSection({
           role="tabpanel"
           aria-labelledby={`${tabsId}-tab-mcp`}
         >
-          <McpView t={t} controller={mcp} onBrowsePlugins={() => { setPage('plugins') }} />
+          <McpView t={t} controller={mcp} onBrowsePlugins={() => { setPage('plugins') }} onRegisterRefresh={onRegisterMcpRefresh} />
         </div>
       )}
       {page === 'settings' && (

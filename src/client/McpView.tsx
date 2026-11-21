@@ -15,6 +15,7 @@ import { PluginLogo } from './PluginLogo.tsx'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react'
 import type { McpToolGroup, McpUnmanagedServer } from '../contract.ts'
 import type { MarketLocale } from './copy.ts'
+import type { HeaderRefreshAction } from './MarketSection.tsx'
 import { staticKey, type McpAdoptNote, type McpController, type McpProbeState, type McpSnapshot } from './mcpController.ts'
 import {
   FEATURED_MCP_CATEGORIES, FEATURED_MCP_SERVERS, draftFromFeatured, featuredRuntimeBadge, featuredTargetPreview,
@@ -99,10 +100,11 @@ function matchesFilter(row: McpRow, filter: Filter): boolean {
 type Editing = { readonly row: McpRow | null; readonly initialDraft?: McpDraft } | null
 
 /** The MCP page. */
-export function McpView({ t, controller, onBrowsePlugins }: {
+export function McpView({ t, controller, onBrowsePlugins, onRegisterRefresh }: {
   t: MarketLocale
   controller: McpController
   onBrowsePlugins?: () => void
+  onRegisterRefresh?: (action: HeaderRefreshAction | null) => void
 }): ReactElement {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   useEffect(() => controller.attach(), [controller])
@@ -174,19 +176,36 @@ export function McpView({ t, controller, onBrowsePlugins }: {
     setDocumentError(failure)
   }
 
+  const refreshRef = useRef(refresh)
+  refreshRef.current = refresh
+  const refreshBusy = loading || refreshing
+  const refreshLabel = refreshBusy ? t('refreshing') : t('mcp.refresh')
+  useEffect(() => {
+    if (!onRegisterRefresh) return
+    onRegisterRefresh({
+      label: refreshLabel,
+      busy: refreshBusy,
+      disabled: refreshBusy,
+      onClick: () => { void refreshRef.current() },
+    })
+  }, [onRegisterRefresh, refreshLabel, refreshBusy])
+  useEffect(() => () => { onRegisterRefresh?.(null) }, [onRegisterRefresh])
+
   return (
     <div className="dsh_market_page dsh_market_fixedPage">
       <div className="dsh_market_controls">
-        <button
-          className="dsh_market_headerAction dsh_market_refreshMarket"
-          type="button"
-          disabled={loading || refreshing}
-          aria-busy={loading || refreshing}
-          onClick={() => { void refresh() }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" /></svg>
-          {(loading || refreshing) ? t('refreshing') : t('mcp.refresh')}
-        </button>
+        {!onRegisterRefresh && (
+          <button
+            className="dsh_market_headerAction dsh_market_refreshMarket"
+            type="button"
+            disabled={refreshBusy}
+            aria-busy={refreshBusy}
+            onClick={() => { void refresh() }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4v6h-6M20 10a8 8 0 1 0-1.7 7" /></svg>
+            {refreshLabel}
+          </button>
+        )}
         <div className="dsh_market_filterBar">
           <div className="dsh_market_scope" role="group" aria-label={t('mcp.subtab.aria')}>
             <button

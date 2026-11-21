@@ -224,3 +224,174 @@ test('probe records available updates from registry and Git sources and clears a
   await updater.confirm()
   assert.deepEqual(updater.getSnapshot().available, { 'git-demo': '2.0.0' })
 })
+
+test('batch update orders self last, skips failures, tracks progress, and clears applied updates', async () => {
+  const order: string[] = []
+  const manager = host({
+    listBundles: async () => ok([
+      { name: 'dsh-market-pro', version: '1.9.1', installed: true, update: 'registry' },
+      { name: 'broken-plugin', version: '1.0.0', installed: true, update: 'registry' },
+      { name: 'good-plugin', version: '0.5.0', installed: true, update: 'registry' },
+    ]),
+    listVersions: async name => ok({
+      status: 'listed',
+      installed: name === 'dsh-market-pro' ? '1.9.1' : name === 'broken-plugin' ? '1.0.0' : '0.5.0',
+      registry: 'https://registry.npmjs.org/',
+      attempts: [],
+      versions: [version(name === 'dsh-market-pro' ? '1.9.2' : name === 'broken-plugin' ? '1.1.0' : '0.6.0')],
+      omitted: 0,
+    }),
+    updateBundle: async (name, to) => {
+      order.push(`${name}@${to}`)
+      if (name === 'broken-plugin') {
+        return ok({
+          from: '1.0.0',
+          to,
+          step: 'install',
+          result: { changed: false, application: 'failed', stage: 'install', target: `${name}@${to}` },
+          restore: { changed: true, application: 'applied', stage: 'install', target: 'broken-plugin@1.0.0' },
+        })
+      }
+      return ok({
+        from: name === 'dsh-market-pro' ? '1.9.1' : '0.5.0',
+        to,
+        step: 'install',
+        result: {
+          changed: true,
+          application: name === 'dsh-market-pro' ? 'restart-required' : 'applied',
+          stage: 'install',
+          target: `${name}@${to}`,
+        },
+      })
+    },
+  })
+  const updater = createPluginUpdater(() => manager, () => undefined)
+  await updater.probe(['dsh-market-pro', 'broken-plugin', 'good-plugin'])
+  assert.deepEqual(updater.getSnapshot().available, {
+    'dsh-market-pro': '1.9.2',
+    'broken-plugin': '1.1.0',
+    'good-plugin': '0.6.0',
+  })
+
+  await updater.startBatch(['dsh-market-pro', 'broken-plugin', 'good-plugin'], 'dsh-market-pro')
+  assert.deepEqual(order, ['broken-plugin@1.1.0', 'good-plugin@0.6.0', 'dsh-market-pro@1.9.2'])
+  const snap = updater.getSnapshot()
+  assert.equal(snap.batch.phase, 'done')
+  assert.deepEqual(
+    snap.batch.items.map(item => [item.packageName, item.status, item.restoreApplication, item.self]),
+    [
+      ['broken-plugin', 'failed', 'applied', false],
+      ['good-plugin', 'applied', undefined, false],
+      ['dsh-market-pro', 'restart-required', undefined, true],
+    ],
+  )
+  // Applied and restart-required packages are removed from available; failed remains retryable.
+  assert.deepEqual(snap.available, { 'broken-plugin': '1.1.0' })
+  assert.ok(snap.availableDetails['broken-plugin'])
+  assert.equal(snap.availableDetails['good-plugin'], undefined)
+})
+
+test('requestStopBatch lets the current update settle and marks remaining items skipped', async () => {
+  let finishFirst!: (value: ReturnType<typeof ok<PluginUpdateResult>>) => void
+  const called: string[] = []
+  const manager = host({
+    listBundles: async () => ok([
+      { name: 'first', version: '1.0.0', installed: true, update: 'registry' },
+      { name: 'second', version: '1.0.0', installed: true, update: 'registry' },
+    ]),
+    listVersions: async () => ok(listed([version('2.0.0')])),
+    updateBundle: async (name) => {
+      called.push(name)
+      return new Promise(resolve => { finishFirst = resolve })
+    },
+  })
+  const updater = createPluginUpdater(() => manager, () => undefined)
+  await updater.probe(['first', 'second'])
+  const pending = updater.startBatch(['first', 'second'])
+  await Promise.resolve()
+  updater.requestStopBatch()
+  assert.equal(updater.getSnapshot().batch.stopRequested, true)
+  finishFirst(ok(outcome))
+  await pending
+  assert.deepEqual(called, ['first'])
+  assert.deepEqual(
+    updater.getSnapshot().batch.items.map(item => [item.packageName, item.status]),
+    [['first', 'applied'], ['second', 'skipped']],
+  )
+})
+
+test('probe prunes uninstalled or non-updatable packages so stale candidates cannot enter batch updates', async () => {
+  let installedList = [
+    { name: 'keep-me', version: '1.0.0', installed: true, update: 'registry' as const },
+    { name: 'remove-me', version: '1.0.0', installed: true, update: 'registry' as const },
+  ]
+  const updated: string[] = []
+  const manager = host({
+    listBundles: async () => ok(installedList),
+    listVersions: async () => ok(listed([version('2.0.0')])),
+    updateBundle: async (name) => { updated.push(name); return ok(outcome) },
+  })
+  const updater = createPluginUpdater(() => manager, () => undefined)
+  await updater.probe(['keep-me', 'remove-me'])
+  assert.deepEqual(updater.getSnapshot().available, { 'keep-me': '2.0.0', 'remove-me': '2.0.0' })
+
+  // Uninstall remove-me and re-probe: stale candidate must be pruned from both maps.
+  installedList = [{ name: 'keep-me', version: '1.0.0', installed: true, update: 'registry' as const }]
+  await updater.probe(['keep-me'])
+  assert.deepEqual(updater.getSnapshot().available, { 'keep-me': '2.0.0' })
+  assert.equal(updater.getSnapshot().availableDetails['remove-me'], undefined)
+
+  await updater.startBatch(['keep-me', 'remove-me'])
+  assert.deepEqual(updated, ['keep-me'])
+})
+
+test('retrying a failed batch target pins the shown target version even if background probe finds a newer release', async () => {
+  let latestOnRegistry = '2.0.0'
+  let attempt = 0
+  const submitted: string[] = []
+  const manager = host({
+    listBundles: async () => ok([{ name: 'demo', version: '1.0.0', installed: true, update: 'registry' }]),
+    listVersions: async () => ok(listed([version(latestOnRegistry)])),
+    updateBundle: async (name, to) => {
+      attempt += 1
+      submitted.push(`${name}@${to}`)
+      if (attempt === 1) {
+        return ok({
+          from: '1.0.0',
+          to,
+          step: 'install',
+          result: { changed: false, application: 'failed', stage: 'install', target: `${name}@${to}` },
+        })
+      }
+      return ok({
+        from: '1.0.0',
+        to,
+        step: 'install',
+        result: { changed: true, application: 'applied', stage: 'install', target: `${name}@${to}` },
+      })
+    },
+  })
+  const updater = createPluginUpdater(() => manager, () => undefined)
+  await updater.probe(['demo'])
+  await updater.startBatch(['demo'])
+  const failedItem = updater.getSnapshot().batch.items[0]!
+  assert.equal(failedItem.status, 'failed')
+  assert.equal(failedItem.to, '2.0.0')
+
+  // Background probe discovers 3.0.0 while the result view still shows the failed 2.0.0 attempt.
+  latestOnRegistry = '3.0.0'
+  await updater.probe(['demo'])
+  assert.equal(updater.getSnapshot().available.demo, '3.0.0')
+
+  // Retrying with the pinned target from the result view must submit 2.0.0, not 3.0.0,
+  // and must preserve the newer 3.0.0 availability badge afterward.
+  await updater.startBatch([{
+    packageName: failedItem.packageName,
+    installed: failedItem.from,
+    version: failedItem.to,
+    kind: failedItem.kind,
+    source: failedItem.source,
+  }])
+  assert.deepEqual(submitted, ['demo@2.0.0', 'demo@2.0.0'])
+  assert.equal(updater.getSnapshot().available.demo, '3.0.0')
+})
