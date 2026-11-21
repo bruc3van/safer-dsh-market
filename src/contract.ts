@@ -16,6 +16,7 @@ import type { InvocationDescriptor } from '@deepseek-ai/dsh-typert-protocol'
 // The dependency-free shapes live in their own module so `./index.ts` and
 // `./catalog.ts` can reach them without evaluating every codec below.
 import { isMarketIcon, isSafeBranchName, PACKAGE_NAME_PATTERN, REPOSITORY_SLUG_PATTERN } from './shapes.ts'
+import { SERVER_NAME_PATTERN } from './mcpShapes.ts'
 
 /** One row of the market: a community plugin the catalog kept. */
 export interface MarketPlugin {
@@ -563,6 +564,29 @@ export const mcpHostContextSchema = z.object({
   toolsError: z.string(),
 }).readonly()
 
+/** One independent DSH MCP connection check and its cleanup result. */
+const mcpProbeFields = {
+  durationMs: z.number(),
+  closeConfirmed: z.boolean(),
+  cleanupError: z.string().optional(),
+}
+export const mcpProbeResultSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    ...mcpProbeFields,
+    serverInfo: z.object({ name: z.string(), version: z.string() }).readonly().optional(),
+    toolNames: z.array(z.string()).readonly(),
+    truncated: z.boolean(),
+  }).readonly(),
+  z.object({
+    ok: z.literal(false),
+    ...mcpProbeFields,
+    stage: z.enum(['connect', 'list']),
+    message: z.string(),
+  }).readonly(),
+])
+export type McpProbeResult = z.infer<typeof mcpProbeResultSchema>
+
 /** The dshMarketPro Remote namespace's strict invocation descriptors. */
 export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
   {
@@ -737,6 +761,25 @@ export const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[] = [
       mode: 'strict',
       typeSymbol: 'dsh-market-pro#McpHostContext',
       create: () => mcpHostContextSchema,
+    },
+  },
+  {
+    id: 'dsh-market-pro#dshMarketPro/probeMcp',
+    service: 'dshMarketPro',
+    namespace: 'dshMarketPro',
+    method: 'probeMcp',
+    invocation: { kind: 'direct' },
+    parameters: [{
+      name: 'name',
+      wire: 'name',
+      source: 'json',
+      codec: { mode: 'strict', typeSymbol: 'dsh-market-pro#McpServerName', create: () => z.string().regex(SERVER_NAME_PATTERN) },
+    }],
+    cancellation: { parameter: 'signal' },
+    result: {
+      mode: 'strict',
+      typeSymbol: 'dsh-market-pro#McpProbeResult',
+      create: () => mcpProbeResultSchema,
     },
   },
   {

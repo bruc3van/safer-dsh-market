@@ -12,7 +12,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSource } from './catalog.ts'
 import type { InstalledManager } from './installed.ts'
-import type { McpAdoptResult, McpHostContext } from './contract.ts'
+import type { McpAdoptResult, McpHostContext, McpProbeResult } from './contract.ts'
 import type {
   MarketCatalogResult,
   MarketEnvironment,
@@ -43,6 +43,7 @@ export class SafeMarketRuntime extends TypertRemoteService {
     private readonly environment: MarketEnvironment,
     private readonly installed: InstalledManager,
     private readonly readMcp: () => McpHostContext,
+    private readonly probe: (name: string, signal: AbortSignal) => Promise<McpProbeResult>,
     private readonly adopt: (loaderId: string) => Promise<McpAdoptResult>,
   ) {
     super(ctx, 'dshMarketPro')
@@ -144,6 +145,11 @@ export class SafeMarketRuntime extends TypertRemoteService {
   @Remote
   inspectMcp(): McpHostContext {
     return this.readMcp()
+  }
+
+  @Remote
+  async probeMcp(name: string, signal: AbortSignal): Promise<McpProbeResult> {
+    return await this.probe(name, signal)
   }
 
   /**

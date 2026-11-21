@@ -71,6 +71,11 @@ export const TYPERT_MANIFEST: TypertContribution = {
           },
           {
             kind: 'method',
+            name: 'probeMcp',
+            signature: 'probeMcp(name: string, signal: AbortSignal): Promise<McpProbeResult>',
+          },
+          {
+            kind: 'method',
             name: 'adoptMcp',
             signature: 'adoptMcp(request: McpAdoptRequest): Promise<McpAdoptResult>',
           },

@@ -267,6 +267,12 @@ test('draftFromFeatured moves secret headers and env vars into credentials witho
   ])
 })
 
+test('the Draw.io featured draft passes its cold-start timeout to the Settings entry', () => {
+  const draft = draftFromFeatured(byId('next-ai-drawio'), {}, { name: 'next-ai-drawio', enabled: true })
+  assert.deepEqual(validateDraft(draft, new Set()), [])
+  assert.equal(entryFromDraft(draft).startupTimeoutMs, 120_000)
+})
+
 test('matchesFeaturedMcp filters by category and Chinese/English/package queries', () => {
   const playwright = byId('playwright')
   assert.equal(matchesFeaturedMcp(playwright, '', 'all'), true)

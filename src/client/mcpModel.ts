@@ -9,7 +9,7 @@
  * @module dsh-market-pro/client/mcpModel
  */
 import {
-  SERVER_NAME_PATTERN, credentialRefsIn, credentialTemplate, isSecretField, isSecretUrl,
+  SERVER_NAME_PATTERN, credentialRefsIn, credentialTemplate, isMcpStarting, isSecretField, isSecretUrl,
   malformedTemplate, maskArg, maskUrl, secretArgIndexes, suggestRef,
 } from '../mcpShapes.ts'
 
@@ -19,6 +19,7 @@ export { credentialTemplate, suggestRef }
 export type McpStatus =
   | { readonly state: 'closed'; readonly result: { readonly closeConfirmed: boolean; readonly cleanupError?: string } }
   | { readonly state: 'waiting-credentials'; readonly lastError: string }
+  | { readonly state: 'waiting-authorization'; readonly reason: string; readonly lastError: string }
   | { readonly state: 'connecting'; readonly attempt: number }
   | { readonly state: 'connected'; readonly toolCount: number; readonly connectedAt: number }
   | {
@@ -171,6 +172,7 @@ export function statusKind(status: McpStatus | undefined): McpStatusKind {
     case 'disabled': return 'disabled'
     case 'closed': return status.result.closeConfirmed && status.result.cleanupError === undefined ? 'disabled' : 'locked'
     case 'reconnecting':
+    case 'waiting-authorization':
     case 'waiting-credentials': return 'issue'
     case 'failed': return status.reason === 'unclosed-generation' || status.reason === 'cleanup' ? 'locked' : 'issue'
   }
@@ -192,7 +194,7 @@ export function canRestart(row: McpRow): boolean {
 
 /** Whether a one-off probe applies; a disabled entry may be probed before it is turned on. */
 export function canProbe(row: McpRow): boolean {
-  return row.source !== 'retained' && statusKind(row.status) !== 'locked'
+  return row.source !== 'retained' && statusKind(row.status) !== 'locked' && !isMcpStarting(row.status?.state)
 }
 
 /** Whether Settings may edit this row at all. */

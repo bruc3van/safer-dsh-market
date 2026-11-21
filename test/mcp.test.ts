@@ -256,13 +256,13 @@ function fakeHosts(options: {
       }
     },
     restart: async (name) => { record('restart', name); return { ok: true, value: undefined } },
+  }
+  const hosts: McpHosts = {
+    manager: () => manager,
     probe: async (name) => {
       record('probe', name)
       return { ok: true, value: { ok: true, toolNames: ['a'], truncated: false, durationMs: 12, closeConfirmed: true } }
     },
-  }
-  const hosts: McpHosts = {
-    manager: () => manager,
     settings: () => ({
       describe: async () => { record('describe'); return { ok: true, value: { writable: true, namespaces: [{ ...settingsView }] } } },
       mutate: async (ns, ops, revision) => {
@@ -367,6 +367,21 @@ test('a probe result is kept per server', async () => {
   await controller.probe('tuned')
   const probe = controller.getSnapshot().probes.tuned
   assert.equal(probe?.status, 'done')
+  detach()
+})
+
+test('the controller leaves an in-flight managed connection to DSH', async () => {
+  const { hosts, calls } = fakeHosts({
+    frames: [views.map(view => view.name === 'tuned'
+      ? { ...view, status: { state: 'reconnecting', attempt: 1, maxAttempts: 3, nextRetryAtMs: 1, lastError: 'timeout' } }
+      : view)],
+  })
+  const controller = createMcpController(hosts, { debounceMs: 1 })
+  const detach = controller.attach()
+  await settle()
+  await controller.probe('tuned')
+  assert.equal(calls.some(call => call.method === 'probe'), false)
+  assert.equal(statusKind({ state: 'waiting-authorization', reason: 'missing', lastError: 'Authorization required' }), 'issue')
   detach()
 })
 

@@ -5,7 +5,7 @@
  * bundle and the host manifest stay on one wire definition.
  */
 import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol';
-import type { McpAdoptResult, McpHostContext, MarketCatalogResult, MarketEnvironment, MarketInstalledResult, MarketSkillsResult, SafeMarketSettings, SafeMarketSettingsUpdate, SetInstalledEnabledUpdate, UninstallInstalledUpdate } from '../contract.ts';
+import type { McpAdoptResult, McpHostContext, McpProbeResult, MarketCatalogResult, MarketEnvironment, MarketInstalledResult, MarketSkillsResult, SafeMarketSettings, SafeMarketSettingsUpdate, SetInstalledEnabledUpdate, UninstallInstalledUpdate } from '../contract.ts';
 /** The dshMarketPro Remote namespace's client contribution. */
 export declare const SAFE_MARKET_REMOTE: TypertRemoteContribution;
 declare module '@deepseek-ai/dsh-typert-protocol' {
@@ -20,6 +20,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
         setInstalledEnabled: (update: SetInstalledEnabledUpdate) => Promise<RemoteResult<MarketInstalledResult>>;
         uninstallInstalled: (update: UninstallInstalledUpdate) => Promise<RemoteResult<MarketInstalledResult>>;
         inspectMcp: () => Promise<RemoteResult<McpHostContext>>;
+        probeMcp: (name: string, signal?: AbortSignal) => Promise<RemoteResult<McpProbeResult>>;
         adoptMcp: (request: {
             loaderId: string;
         }) => Promise<RemoteResult<McpAdoptResult>>;
@@ -34,6 +35,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
         'dshMarketPro/setInstalledEnabled': (update: SetInstalledEnabledUpdate) => Promise<RemoteResult<MarketInstalledResult>>;
         'dshMarketPro/uninstallInstalled': (update: UninstallInstalledUpdate) => Promise<RemoteResult<MarketInstalledResult>>;
         'dshMarketPro/inspectMcp': () => Promise<RemoteResult<McpHostContext>>;
+        'dshMarketPro/probeMcp': (name: string, signal?: AbortSignal) => Promise<RemoteResult<McpProbeResult>>;
         'dshMarketPro/adoptMcp': (request: {
             loaderId: string;
         }) => Promise<RemoteResult<McpAdoptResult>>;

@@ -21,6 +21,10 @@ export type McpStatus = {
     readonly state: 'waiting-credentials';
     readonly lastError: string;
 } | {
+    readonly state: 'waiting-authorization';
+    readonly reason: string;
+    readonly lastError: string;
+} | {
     readonly state: 'connecting';
     readonly attempt: number;
 } | {

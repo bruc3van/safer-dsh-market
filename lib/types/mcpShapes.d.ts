@@ -48,3 +48,5 @@ export declare const MASK = "\u2022\u2022\u2022\u2022\u2022\u2022";
 export declare function maskArg(arg: string): string;
 /** Mask a URL's secret query values. */
 export declare function maskUrl(url: string): string;
+/** Whether the managed instance already has a startup or retry in progress. */
+export declare function isMcpStarting(state: string | undefined): boolean;

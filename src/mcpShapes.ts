@@ -125,3 +125,7 @@ export function maskUrl(url: string): string {
   return url.replace(/([?&][^=&#]*(?:key|token|secret|password|auth)[^=&#]*=)([^&#]+)/gi,
     (whole, prefix: string, value: string) => credentialRefsIn(value).length > 0 ? whole : `${prefix}${MASK}`)
 }
+/** Whether the managed instance already has a startup or retry in progress. */
+export function isMcpStarting(state: string | undefined): boolean {
+  return state === 'connecting' || state === 'reconnecting'
+}

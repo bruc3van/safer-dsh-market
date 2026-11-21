@@ -1,28 +1,5 @@
-/**
- * The Host half of the MCP page: the facts the official `mcpManager` and
- * Settings Remotes cannot answer.
- *
- * - **Which entry the manager is.** Settings names a namespace after the
- *   Loader entry id, so the browser learns that id here instead of guessing.
- * - **Unmanaged servers.** A `dsh-mcp-client` row composed straight into the
- *   profile (a bundle, a tool that edits `cordis.patch.yml`) is invisible to
- *   the manager; listing it here keeps the page from reading "no servers"
- *   on a machine that runs several.
- * - **Live tools.** The global tool view, grouped by server namespace.
- *
- * The scan never writes: it touches neither the profile nor the Loader.
- * Static rows are masked before they leave the Host — only env and header
- * NAMES travel, and a secret-looking argument or URL query value is replaced.
- *
- * The one write is {@link adoptMcp}: it moves a static row under the manager
- * by storing its plaintext secrets in the credential store and writing the
- * templated entry through Settings, both on this side of the wire, so the
- * values still never reach the browser. Switching the static row off stays
- * with the official plugin manager, which the browser calls next.
- * @module dsh-market-pro/mcp
- */
 import type { Context } from '@deepseek-ai/cordis';
-import type { McpAdoptBlocker, McpAdoptResult, McpHostContext, McpToolGroup, McpUnmanagedServer } from './contract.ts';
+import type { McpAdoptBlocker, McpAdoptResult, McpHostContext, McpProbeResult, McpToolGroup, McpUnmanagedServer } from './contract.ts';
 /** The Loader entry fields this scan reads, structurally. */
 export interface McpLoaderEntry {
     readonly id: string;
@@ -65,6 +42,8 @@ export declare function adoptionPlan(config: unknown): McpAdoptPlan | {
 };
 /** Why one static config cannot be adopted, or `''`. */
 export declare function adoptBlockerOf(config: unknown): McpAdoptBlocker;
+/** Probe through the official manager with the entry's startup budget, capped at two minutes. */
+export declare function probeManagedMcp(ctx: Context, entries: Iterable<McpLoaderEntry>, name: string, signal: AbortSignal): Promise<McpProbeResult>;
 /**
  * Move one static row under the manager.
  *
@@ -92,14 +71,19 @@ export declare function groupTools(definitions: readonly {
  * @param entries - the live Loader entries.
  */
 export declare function inspectMcpContext(ctx: Context, entries: Iterable<McpLoaderEntry>): McpHostContext;
+/** Host-reported lifecycle facts, excluding free-form remote diagnostics. */
+interface ManagedMcpConnection {
+    readonly state: string;
+    readonly toolCount: number;
+    readonly attempt?: number;
+    readonly reason?: string;
+}
 /** One managed MCP server summary exposed safely to Host-side Agent tools (no secret values). */
-export interface ManagedMcpSummary {
+export interface ManagedMcpSummary extends ManagedMcpConnection {
     readonly name: string;
     readonly transport: 'stdio' | 'streamable-http' | 'unknown';
     readonly target: string;
     readonly enabled: boolean;
-    readonly state: string;
-    readonly toolCount: number;
     readonly credentialRefs: readonly string[];
     readonly identityKey: string;
     readonly registeredOnly?: boolean;
@@ -110,6 +94,7 @@ export interface ManagedMcpInspection {
     readonly managerEntry: string | null;
     readonly managerActive: boolean;
     readonly settingsWritable: boolean;
+    readonly settingsRevision?: number;
     readonly managed: readonly ManagedMcpSummary[];
     readonly unmanaged: readonly McpUnmanagedServer[];
     readonly tools: readonly McpToolGroup[];
@@ -161,6 +146,7 @@ export interface ManagedMcpInstallResult {
     readonly transport: 'stdio' | 'streamable-http';
     readonly preview: string;
     readonly enabled: boolean;
+    readonly connection: ManagedMcpConnection;
     readonly credentialRefs: readonly string[];
     readonly configuredCredentials: readonly string[];
     readonly missingCredentials: readonly string[];
@@ -184,8 +170,17 @@ export declare function buildManagedMcpInstallPlan(input: ManagedMcpInstallInput
  * filled in the UI.
  */
 export declare function installManagedMcp(ctx: Context, entries: Iterable<McpLoaderEntry>, plan: ManagedMcpInstallPlan): Promise<ManagedMcpInstallResult>;
+/** Find a default featured retry by its full launch configuration, including credential references. */
+export declare function findExistingFeaturedMcp(ctx: Context, input: FeaturedMcpInstallInput, inspection: ManagedMcpInspection): ManagedMcpSummary | undefined;
+/** Settings snapshot covered by native approval. */
+export interface ManagedMcpRevision {
+    readonly namespace: string;
+    /** `undefined` only on a Host whose Settings descriptors carry no revision. */
+    readonly revision: number | undefined;
+}
 /** Toggle one managed MCP server on or off through revision-checked Settings mutation. */
-export declare function setManagedMcpEnabled(ctx: Context, entries: Iterable<McpLoaderEntry>, name: string, enabled: boolean): Promise<{
+export declare function setManagedMcpEnabled(ctx: Context, entries: Iterable<McpLoaderEntry>, name: string, enabled: boolean, approved: ManagedMcpRevision): Promise<{
     readonly name: string;
     readonly enabled: boolean;
 }>;
+export {};

@@ -43,6 +43,8 @@ export interface FeaturedMcpServer {
     readonly command?: string;
     readonly args?: readonly string[];
     readonly env?: Readonly<Record<string, string>>;
+    /** Override the manager's default handshake budget for a slow cold start. */
+    readonly startupTimeoutMs?: number;
     readonly url?: string;
     readonly headers?: Readonly<Record<string, string>>;
     readonly inputs: readonly FeaturedMcpInput[];

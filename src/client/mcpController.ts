@@ -15,31 +15,18 @@
  * Host stream open.
  * @module dsh-market-pro/client/mcpController
  */
-import type { McpAdoptResult, McpHostContext } from '../contract.ts'
+import type { McpAdoptResult, McpHostContext, McpProbeResult } from '../contract.ts'
 import {
-  buildRows, entryRefs, pendingToStore, saveOps, serversOf,
+  buildRows, canProbe, entryRefs, pendingToStore, saveOps, serversOf,
   type McpCredentialInfo, type McpDraft, type McpRow, type McpServerView, type McpSettingsOp, type McpSettingsView,
 } from './mcpModel.ts'
 
 type Reply<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
 
-/** The probe outcome, as `mcpManager.probe` returns it. */
-export type McpProbeResult =
-  | {
-    readonly ok: true; readonly serverInfo?: { readonly name: string; readonly version: string }
-    readonly toolNames: readonly string[]; readonly truncated: boolean; readonly durationMs: number
-    readonly closeConfirmed: boolean; readonly cleanupError?: string
-  }
-  | {
-    readonly ok: false; readonly stage: 'connect' | 'list'; readonly message: string; readonly durationMs: number
-    readonly closeConfirmed: boolean; readonly cleanupError?: string
-  }
-
 /** `ctx.remote.mcpManager`, structurally. */
 export interface McpManagerFace {
   watch(signal?: AbortSignal): AsyncIterable<readonly McpServerView[]> & { dispose?(): void }
   restart(name: string): Promise<Reply<void>>
-  probe(name: string, signal?: AbortSignal): Promise<Reply<McpProbeResult>>
 }
 
 /** `ctx.remote.settings`, structurally (the subset this page uses). */
@@ -91,6 +78,7 @@ export interface McpHosts {
   credentials(): McpCredentialsFace | undefined
   plugins?(): McpPluginsFace | undefined
   inspect(): Promise<McpHostContext>
+  probe(name: string): Promise<Reply<McpProbeResult>>
   /** This market's Host adoption verb (`dshMarketPro.adoptMcp`); throws on refusal. */
   adopt?(loaderId: string): Promise<McpAdoptResult>
 }
@@ -236,7 +224,7 @@ export function createMcpController(hosts: McpHosts, options: McpControllerOptio
   let settingsTimer: ReturnType<typeof setTimeout> | undefined
   let inspectTimer: ReturnType<typeof setTimeout> | undefined
   let lastShape = ''
-  let lastTools = -1
+  let lastTools = ''
   let watching = false
   // Read sequences: a response is applied only if no newer read or write
   // started after it, so a slow describe cannot roll back a fresh revision.
@@ -376,9 +364,12 @@ export function createMcpController(hosts: McpHosts, options: McpControllerOptio
       if (lastShape !== '') schedule('settings')
       lastShape = shape
     }
-    const tools = views.reduce((sum, view) => sum + (view.status.state === 'connected' ? view.status.toolCount : 0), 0)
+    const tools = JSON.stringify(views.flatMap(({ name, status }) =>
+      status.state === 'connected' ? [[name, status.toolCount, status.connectedAt]] : []))
     if (tools !== lastTools) {
-      if (lastTools !== -1) schedule('inspect')
+      // A first frame with connected servers re-inspects: a server may have
+      // connected between attach's inspect and the stream opening.
+      if (lastTools !== '' || tools !== '[]') schedule('inspect')
       lastTools = tools
     }
   }
@@ -429,7 +420,7 @@ export function createMcpController(hosts: McpHosts, options: McpControllerOptio
     stopWatch()
     if (state.host?.managerEntry === null || state.host?.managerEntry === undefined) return
     lastShape = ''
-    lastTools = -1
+    lastTools = ''
     void runWatch(watchGeneration)
   }
 
@@ -526,11 +517,11 @@ export function createMcpController(hosts: McpHosts, options: McpControllerOptio
       return reply.ok ? '' : failure(reply)
     }),
     async probe(name) {
-      const manager = hosts.manager()
-      if (manager === undefined || state.probes[name]?.status === 'running') return
+      const row = state.rows.find(item => item.name === name)
+      if (row === undefined || !canProbe(row) || state.busy[name] !== undefined || state.probes[name]?.status === 'running') return
       patchRecord('probes', name, { status: 'running' })
       try {
-        const reply = await manager.probe(name)
+        const reply = await hosts.probe(name)
         patchRecord('probes', name, reply.ok ? { status: 'done', result: reply.value } : { status: 'error', message: failure(reply) })
       } catch (error) {
         patchRecord('probes', name, { status: 'error', message: message(error) })

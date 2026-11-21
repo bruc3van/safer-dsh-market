@@ -24,6 +24,7 @@ import {
 } from '../src/aiMcpTools.ts'
 import {
   buildManagedMcpInstallPlan,
+  findExistingFeaturedMcp,
   inspectManagedMcp,
   installManagedMcp,
   setManagedMcpEnabled,
@@ -39,6 +40,7 @@ function loaderEntry(id: string, name: string, config?: unknown): McpLoaderEntry
 
 interface FakeHostState {
   servers: Record<string, Record<string, unknown>>
+  runtimeStatuses: Record<string, { state: string; toolCount?: number; attempt?: number; reason?: string; lastError?: string }>
   revision: number
   writable: boolean
   configuredCredentials: Set<string>
@@ -58,6 +60,7 @@ function makeFakeHost(over: Partial<FakeHostState> = {}) {
         enabled: true,
       },
     },
+    runtimeStatuses: {},
     revision: 4,
     writable: true,
     configuredCredentials: new Set(['EXISTING_PAT']),
@@ -110,7 +113,8 @@ function makeFakeHost(over: Partial<FakeHostState> = {}) {
           list: () => Object.entries(state.servers).map(([serverName, cfg]) => ({
             name: serverName,
             configured: true,
-            status: cfg.enabled === false ? { state: 'disabled' } : { state: 'connected', toolCount: 3 },
+            status: state.runtimeStatuses[serverName] ?? (cfg.enabled === false
+              ? { state: 'disabled' } : { state: 'connected', toolCount: 3 }),
           })),
         }
       }
@@ -118,6 +122,7 @@ function makeFakeHost(over: Partial<FakeHostState> = {}) {
         return {
           definitions: () => [
             { name: 'mcp__playwright__browser_navigate', description: 'Navigate to URL' },
+            { name: 'mcp__next-ai-drawio__start_session', description: 'Open the canvas' },
             { name: 'mcp__ctx7-static__resolve', description: 'Resolve library' },
           ],
         }
@@ -209,11 +214,13 @@ test('dsh_mcp_pro read actions discover curated MCPs, mask secrets, support CJK/
     profile: 'web',
     readSettings: () => settings,
     inspectMcp: () => inspectManagedMcp(ctx, entries),
+    findExistingFeaturedMcp: (input, inspection) => findExistingFeaturedMcp(ctx, input, inspection),
     installMcp: plan => installManagedMcp(ctx, entries, plan),
-    setMcpEnabled: (name, enabled) => setManagedMcpEnabled(ctx, entries, name, enabled),
+    setMcpEnabled: (name, enabled, approved) => setManagedMcpEnabled(ctx, entries, name, enabled, approved),
     getApprover: () => undefined,
   }) as {
     name: string
+    parameters: { properties: { queries: { maxItems: number } } }
     isConcurrencySafe: (args: unknown) => boolean
     presentCall: (args: unknown) => { kind: string }
     output: { render: (args: unknown, value: unknown) => { type: string; text: string }[] }
@@ -221,6 +228,7 @@ test('dsh_mcp_pro read actions discover curated MCPs, mask secrets, support CJK/
   }
 
   assert.equal(tool.name, MCP_TOOL_NAME)
+  assert.equal(tool.parameters.properties.queries.maxItems, 6)
   assert.equal(tool.isConcurrencySafe({ action: 'list_featured' }), true)
   assert.equal(tool.isConcurrencySafe({ action: 'install_featured', featuredId: 'deepwiki' }), false)
   assert.equal(tool.presentCall({ action: 'search_featured' }).kind, 'read')
@@ -254,6 +262,20 @@ test('dsh_mcp_pro read actions discover curated MCPs, mask secrets, support CJK/
   assert.equal(searched.items.some(item => item.id === 'playwright'), false)
   assert.equal(searched.items.some(item => item.id === 'chrome-devtools'), true)
 
+  // The two keyword batches that failed in a real docs-plus-charts session.
+  const docsBatch = JSON.parse(await tool.execute({
+    action: 'search_featured', queries: ['documentation', 'docs', '文档', 'context7'], excludeConfigured: true,
+  })) as { items: { id: string }[] }
+  assert.ok(docsBatch.items.some(item => item.id === 'microsoft-learn'))
+  const chartsBatch = JSON.parse(await tool.execute({
+    action: 'search_featured', queries: ['chart', 'diagram', '图表', 'mermaid', 'visualization'], excludeConfigured: true,
+  })) as { items: { id: string }[] }
+  assert.ok(chartsBatch.items.some(item => item.id === 'antv-chart'))
+  assert.ok(chartsBatch.items.some(item => item.id === 'next-ai-drawio'))
+  await assert.rejects(() => tool.execute({
+    action: 'search_featured', queries: ['chart', 'diagram', '图表', 'mermaid', 'visualization', 'drawio', '绘图'],
+  }), /queries:.*<=6/)
+
   // Batch detail lookup reports missing ids safely and computes available server name.
   const details = JSON.parse(await tool.execute({
     action: 'detail',
@@ -282,8 +304,9 @@ test('dsh_mcp_pro mutations fail closed on missing/rejected approval and never a
     profile: 'web',
     readSettings: () => settings,
     inspectMcp: () => inspectManagedMcp(ctx, entries),
+    findExistingFeaturedMcp: (input, inspection) => findExistingFeaturedMcp(ctx, input, inspection),
     installMcp: plan => installManagedMcp(ctx, entries, plan),
-    setMcpEnabled: (name, enabled) => setManagedMcpEnabled(ctx, entries, name, enabled),
+    setMcpEnabled: (name, enabled, approved) => setManagedMcpEnabled(ctx, entries, name, enabled, approved),
     getApprover: () => (state.hasApprover ? approver : undefined),
   }) as {
     execute: (args: unknown, exec?: { agent?: unknown; callId?: string; signal?: AbortSignal }) => Promise<string>
@@ -405,6 +428,116 @@ test('dsh_mcp_pro mutations fail closed on missing/rejected approval and never a
   assert.equal(state.servers['internal-docs']?.enabled, true)
 })
 
+test('approved Draw.io install reports the Host connection separately from the saved configuration', async () => {
+  const { ctx, entries, state, approver } = makeFakeHost()
+  const tool = createMarketAiMcpToolDefinition({
+    profile: 'web',
+    readSettings: () => ({ enabled: true, aiAssistantEnabled: true }),
+    inspectMcp: () => inspectManagedMcp(ctx, entries),
+    findExistingFeaturedMcp: (input, inspection) => findExistingFeaturedMcp(ctx, input, inspection),
+    installMcp: plan => installManagedMcp(ctx, entries, plan),
+    setMcpEnabled: (name, enabled, approved) => setManagedMcpEnabled(ctx, entries, name, enabled, approved),
+    getApprover: () => approver,
+  }) as { execute: (args: unknown, exec?: { agent: unknown }) => Promise<string> }
+
+  state.runtimeStatuses['next-ai-drawio'] = { state: 'connecting', attempt: 0 }
+  const saved = JSON.parse(await tool.execute(
+    { action: 'install_featured', featuredId: 'next-ai-drawio' }, { agent: {} },
+  ))
+  assert.equal(saved.installed, true)
+  assert.deepEqual(saved.connection, { state: 'connecting', attempt: 0, toolCount: 0 })
+  assert.match(saved.nextStep, /DSH connection state: connecting/)
+  assert.equal(state.servers['next-ai-drawio']?.startupTimeoutMs, 120_000)
+  assert.equal(state.approvalCalls.length, 1)
+
+  const retry = JSON.parse(await tool.execute({ action: 'install_featured', featuredId: 'next-ai-drawio' }))
+  assert.equal(retry.alreadyConfigured, true)
+  assert.equal(retry.name, 'next-ai-drawio')
+  assert.deepEqual(retry.connection, saved.connection)
+  assert.equal(state.approvalCalls.length, 1)
+  assert.equal(state.mutations.length, 1)
+
+  state.runtimeStatuses['next-ai-drawio'] = { state: 'reconnecting', attempt: 1, lastError: 'nonpublic diagnostic' }
+  const inventoryRaw = await tool.execute({ action: 'list_configured' })
+  const inventory = JSON.parse(inventoryRaw) as { managed: { name: string; state: string; attempt?: number }[] }
+  const drawio = inventory.managed.find(item => item.name === 'next-ai-drawio')
+  assert.equal(drawio?.state, 'reconnecting')
+  assert.equal(drawio.attempt, 1)
+  assert.doesNotMatch(inventoryRaw, /mcp__next-ai-drawio__start_session/)
+  assert.doesNotMatch(inventoryRaw, /nonpublic diagnostic/)
+
+  state.runtimeStatuses['next-ai-drawio'] = { state: 'connected', toolCount: 1 }
+  assert.match(await tool.execute({ action: 'list_configured' }), /mcp__next-ai-drawio__start_session/)
+})
+
+test('a featured retry is not short-circuited by an entry lacking the curated startup budget', async () => {
+  const { ctx, entries, state, approver } = makeFakeHost()
+  const tool = createMarketAiMcpToolDefinition({
+    profile: 'web',
+    readSettings: () => ({ enabled: true, aiAssistantEnabled: true }),
+    inspectMcp: () => inspectManagedMcp(ctx, entries),
+    findExistingFeaturedMcp: (input, inspection) => findExistingFeaturedMcp(ctx, input, inspection),
+    installMcp: plan => installManagedMcp(ctx, entries, plan),
+    setMcpEnabled: (name, enabled, approved) => setManagedMcpEnabled(ctx, entries, name, enabled, approved),
+    getApprover: () => approver,
+  }) as { execute: (args: unknown, exec?: { agent: unknown }) => Promise<string> }
+
+  await tool.execute({ action: 'install_featured', featuredId: 'next-ai-drawio' }, { agent: {} })
+  delete state.servers['next-ai-drawio']!.startupTimeoutMs
+  const retry = JSON.parse(await tool.execute({ action: 'install_featured', featuredId: 'next-ai-drawio' }, { agent: {} }))
+  assert.equal(retry.alreadyConfigured, undefined)
+  assert.equal(retry.installed, true)
+  assert.equal(state.servers[retry.name]?.startupTimeoutMs, 120_000)
+})
+
+test('a featured retry reports an enabled mismatch instead of claiming the entry matches', async () => {
+  const { ctx, entries, state, approver } = makeFakeHost()
+  const tool = createMarketAiMcpToolDefinition({
+    profile: 'web',
+    readSettings: () => ({ enabled: true, aiAssistantEnabled: true }),
+    inspectMcp: () => inspectManagedMcp(ctx, entries),
+    findExistingFeaturedMcp: (input, inspection) => findExistingFeaturedMcp(ctx, input, inspection),
+    installMcp: plan => installManagedMcp(ctx, entries, plan),
+    setMcpEnabled: (name, enabled, approved) => setManagedMcpEnabled(ctx, entries, name, enabled, approved),
+    getApprover: () => approver,
+  }) as { execute: (args: unknown, exec?: { agent: unknown }) => Promise<string> }
+
+  await tool.execute({ action: 'install_featured', featuredId: 'next-ai-drawio', enabled: false }, { agent: {} })
+  const mutations = state.mutations.length
+  const retry = JSON.parse(await tool.execute({ action: 'install_featured', featuredId: 'next-ai-drawio', enabled: true }))
+  assert.equal(retry.alreadyConfigured, true)
+  assert.equal(retry.enabled, false)
+  assert.equal(retry.requestedEnabled, true)
+  assert.match(retry.nextStep, /currently disabled/)
+  assert.match(retry.nextStep, /set_enabled/)
+  assert.equal(state.mutations.length, mutations)
+})
+
+test('MCP enable rejects stale Settings after native approval', async () => {
+  const { ctx, entries, state } = makeFakeHost()
+  state.servers.playwright!.enabled = false
+  const tool = createMarketAiMcpToolDefinition({
+    profile: 'web',
+    readSettings: () => ({ enabled: true, aiAssistantEnabled: true }),
+    inspectMcp: () => inspectManagedMcp(ctx, entries),
+    findExistingFeaturedMcp: (input, inspection) => findExistingFeaturedMcp(ctx, input, inspection),
+    installMcp: plan => installManagedMcp(ctx, entries, plan),
+    setMcpEnabled: (name, enabled, approved) => setManagedMcpEnabled(ctx, entries, name, enabled, approved),
+    getApprover: () => ({ async request() {
+      state.servers.playwright!.args = ['-y', '@playwright/mcp@0.2.0']
+      state.revision += 1
+      return 'allowed-once'
+    } }),
+  }) as { execute: (args: unknown, exec: { agent: unknown }) => Promise<string> }
+
+  await assert.rejects(
+    () => tool.execute({ action: 'set_enabled', name: 'playwright', enabled: true }, { agent: {} }),
+    /stale-approval/,
+  )
+  assert.equal(state.servers.playwright!.enabled, false)
+  assert.equal(state.mutations.length, 0)
+})
+
 test('registerMarketAiMcpTool dynamically registers and withdraws dsh_mcp_pro on settings toggle', async () => {
   const ctx = new Context()
   try {
@@ -456,8 +589,9 @@ test('dsh_mcp_pro hardening: blocks mixed-template smuggling, checks approval vi
     profile: 'web',
     readSettings: () => settings,
     inspectMcp: () => inspectManagedMcp(ctx, entries),
+    findExistingFeaturedMcp: (input, inspection) => findExistingFeaturedMcp(ctx, input, inspection),
     installMcp: plan => installManagedMcp(ctx, entries, plan),
-    setMcpEnabled: (name, enabled) => setManagedMcpEnabled(ctx, entries, name, enabled),
+    setMcpEnabled: (name, enabled, approved) => setManagedMcpEnabled(ctx, entries, name, enabled, approved),
     getApprover: () => (state.hasApprover ? approver : undefined),
   }) as {
     execute: (args: unknown, exec?: { agent?: unknown; callId?: string; signal?: AbortSignal }) => Promise<string>
@@ -546,8 +680,9 @@ test('dsh_mcp_pro hardening: blocks mixed-template smuggling, checks approval vi
     profile: 'web',
     readSettings: () => settings,
     inspectMcp: () => inspectManagedMcp(ctx, entries),
+    findExistingFeaturedMcp: (input, inspection) => findExistingFeaturedMcp(ctx, input, inspection),
     installMcp: plan => installManagedMcp(ctx, entries, plan),
-    setMcpEnabled: (name, enabled) => setManagedMcpEnabled(ctx, entries, name, enabled),
+    setMcpEnabled: (name, enabled, approved) => setManagedMcpEnabled(ctx, entries, name, enabled, approved),
     getApprover: () => ({
       async request() {
         settings = { enabled: true, aiAssistantEnabled: false }
@@ -581,8 +716,9 @@ test('dsh_mcp_pro hardening: blocks mixed-template smuggling, checks approval vi
     profile: 'web',
     readSettings: () => settings,
     inspectMcp: () => retainedInspection,
+    findExistingFeaturedMcp: (input, inspection) => findExistingFeaturedMcp(retainedCtx, input, inspection),
     installMcp: plan => installManagedMcp(retainedCtx, entries, plan),
-    setMcpEnabled: (name, enabled) => setManagedMcpEnabled(retainedCtx, entries, name, enabled),
+    setMcpEnabled: (name, enabled, approved) => setManagedMcpEnabled(retainedCtx, entries, name, enabled, approved),
     getApprover: () => approver,
   }) as { execute: (args: unknown, exec?: { agent?: unknown }) => Promise<string> }
   const listed = JSON.parse(await retainedTool.execute({ action: 'list_featured', lang: 'en' })) as {

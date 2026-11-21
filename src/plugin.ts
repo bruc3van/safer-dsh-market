@@ -35,7 +35,7 @@ import { createInstalledManager } from './installed.ts'
 import { SafeMarketRuntime } from './runtime.ts'
 import { registerSafeMarketSettings } from './settings.ts'
 import { readSkills } from './skills.ts'
-import { adoptMcp, inspectMcpContext, type McpLoaderEntry } from './mcp.ts'
+import { adoptMcp, inspectMcpContext, probeManagedMcp, type McpLoaderEntry } from './mcp.ts'
 import { registerMarketAiSkill } from './aiSkill.ts'
 import { registerMarketAiTool, type HostPluginManagerUpdateFace, type HostPluginMarketUpdateFace, type MarketApprovalServiceFace } from './aiTools.ts'
 import { registerMarketAiMcpTool } from './aiMcpTools.ts'
@@ -255,6 +255,7 @@ export function applyMarket(ctx: Context, resolved: Config): () => void {
     { profile: profile.name, version: readSelfVersion() },
     installed,
     readMcp,
+    (name, signal) => probeManagedMcp(ctx, ctx.loader.entries() as Iterable<McpLoaderEntry>, name, signal),
     loaderId => adoptMcp(ctx, ctx.loader.entries() as Iterable<McpLoaderEntry>, loaderId),
   )
 

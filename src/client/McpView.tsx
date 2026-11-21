@@ -69,6 +69,7 @@ function statusLabel(t: MarketLocale, status: McpStatus | undefined): string {
     case 'connecting': return t('mcp.state.connecting')
     case 'reconnecting': return t('mcp.state.reconnecting', { attempt: String(status.attempt), max: String(status.maxAttempts) })
     case 'waiting-credentials': return t('mcp.state.waiting')
+    case 'waiting-authorization': return t('mcp.state.waitingAuthorization')
     case 'disabled': return t('mcp.state.disabled')
     case 'closed': return statusKind(status) === 'locked' ? t('mcp.state.locked') : t('mcp.state.closed')
     case 'failed':
@@ -889,7 +890,7 @@ function McpCard({ t, row, snapshot, controller, writable, tools, onEdit }: {
       <div className="dsh_market_meta dsh_market_skillBadges">
         <span className="dsh_market_categoryTag">{t(`mcp.source.${row.source}`)}</span>
         {row.entry && <span className="dsh_market_categoryTag">{transportLabel(t, transportOf(row.entry))}</span>}
-        <ToolsButton t={t} name={row.name} tools={tools} />
+        {kind === 'connected' && <ToolsButton t={t} name={row.name} tools={tools} />}
       </div>
       {target !== '' && <p className="dsh_market_mcpCode" title={target}>{target}</p>}
       <div className="dsh_market_mcpBody">
@@ -926,7 +927,7 @@ function McpCard({ t, row, snapshot, controller, writable, tools, onEdit }: {
           : (
             <>
               {canProbe(row) && (
-                <MarketButton intent="secondary" disabled={probe?.status === 'running' || snapshot.mode === 'legacy'}
+                <MarketButton intent="secondary" disabled={probe?.status === 'running' || busy !== undefined || snapshot.mode === 'legacy'}
                   onClick={() => { void controller.probe(row.name) }}>
                   {probe?.status === 'running' ? t('mcp.probing') : t('mcp.probe')}
                 </MarketButton>

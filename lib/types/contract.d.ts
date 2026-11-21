@@ -983,5 +983,28 @@ export declare const mcpHostContextSchema: z.ZodReadonly<z.ZodObject<{
     }, z.core.$strip>>>>;
     toolsError: z.ZodString;
 }, z.core.$strip>>;
+export declare const mcpProbeResultSchema: z.ZodDiscriminatedUnion<[z.ZodReadonly<z.ZodObject<{
+    serverInfo: z.ZodOptional<z.ZodReadonly<z.ZodObject<{
+        name: z.ZodString;
+        version: z.ZodString;
+    }, z.core.$strip>>>;
+    toolNames: z.ZodReadonly<z.ZodArray<z.ZodString>>;
+    truncated: z.ZodBoolean;
+    durationMs: z.ZodNumber;
+    closeConfirmed: z.ZodBoolean;
+    cleanupError: z.ZodOptional<z.ZodString>;
+    ok: z.ZodLiteral<true>;
+}, z.core.$strip>>, z.ZodReadonly<z.ZodObject<{
+    stage: z.ZodEnum<{
+        connect: "connect";
+        list: "list";
+    }>;
+    message: z.ZodString;
+    durationMs: z.ZodNumber;
+    closeConfirmed: z.ZodBoolean;
+    cleanupError: z.ZodOptional<z.ZodString>;
+    ok: z.ZodLiteral<false>;
+}, z.core.$strip>>], "ok">;
+export type McpProbeResult = z.infer<typeof mcpProbeResultSchema>;
 /** The dshMarketPro Remote namespace's strict invocation descriptors. */
 export declare const SAFE_MARKET_INVOCATIONS: readonly InvocationDescriptor[];

@@ -325,6 +325,7 @@ export declare const zh: {
     readonly "mcp.state.connecting": "连接中…";
     readonly "mcp.state.reconnecting": "重连中（{attempt}/{max}）";
     readonly "mcp.state.waiting": "等待凭据";
+    readonly "mcp.state.waitingAuthorization": "等待授权";
     readonly "mcp.state.disabled": "已停用";
     readonly "mcp.state.closed": "已关闭";
     readonly "mcp.state.gaveUp": "连接失败，已停止重试";

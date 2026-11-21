@@ -177,6 +177,7 @@ export function draftFromFeatured(
     url: item.transport === 'streamable-http' ? (item.url ?? '') : '',
     headers: item.transport === 'streamable-http' ? headers : [],
     enabled: options.enabled,
+    startupTimeoutMs: item.startupTimeoutMs === undefined ? '' : String(item.startupTimeoutMs),
     pending,
   }
 }

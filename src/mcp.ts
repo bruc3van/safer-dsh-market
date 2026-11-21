@@ -21,13 +21,14 @@
  * with the official plugin manager, which the browser calls next.
  * @module dsh-market-pro/mcp
  */
+import { isDeepStrictEqual } from 'node:util'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-settings'
-import type { McpAdoptBlocker, McpAdoptResult, McpHostContext, McpToolGroup, McpUnmanagedServer } from './contract.ts'
+import type { McpAdoptBlocker, McpAdoptResult, McpHostContext, McpProbeResult, McpToolGroup, McpUnmanagedServer } from './contract.ts'
 import { findFeaturedMcpById, mcpIdentityKey, pickAvailableServerName } from './mcpFeatured.ts'
 import {
   CREDENTIAL_REF_PATTERN, MCP_CLIENT_PACKAGE, MCP_MANAGER_PACKAGE, SERVER_NAME_PATTERN, credentialRefsIn,
-  credentialTemplate, isExactCredentialTemplate, isSecretField, isSecretUrl, looksSecretValue, malformedTemplate,
+  credentialTemplate, isExactCredentialTemplate, isMcpStarting, isSecretField, isSecretUrl, looksSecretValue, malformedTemplate,
   maskArg, maskUrl, secretArgIndexes, suggestRef,
 } from './mcpShapes.ts'
 
@@ -53,11 +54,14 @@ interface CredentialsFace {
 
 /** The manager's own list read, structurally. */
 interface ManagerFace {
-  list?(): readonly {
-    readonly name: string
-    readonly configured?: boolean
-    readonly status?: { readonly state?: string; readonly toolCount?: number }
-  }[]
+  list?(): readonly ManagedMcpView[]
+  probe?(name: string, options: { readonly timeoutMs?: number; readonly signal: AbortSignal }): Promise<McpProbeResult>
+}
+
+interface ManagedMcpView {
+  readonly name: string
+  readonly configured?: boolean
+  readonly status?: Partial<ManagedMcpConnection>
 }
 
 interface SettingsFace {
@@ -267,6 +271,37 @@ function serviceOf<T>(ctx: Context, name: string): T | undefined {
   }
 }
 
+function listManagedMcpViews(ctx: Context): readonly ManagedMcpView[] {
+  try {
+    return serviceOf<ManagerFace>(ctx, 'mcpManager')?.list?.() ?? []
+  } catch {
+    return []
+  }
+}
+
+/** Probe through the official manager with the entry's startup budget, capped at two minutes. */
+export async function probeManagedMcp(
+  ctx: Context, entries: Iterable<McpLoaderEntry>, name: string, signal: AbortSignal,
+): Promise<McpProbeResult> {
+  signal.throwIfAborted()
+  const manager = serviceOf<ManagerFace>(ctx, 'mcpManager')
+  if (manager?.probe === undefined) throw new Error('manager-unavailable: DSH MCP probing is unavailable')
+  // Without a list verb the manager itself decides whether the name exists.
+  const view = typeof manager.list === 'function'
+    ? listManagedMcpViews(ctx).find(row => row.name === name)
+    : { name }
+  if (view === undefined || view.configured === false) throw new Error('not-found: MCP server is unavailable')
+  if (isMcpStarting(view.status?.state)) {
+    throw new Error('already-connecting: wait for the managed MCP connection to settle')
+  }
+  const namespace = [...entries].find(entry => entry.options.name === MCP_MANAGER_PACKAGE)?.options.id ?? null
+  const startup = readManagerSettings(ctx, namespace).servers[name]?.startupTimeoutMs
+  const timeoutMs = typeof startup === 'number' && Number.isFinite(startup)
+    ? Math.min(120_000, Math.max(10_000, startup))
+    : undefined
+  return manager.probe(name, { signal, ...(timeoutMs === undefined ? {} : { timeoutMs }) })
+}
+
 /**
  * Move one static row under the manager.
  *
@@ -389,17 +424,15 @@ export function inspectMcpContext(ctx: Context, entries: Iterable<McpLoaderEntry
   }
   let tools: McpToolGroup[] = []
   let toolsError = ''
-  const get = <T>(name: string): T | undefined => serviceOf<T>(ctx, name)
-  let managedNames: string[] = []
+  const managed = listManagedMcpViews(ctx)
+  const unavailable = new Set(managed
+    .filter(view => view.status?.state !== undefined && view.status.state !== 'connected')
+    .map(view => view.name))
   try {
-    managedNames = get<ManagerFace>('mcpManager')?.list?.().map(view => view.name) ?? []
-  } catch {
-    managedNames = []
-  }
-  try {
-    const registry = get<ToolsFace>('tools')
+    const registry = serviceOf<ToolsFace>(ctx, 'tools')
     if (registry !== undefined && typeof registry.definitions === 'function') {
-      tools = groupTools(registry.definitions(), [...managedNames, ...unmanaged.map(server => server.serverName)])
+      tools = groupTools(registry.definitions(), [...managed.map(view => view.name), ...unmanaged.map(server => server.serverName)])
+        .filter(group => !unavailable.has(group.server))
     } else {
       toolsError = 'the tool registry is not mounted'
     }
@@ -409,14 +442,32 @@ export function inspectMcpContext(ctx: Context, entries: Iterable<McpLoaderEntry
   return { managerEntry, managerActive, unmanaged, tools, toolsError }
 }
 
+/** Host-reported lifecycle facts, excluding free-form remote diagnostics. */
+interface ManagedMcpConnection {
+  readonly state: string
+  readonly toolCount: number
+  readonly attempt?: number
+  readonly reason?: string
+}
+
+function summarizeMcpConnection(
+  status: ManagedMcpView['status'], fallbackState: string, registeredToolCount = 0,
+): ManagedMcpConnection {
+  const state = status?.state ?? fallbackState
+  return {
+    state,
+    toolCount: state === 'connected' ? status?.toolCount ?? registeredToolCount : 0,
+    ...(status?.attempt !== undefined ? { attempt: status.attempt } : {}),
+    ...(status?.reason !== undefined ? { reason: status.reason } : {}),
+  }
+}
+
 /** One managed MCP server summary exposed safely to Host-side Agent tools (no secret values). */
-export interface ManagedMcpSummary {
+export interface ManagedMcpSummary extends ManagedMcpConnection {
   readonly name: string
   readonly transport: 'stdio' | 'streamable-http' | 'unknown'
   readonly target: string
   readonly enabled: boolean
-  readonly state: string
-  readonly toolCount: number
   readonly credentialRefs: readonly string[]
   readonly identityKey: string
   readonly registeredOnly?: boolean
@@ -428,6 +479,7 @@ export interface ManagedMcpInspection {
   readonly managerEntry: string | null
   readonly managerActive: boolean
   readonly settingsWritable: boolean
+  readonly settingsRevision?: number
   readonly managed: readonly ManagedMcpSummary[]
   readonly unmanaged: readonly McpUnmanagedServer[]
   readonly tools: readonly McpToolGroup[]
@@ -484,6 +536,7 @@ export interface ManagedMcpInstallResult {
   readonly transport: 'stdio' | 'streamable-http'
   readonly preview: string
   readonly enabled: boolean
+  readonly connection: ManagedMcpConnection
   readonly credentialRefs: readonly string[]
   readonly configuredCredentials: readonly string[]
   readonly missingCredentials: readonly string[]
@@ -564,16 +617,7 @@ export function inspectManagedMcp(ctx: Context, entries: Iterable<McpLoaderEntry
   const list = [...entries]
   const base = inspectMcpContext(ctx, list)
   const settingsInfo = readManagerSettings(ctx, base.managerEntry)
-  let runtimeViews: readonly {
-    readonly name: string
-    readonly configured?: boolean
-    readonly status?: { readonly state?: string; readonly toolCount?: number }
-  }[] = []
-  try {
-    runtimeViews = serviceOf<ManagerFace>(ctx, 'mcpManager')?.list?.() ?? []
-  } catch {
-    runtimeViews = []
-  }
+  const runtimeViews = listManagedMcpViews(ctx)
   const viewByName = new Map(runtimeViews.map(view => [view.name, view]))
   const toolsByServer = new Map(base.tools.map(group => [group.server, group.tools.length]))
   const managed: ManagedMcpSummary[] = []
@@ -583,35 +627,26 @@ export function inspectManagedMcp(ctx: Context, entries: Iterable<McpLoaderEntry
     const args = strings(entry.args)
     const url = str(entry.url)
     const view = viewByName.get(name)
-    const state = view?.status?.state ?? (entry.enabled === false ? 'disabled' : 'unknown')
-    const toolCount = typeof view?.status?.toolCount === 'number'
-      ? view.status.toolCount
-      : (toolsByServer.get(name) ?? 0)
     managed.push({
       name,
       transport,
       target: transport === 'stdio' ? formatMaskedCommand(command, args) : maskUrl(url),
       enabled: entry.enabled !== false,
-      state,
-      toolCount,
+      ...summarizeMcpConnection(view?.status, entry.enabled === false ? 'disabled' : 'unknown', toolsByServer.get(name)),
       credentialRefs: refsOfServerEntry(entry),
       identityKey: mcpIdentityKey({ transport, command, args, url }),
     })
   }
   for (const view of runtimeViews) {
     if (Object.hasOwn(settingsInfo.servers, view.name)) continue
-    const state = view.status?.state ?? 'unknown'
-    const toolCount = typeof view.status?.toolCount === 'number'
-      ? view.status.toolCount
-      : (toolsByServer.get(view.name) ?? 0)
+    const connection = summarizeMcpConnection(view.status, 'unknown', toolsByServer.get(view.name))
     const retained = view.configured === false
     managed.push({
       name: view.name,
       transport: 'unknown',
       target: '',
-      enabled: !retained && state !== 'disabled',
-      state,
-      toolCount,
+      enabled: !retained && connection.state !== 'disabled',
+      ...connection,
       credentialRefs: [],
       identityKey: '',
       ...(retained ? { retained: true } : { registeredOnly: true }),
@@ -625,6 +660,7 @@ export function inspectManagedMcp(ctx: Context, entries: Iterable<McpLoaderEntry
     managerEntry: base.managerEntry,
     managerActive: base.managerActive,
     settingsWritable: settingsInfo.writable,
+    ...(settingsInfo.revision === undefined ? {} : { settingsRevision: settingsInfo.revision }),
     managed,
     unmanaged: base.unmanaged,
     tools: base.tools,
@@ -810,6 +846,7 @@ export function buildManagedMcpInstallPlan(
           command: featured.command ?? '',
           ...(args.length > 0 ? { args } : {}),
           ...(Object.keys(env).length > 0 ? { env } : {}),
+          ...(featured.startupTimeoutMs !== undefined ? { startupTimeoutMs: featured.startupTimeoutMs } : {}),
           enabled,
         }
       : {
@@ -975,6 +1012,7 @@ export async function installManagedMcp(
       missingCredentials.push(ref)
     }
   }
+  const status = listManagedMcpViews(ctx).find(view => view.name === plan.name)?.status
   return {
     name: plan.name,
     source: plan.source,
@@ -982,10 +1020,50 @@ export async function installManagedMcp(
     transport: plan.transport,
     preview: plan.preview,
     enabled: plan.enabled,
+    connection: summarizeMcpConnection(status, plan.enabled ? 'unknown' : 'disabled'),
     credentialRefs: plan.credentialRefs,
     configuredCredentials,
     missingCredentials,
   }
+}
+
+function launchConfig(entry: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  return entry.transport === 'stdio'
+    ? { transport: entry.transport, command: str(entry.command), args: strings(entry.args), env: record(entry.env), cwd: str(entry.cwd) }
+    : { transport: entry.transport, url: str(entry.url), headers: record(entry.headers), oauth: entry.oauth }
+}
+
+/** Find a default featured retry by its full launch configuration, including credential references. */
+export function findExistingFeaturedMcp(
+  ctx: Context, input: FeaturedMcpInstallInput, inspection: ManagedMcpInspection,
+): ManagedMcpSummary | undefined {
+  const featured = findFeaturedMcpById(input.featuredId)
+  if (input.name?.trim() || featured === undefined) return undefined
+  const identity = mcpIdentityKey(featured)
+  const { servers } = readManagerSettings(ctx, inspection.managerEntry)
+  for (const row of inspection.managed) {
+    if (row.identityKey !== identity || !Object.hasOwn(servers, row.name)) continue
+    const otherRefs = new Set(inspection.managed.filter(item => item.name !== row.name).flatMap(item => item.credentialRefs))
+    const candidate = buildManagedMcpInstallPlan({ ...input, name: row.name }, new Set(), otherRefs)
+    const saved = servers[row.name]!
+    if (!isDeepStrictEqual(launchConfig(saved), launchConfig(candidate.entry))) continue
+    if (!coversStartupBudget(saved.startupTimeoutMs, candidate.entry.startupTimeoutMs)) continue
+    return row
+  }
+  return undefined
+}
+
+/** Whether a saved startup budget is at least the curated one, so a retry cannot keep a too-short timeout. */
+function coversStartupBudget(saved: unknown, required: unknown): boolean {
+  if (typeof required !== 'number') return true
+  return typeof saved === 'number' && saved >= required
+}
+
+/** Settings snapshot covered by native approval. */
+export interface ManagedMcpRevision {
+  readonly namespace: string
+  /** `undefined` only on a Host whose Settings descriptors carry no revision. */
+  readonly revision: number | undefined
 }
 
 /** Toggle one managed MCP server on or off through revision-checked Settings mutation. */
@@ -994,6 +1072,7 @@ export async function setManagedMcpEnabled(
   entries: Iterable<McpLoaderEntry>,
   name: string,
   enabled: boolean,
+  approved: ManagedMcpRevision,
 ): Promise<{ readonly name: string; readonly enabled: boolean }> {
   const target = name.trim()
   if (!SERVER_NAME_PATTERN.test(target)) throw new Error('invalid MCP server name')
@@ -1010,13 +1089,16 @@ export async function setManagedMcpEnabled(
   if (!settingsInfo.writable) {
     throw new Error('settings-readonly: Settings are read-only in this profile')
   }
+  if (manager.options.id !== approved.namespace || settingsInfo.revision !== approved.revision) {
+    throw new Error('stale-approval: MCP settings changed while awaiting approval; inspect the server and request fresh approval.')
+  }
   if (!Object.hasOwn(settingsInfo.servers, target)) {
     throw new Error(`not-found: managed MCP server "${target}" does not exist`)
   }
   await settingsInfo.settings.mutate(
     manager.options.id,
     [{ op: 'set', path: ['servers', target, 'enabled'], value: enabled }],
-    settingsInfo.revision,
+    approved.revision,
   )
   return { name: target, enabled }
 }

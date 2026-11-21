@@ -10,7 +10,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { SafeMarketSettings } from './contract.ts'
 import { MARKET_TOOL_NAME } from './aiTools.ts'
-import { MCP_TOOL_NAME } from './aiMcpTools.ts'
+import { MAX_AI_MCP_QUERIES, MCP_TOOL_NAME } from './aiMcpTools.ts'
 
 export const MARKET_SKILL_NAME = 'dsh-market-pro'
 export const MCP_SKILL_NAME = 'dsh-mcp-pro'
@@ -123,9 +123,10 @@ export function buildMcpSkillContent(profile: string): string {
     '',
     '- Always pass `lang: "zh"` (for Chinese) or `lang: "en"` (for English).',
     '- **Parallelize read-only calls** (`list_configured`, `list_featured`, `search_featured`, `detail` are concurrency-safe and need no approval).',
+    '- Use the declared MCP actions. Read the `runtime` field returned by `detail` for the required launcher and use `list_configured` for the Host connection state.',
     '',
     'Pick the matching route:',
-    '1. **Focused need** ("find an MCP for docs / browser / web search / GitHub") -> in ONE turn, call `list_configured` + `search_featured({ queries, excludeConfigured: true, lang })` using up to 3 bilingual/synonym keywords (e.g. `["browser", "playwright", "浏览器"]`).',
+    `1. **Focused need** -> call \`list_configured\` and \`search_featured({ queries, excludeConfigured: true, lang })\`. Use up to ${MAX_AI_MCP_QUERIES} keywords per search. Search independent needs (e.g. docs and charts) separately in parallel.`,
     '2. **Browse or broad setup** ("what MCP servers should I add for coding?") -> call `list_configured` + `list_featured({ excludeConfigured: true, lang })` in parallel, then propose 2–4 complementary servers.',
     '3. **Specific curated server** ("install context7 / playwright / filesystem") -> call `detail({ id, lang })` + `list_configured` first so you know required inputs, command/URL, and whether it is already configured.',
     '4. **Server not in curated list** -> explain it is not in the built-in curated catalog; if the user provides or confirms a verified `stdio` command or `streamable-http` endpoint, check prerequisites & credential templates, present the exact command/URL and risk note, and after explicit confirmation use `install_custom`.',
@@ -146,9 +147,10 @@ export function buildMcpSkillContent(profile: string): string {
     '   - For `filesystem` or other non-secret required inputs, pass them in `inputs` (e.g. `inputs: { dir: "/abs/path" }`).',
     '   - For secret inputs (e.g. `github`, `brave-search`, `firecrawl`, `tavily`), omit the secret value so `install_featured` binds `${credential:MCP_...}` automatically (or pass an existing ref name via `credentialRefs`).',
     '   - If the server requires credentials that are not configured yet, or the user wants to test before enabling, you may set `enabled: false` or follow the returned `nextStep`.',
-    '4. After installation, report the saved server name, command/URL, and `nextStep`:',
+    '4. Report the server name, command/URL, and `connection.state`. If `alreadyConfigured` is true, use the existing entry:',
     '   - If `missingCredentials` is non-empty, guide the user to open **DSH Market Pro -> MCP -> Configured** and click **Set** on that server card to fill the credential(s) safely.',
-    '   - Remind the user they can click **Test connection** (probe) and inspect exposed tools on the **Configured** tab.',
+    '   - Report a successful connection only when DSH returns `connected`. For an immediate readiness check use `list_configured` once. A first `npx` or `uvx` startup may still be downloading dependencies.',
+    '   - If it is pending or failed, report the Host state and point to **DSH Market Pro -> MCP -> Configured** for live status and startup errors. Leave the launch and retries to DSH instead of polling, listing resources, or starting another copy in the Agent shell.',
     '',
     '## Fallbacks',
     `- If \`managerAvailable\` is false (DSH < 0.2.2-rc.2) or \`settingsWritable\` is false, explain the limitation and guide the user to **DSH Market Pro -> MCP** or their profile settings file.`,

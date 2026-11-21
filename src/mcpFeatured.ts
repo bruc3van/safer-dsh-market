@@ -56,6 +56,8 @@ export interface FeaturedMcpServer {
   readonly command?: string
   readonly args?: readonly string[]
   readonly env?: Readonly<Record<string, string>>
+  /** Override the manager's default handshake budget for a slow cold start. */
+  readonly startupTimeoutMs?: number
   readonly url?: string
   readonly headers?: Readonly<Record<string, string>>
   readonly inputs: readonly FeaturedMcpInput[]
@@ -680,6 +682,8 @@ export const FEATURED_MCP_SERVERS: readonly FeaturedMcpServer[] = [
     transport: 'stdio',
     command: 'npx',
     args: ['-y', '@next-ai-drawio/mcp-server@latest'],
+    // A cold npm install can exceed the manager's 30-second startup budget.
+    startupTimeoutMs: 120_000,
     inputs: [],
   },
   {

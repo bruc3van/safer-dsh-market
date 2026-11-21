@@ -13,9 +13,9 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import type { SafeMarketSettings } from './contract.ts';
-import { type ManagedMcpInspection, type ManagedMcpInstallPlan, type ManagedMcpInstallResult, type McpLoaderEntry } from './mcp.ts';
+import { type ManagedMcpInspection, type FeaturedMcpInstallInput, type ManagedMcpInstallPlan, type ManagedMcpInstallResult, type ManagedMcpRevision, type ManagedMcpSummary, type McpLoaderEntry } from './mcp.ts';
 export declare const MCP_TOOL_NAME = "dsh_mcp_pro";
-export declare const MAX_AI_MCP_QUERIES = 3;
+export declare const MAX_AI_MCP_QUERIES = 6;
 export declare const MAX_AI_MCP_DETAILS = 6;
 export declare const MAX_AI_MCP_LIMIT = 50;
 /** Wrap model-facing MCP discovery/result output in an unforgeable untrusted-data boundary. */
@@ -40,8 +40,9 @@ export interface MarketAiMcpToolDeps {
     readonly profile: string;
     readonly readSettings: () => SafeMarketSettings;
     readonly inspectMcp: () => ManagedMcpInspection;
+    readonly findExistingFeaturedMcp: (input: FeaturedMcpInstallInput, inspection: ManagedMcpInspection) => ManagedMcpSummary | undefined;
     readonly installMcp: (plan: ManagedMcpInstallPlan) => Promise<ManagedMcpInstallResult>;
-    readonly setMcpEnabled: (name: string, enabled: boolean) => Promise<{
+    readonly setMcpEnabled: (name: string, enabled: boolean, approved: ManagedMcpRevision) => Promise<{
         readonly name: string;
         readonly enabled: boolean;
     }>;

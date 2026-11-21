@@ -15,7 +15,7 @@
  * Host stream open.
  * @module dsh-market-pro/client/mcpController
  */
-import type { McpAdoptResult, McpHostContext } from '../contract.ts';
+import type { McpAdoptResult, McpHostContext, McpProbeResult } from '../contract.ts';
 import { type McpCredentialInfo, type McpDraft, type McpRow, type McpServerView, type McpSettingsOp, type McpSettingsView } from './mcpModel.ts';
 type Reply<T> = {
     ok: true;
@@ -27,33 +27,12 @@ type Reply<T> = {
         message: string;
     };
 };
-/** The probe outcome, as `mcpManager.probe` returns it. */
-export type McpProbeResult = {
-    readonly ok: true;
-    readonly serverInfo?: {
-        readonly name: string;
-        readonly version: string;
-    };
-    readonly toolNames: readonly string[];
-    readonly truncated: boolean;
-    readonly durationMs: number;
-    readonly closeConfirmed: boolean;
-    readonly cleanupError?: string;
-} | {
-    readonly ok: false;
-    readonly stage: 'connect' | 'list';
-    readonly message: string;
-    readonly durationMs: number;
-    readonly closeConfirmed: boolean;
-    readonly cleanupError?: string;
-};
 /** `ctx.remote.mcpManager`, structurally. */
 export interface McpManagerFace {
     watch(signal?: AbortSignal): AsyncIterable<readonly McpServerView[]> & {
         dispose?(): void;
     };
     restart(name: string): Promise<Reply<void>>;
-    probe(name: string, signal?: AbortSignal): Promise<Reply<McpProbeResult>>;
 }
 /** `ctx.remote.settings`, structurally (the subset this page uses). */
 export interface McpSettingsFace {
@@ -108,6 +87,7 @@ export interface McpHosts {
     credentials(): McpCredentialsFace | undefined;
     plugins?(): McpPluginsFace | undefined;
     inspect(): Promise<McpHostContext>;
+    probe(name: string): Promise<Reply<McpProbeResult>>;
     /** This market's Host adoption verb (`dshMarketPro.adoptMcp`); throws on refusal. */
     adopt?(loaderId: string): Promise<McpAdoptResult>;
 }
